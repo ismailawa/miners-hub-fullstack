@@ -1,0 +1,303 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches: [main, staging, develop]
+    paths:
+      - 'miners-hub-backend/**'
+      - '.github/workflows/backend-ci-cd.yml'
+  pull_request:
+    branches: [main, staging, develop]
+    paths:
+      - 'miners-hub-backend/**'
+
+jobs:
+  lint-and-type-check:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: miners-hub-backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./miners-hub-backend
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: ./miners-hub-backend
+        run: npm run lint
+
+      - name: Type check
+        working-directory: ./miners-hub-backend
+        run: npx tsc --noEmit
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: lint-and-type-check
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: miners-hub-backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./miners-hub-backend
+        run: npm ci
+
+      - name: Run unit tests
+        working-directory: ./miners-hub-backend
+        run: npm run test
+        env:
+          NODE_ENV: test
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL || 'postgresql://test:test@localhost:5432/test_db' }}
+          SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL || 'https://test.supabase.co' }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_KEY || 'test-service-key' }}
+          JWT_SECRET: ${{ secrets.TEST_JWT_SECRET || 'test-jwt-secret-key-for-testing-only-min-32-chars' }}
+          JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET || 'test-refresh-secret-key-for-testing-only-min-32-chars' }}
+
+      - name: Run integration tests
+        working-directory: ./miners-hub-backend
+        run: npm run test:integration
+        env:
+          NODE_ENV: test
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL || 'postgresql://test:test@localhost:5432/test_db' }}
+          SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL || 'https://test.supabase.co' }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_KEY || 'test-service-key' }}
+          JWT_SECRET: ${{ secrets.TEST_JWT_SECRET || 'test-jwt-secret-key-for-testing-only-min-32-chars' }}
+          JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET || 'test-refresh-secret-key-for-testing-only-min-32-chars' }}
+
+      - name: Run E2E tests
+        working-directory: ./miners-hub-backend
+        run: npm run test:e2e
+        env:
+          NODE_ENV: test
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL || 'postgresql://test:test@localhost:5432/test_db' }}
+          SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL || 'https://test.supabase.co' }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_KEY || 'test-service-key' }}
+          JWT_SECRET: ${{ secrets.TEST_JWT_SECRET || 'test-jwt-secret-key-for-testing-only-min-32-chars' }}
+          JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET || 'test-refresh-secret-key-for-testing-only-min-32-chars' }}
+
+      - name: Generate test coverage
+        working-directory: ./miners-hub-backend
+        run: npm run test:coverage
+        env:
+          NODE_ENV: test
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL || 'postgresql://test:test@localhost:5432/test_db' }}
+          SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL || 'https://test.supabase.co' }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_KEY || 'test-service-key' }}
+          JWT_SECRET: ${{ secrets.TEST_JWT_SECRET || 'test-jwt-secret-key-for-testing-only-min-32-chars' }}
+          JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET || 'test-refresh-secret-key-for-testing-only-min-32-chars' }}
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./miners-hub-backend/coverage/lcov.info
+          flags: backend
+          name: backend-coverage
+          fail_ci_if_error: false
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: miners-hub-backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./miners-hub-backend
+        run: npm ci
+
+      - name: Build application
+        working-directory: ./miners-hub-backend
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-build
+          path: miners-hub-backend/dist
+          retention-days: 7
+
+  migrate-database-staging:
+    name: Run Database Migrations (Staging)
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    environment:
+      name: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: miners-hub-backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./miners-hub-backend
+        run: npm ci
+
+      - name: Run database migrations
+        working-directory: ./miners-hub-backend
+        run: npm run migration:run
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          NODE_ENV: production
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build, migrate-database-staging]
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: https://api-staging.minershub.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Railway Staging
+        uses: bervProject/railway-deploy@main
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: ${{ secrets.RAILWAY_SERVICE_ID_STAGING }}
+          environment: staging
+
+      - name: Health check
+        run: |
+          sleep 15
+          for i in {1..10}; do
+            if curl -f https://api-staging.minershub.com/api/health; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Health check attempt $i failed, retrying..."
+            sleep 5
+          done
+          echo "Health check failed after 10 attempts"
+          exit 1
+
+  migrate-database-production:
+    name: Run Database Migrations (Production)
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: miners-hub-backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./miners-hub-backend
+        run: npm ci
+
+      - name: Backup database notification
+        run: |
+          echo "⚠️ Database backup should be verified before running migrations"
+          echo "This step should be manually reviewed before production deployment"
+
+      - name: Run database migrations
+        working-directory: ./miners-hub-backend
+        run: npm run migration:run
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          NODE_ENV: production
+
+      - name: Verify migrations
+        working-directory: ./miners-hub-backend
+        run: npm run migration:show
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build, migrate-database-production]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://api.minershub.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Railway Production
+        uses: bervProject/railway-deploy@main
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: ${{ secrets.RAILWAY_SERVICE_ID_PROD }}
+          environment: production
+
+      - name: Health check
+        run: |
+          sleep 15
+          for i in {1..10}; do
+            if curl -f https://api.minershub.com/api/health; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Health check attempt $i failed, retrying..."
+            sleep 5
+          done
+          echo "Health check failed after 10 attempts"
+          exit 1
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "✅ Production deployment successful"
+          # Add Slack/Discord notification here if needed
+
+      - name: Notify deployment failure
+        if: failure()
+        run: |
+          echo "❌ Production deployment failed"
+          # Add Slack/Discord notification here if needed
+

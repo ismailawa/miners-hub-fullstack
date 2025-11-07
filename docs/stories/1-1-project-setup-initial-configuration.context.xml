@@ -1,0 +1,253 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1.1</storyId>
+    <title>Project Setup & Initial Configuration</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-05 23:15:00</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-1-project-setup-initial-configuration.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>a properly configured Next.js project with TypeScript, Tailwind CSS, and shadcn/ui</iWant>
+    <soThat>I have a solid foundation with modern tooling and component library ready for development</soThat>
+    <tasks>
+      <task id="1" ac="1">
+        <title>Initialize Next.js Project</title>
+        <subtasks>
+          <subtask>Run `npx create-next-app@latest miners-hub-frontend --typescript --tailwind --app --no-src-dir`</subtask>
+          <subtask>Verify project structure: `app/`, `components/`, `lib/`, `types/` directories exist</subtask>
+          <subtask>Verify `next.config.ts`, `tsconfig.json`, `tailwind.config.ts` files exist</subtask>
+          <subtask>Test project runs with `npm run dev`</subtask>
+          <subtask>Verify default Next.js page loads correctly</subtask>
+        </subtasks>
+      </task>
+      <task id="2" ac="2">
+        <title>Configure Tailwind CSS</title>
+        <subtasks>
+          <subtask>Verify Tailwind CSS is installed and configured</subtask>
+          <subtask>Create or update `app/globals.css` with CSS custom properties for theming</subtask>
+          <subtask>Define light theme colors: slate-50 primary, white secondary, slate-800 text, amber-600 accent</subtask>
+          <subtask>Define dark theme colors: #0D1117 primary, #161B22 secondary, #F0F6FC text, #FBBF24 accent</subtask>
+          <subtask>Update `tailwind.config.ts` to use CSS custom properties</subtask>
+          <subtask>Test that Tailwind classes work correctly</subtask>
+        </subtasks>
+      </task>
+      <task id="3" ac="3">
+        <title>Install and Configure shadcn/ui</title>
+        <subtasks>
+          <subtask>Run `npx shadcn@latest init` in project root</subtask>
+          <subtask>Verify `components.json` file is created</subtask>
+          <subtask>Configure shadcn/ui with appropriate settings (tailwind config path, component directory)</subtask>
+          <subtask>Test installation by adding a sample component (e.g., `npx shadcn@latest add button`)</subtask>
+          <subtask>Verify component renders correctly</subtask>
+        </subtasks>
+      </task>
+      <task id="4" ac="4">
+        <title>Configure TypeScript</title>
+        <subtasks>
+          <subtask>Verify TypeScript is installed</subtask>
+          <subtask>Enable strict mode in `tsconfig.json`</subtask>
+          <subtask>Configure TypeScript compiler options appropriately</subtask>
+          <subtask>Run `npx tsc --noEmit` to verify no type errors</subtask>
+          <subtask>Fix any initial type errors</subtask>
+        </subtasks>
+      </task>
+      <task id="5" ac="5">
+        <title>Configure ESLint</title>
+        <subtasks>
+          <subtask>Verify ESLint is installed (comes with Next.js)</subtask>
+          <subtask>Run `npm run lint` to check for linting errors</subtask>
+          <subtask>Fix any linting errors</subtask>
+          <subtask>Verify linting passes without errors</subtask>
+        </subtasks>
+      </task>
+      <task id="6" ac="6">
+        <title>Verify Dependencies</title>
+        <subtasks>
+          <subtask>Run `npm install` to ensure all dependencies are installed</subtask>
+          <subtask>Verify no dependency conflicts in `package.json`</subtask>
+          <subtask>Test that all imported packages work correctly</subtask>
+          <subtask>Verify project builds successfully with `npm run build`</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <ac id="1">
+      <title>Next.js Project Initialization</title>
+      <criteria>Next.js 15+ project initialized with TypeScript, project structure with `app/`, `components/`, `lib/`, `types/` directories, basic configuration files (next.config.ts, tsconfig.json, tailwind.config.ts), the project runs successfully with `npm run dev`</criteria>
+    </ac>
+    <ac id="2">
+      <title>Tailwind CSS Configuration</title>
+      <criteria>Tailwind CSS configured with custom theme variables (light/dark mode colors), CSS custom properties defined in root CSS file, Tailwind config file properly set up</criteria>
+    </ac>
+    <ac id="3">
+      <title>shadcn/ui Installation</title>
+      <criteria>shadcn/ui installed and configured, components.json configuration file created, initial component setup ready for use</criteria>
+    </ac>
+    <ac id="4">
+      <title>TypeScript Configuration</title>
+      <criteria>TypeScript properly configured, TypeScript strict mode enabled, all type checking passes</criteria>
+    </ac>
+    <ac id="5">
+      <title>ESLint Configuration</title>
+      <criteria>ESLint properly configured, linting passes without errors</criteria>
+    </ac>
+    <ac id="6">
+      <title>Dependencies Installation</title>
+      <criteria>All dependencies installed and working, no dependency conflicts or missing packages</criteria>
+    </ac>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Miners Hub - Epic Breakdown</title>
+        <section>Epic 1: Foundation & Core Infrastructure - Story 1.1</section>
+        <snippet>Story 1.1 defines the project setup requirements: Next.js 15+ with TypeScript, Tailwind CSS, shadcn/ui, ESLint configuration. Uses App Router (not Pages Router), ensures TypeScript strict mode, creates initial directory structure.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Miners Hub - Architecture Document</title>
+        <section>Project Initialization - Frontend Setup</section>
+        <snippet>Architecture specifies Next.js 15+ with App Router, TypeScript enabled, Tailwind CSS configured, App directory structure (no `src/` folder), shadcn/ui component library initialized. Provides exact initialization commands.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Miners Hub - Architecture Document</title>
+        <section>Decision Summary</section>
+        <snippet>Technology decisions: Frontend Framework Next.js 15+, UI Component Library shadcn/ui Latest, Project Structure separate repositories. All decisions support the foundation setup.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Miners Hub - Architecture Document</title>
+        <section>Project Structure - Frontend Repository</section>
+        <snippet>Expected directory structure: `app/` for Next.js App Router, `components/` for React components, `lib/` for utilities and helpers, `types/` for TypeScript types. Defines the complete frontend project layout.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Epic Technical Specification: Foundation & Core Infrastructure</title>
+        <section>Acceptance Criteria (Authoritative) - AC1</section>
+        <snippet>AC1: Frontend Project Setup - Next.js 15+ project with TypeScript, Tailwind CSS, and shadcn/ui configured. The project runs successfully with `npm run dev` and all dependencies are installed and working.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Miners Hub - Product Requirements Document</title>
+        <section>Project Classification</section>
+        <snippet>PRD specifies technical type as Full-Stack Web Application with Frontend Framework: Next.js (React + TypeScript + shadcn/ui), Styling: Tailwind CSS exclusively, Architecture: Full-stack application with frontend (Next.js).</snippet>
+      </doc>
+    </docs>
+    <code>
+      <!-- No existing code artifacts for initial project setup -->
+    </code>
+    <dependencies>
+      <ecosystem name="Node.js">
+        <package name="next" version="^15.0.0">React framework with App Router, SSR, SSG</package>
+        <package name="react" version="^18.0.0">UI library</package>
+        <package name="react-dom" version="^18.0.0">DOM rendering</package>
+        <package name="typescript" version="^5.0.0">Type safety</package>
+        <package name="tailwindcss" version="^3.4.0">Utility-first CSS framework</package>
+        <package name="@radix-ui/*" version="latest">UI primitives (via shadcn/ui)</package>
+        <package name="eslint" version="latest">Code linting (comes with Next.js)</package>
+        <package name="eslint-config-next" version="latest">Next.js ESLint configuration</package>
+      </ecosystem>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>
+      <type>Architecture Pattern</type>
+      <rule>Use Next.js App Router (not Pages Router) as specified in Architecture</rule>
+      <source>docs/architecture.md#Project-Initialization</source>
+    </constraint>
+    <constraint>
+      <type>Directory Structure</type>
+      <rule>App directory structure (no `src/` folder) - files go directly in project root with `app/`, `components/`, `lib/`, `types/` directories</rule>
+      <source>docs/architecture.md#Project-Structure</source>
+    </constraint>
+    <constraint>
+      <type>TypeScript Configuration</type>
+      <rule>TypeScript strict mode must be enabled for type safety throughout the application</rule>
+      <source>docs/epics.md#Story-1.1</source>
+    </constraint>
+    <constraint>
+      <type>Styling</type>
+      <rule>Tailwind CSS exclusively - no CSS-in-JS or other styling solutions. Use CSS custom properties for theming in `app/globals.css`</rule>
+      <source>docs/architecture.md#Decision-Summary</source>
+    </constraint>
+    <constraint>
+      <type>Component Library</type>
+      <rule>Use shadcn/ui as the primary component library - components are copied into the project, not installed as dependencies</rule>
+      <source>docs/architecture.md#Decision-Summary</source>
+    </constraint>
+    <constraint>
+      <type>Project Structure</type>
+      <rule>Separate repositories for frontend and backend - this story only sets up the frontend repository</rule>
+      <source>docs/architecture.md#Decision-Summary</source>
+    </constraint>
+  </constraints>
+
+  <interfaces>
+    <!-- No API interfaces required for initial project setup -->
+    <!-- Next.js configuration interfaces will be created by Next.js CLI -->
+    <interface>
+      <name>Next.js Configuration</name>
+      <kind>Configuration File</kind>
+      <signature>next.config.ts - Next.js configuration with TypeScript</signature>
+      <path>next.config.ts (to be created)</path>
+    </interface>
+    <interface>
+      <name>TypeScript Configuration</name>
+      <kind>Configuration File</kind>
+      <signature>tsconfig.json - TypeScript compiler configuration with strict mode enabled</signature>
+      <path>tsconfig.json (to be created)</path>
+    </interface>
+    <interface>
+      <name>Tailwind Configuration</name>
+      <kind>Configuration File</kind>
+      <signature>tailwind.config.ts - Tailwind CSS configuration with theme customization</signature>
+      <path>tailwind.config.ts (to be created)</path>
+    </interface>
+    <interface>
+      <name>shadcn/ui Configuration</name>
+      <kind>Configuration File</kind>
+      <signature>components.json - shadcn/ui component library configuration</signature>
+      <path>components.json (to be created)</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Manual verification tests are required for this setup story: Verify `npm run dev` starts successfully, `npm run build` completes without errors. No automated tests required for this initialization story. Test framework setup will be added in Story 1.11. Future stories will include automated test coverage following the test strategy (Playwright for E2E, Vitest for unit tests).
+    </standards>
+    <locations>
+      Test frameworks will be set up in Story 1.11. Expected locations: `tests/e2e/` for Playwright E2E tests, `__tests__/unit/` for Vitest unit tests, `__tests__/integration/` for integration tests.
+    </locations>
+    <ideas>
+      <test ac="1">
+        <idea>Manual verification: Run `npm run dev` and verify server starts on expected port (default 3000), verify default Next.js page loads in browser</idea>
+      </test>
+      <test ac="2">
+        <idea>Manual verification: Apply Tailwind classes to test element, verify styles render correctly, toggle between light/dark themes (if theme toggle exists)</idea>
+      </test>
+      <test ac="3">
+        <idea>Manual verification: Add shadcn/ui button component, verify it renders correctly, verify component styles apply</idea>
+      </test>
+      <test ac="4">
+        <idea>Automated verification: Run `npx tsc --noEmit` to verify no TypeScript errors, verify strict mode is enabled in tsconfig.json</idea>
+      </test>
+      <test ac="5">
+        <idea>Automated verification: Run `npm run lint` and verify no linting errors are reported</idea>
+      </test>
+      <test ac="6">
+        <idea>Automated verification: Run `npm install` and verify no dependency conflicts, run `npm run build` and verify build succeeds</idea>
+      </test>
+    </ideas>
+  </tests>
+</story-context>
+
