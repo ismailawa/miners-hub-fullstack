@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./miners-hub-backend
+      dockerfile: Dockerfile
+      target: build
+    container_name: miners-hub-backend-dev
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - FRONTEND_URL=http://localhost:3000
+      # Database configuration
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=minershub
+      - DB_PASSWORD=minershub_password
+      - DB_DATABASE=minershub
+      - DATABASE_URL=postgresql://minershub:minershub_password@postgres:5432/minershub
+      # Supabase configuration (if using)
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_KEY=${SUPABASE_KEY:-}
+    volumes:
+      - ./miners-hub-backend:/app
+      - /app/node_modules
+    networks:
+      - miners-hub-network
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    command: sh -c "npm install && npm run start:dev"
+
+  frontend:
+    build:
+      context: ./miners-hub-frontend
+      dockerfile: Dockerfile
+      target: build
+    container_name: miners-hub-frontend-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    volumes:
+      - ./miners-hub-frontend:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - miners-hub-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+    command: sh -c "npm install && npm run dev"
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: miners-hub-postgres-dev
+    ports:
+      - "5434:5432"
+    environment:
+      - POSTGRES_USER=minershub
+      - POSTGRES_PASSWORD=minershub_password
+      - POSTGRES_DB=minershub
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    networks:
+      - miners-hub-network
+    restart: unless-stopped
+
+networks:
+  miners-hub-network:
+    driver: bridge
+
+volumes:
+  postgres_data_dev:

@@ -8,7 +8,7 @@ import {
   OneToMany,
   Index,
 } from 'typeorm';
-import { IsEmail, IsEnum, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional } from 'class-validator';
 import { Miner } from './miner.entity';
 import { Investor } from './investor.entity';
 import { Listing } from './listing.entity';
@@ -38,6 +38,9 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  name?: string;
+
   @Column({ unique: true })
   @IsEmail()
   @IsNotEmpty()
@@ -50,10 +53,11 @@ export class User {
   @Column({
     type: 'enum',
     enum: UserRole,
-    default: UserRole.MINER,
+    nullable: true,
   })
   @IsEnum(UserRole)
-  role!: UserRole;
+  @IsOptional()
+  role!: UserRole | null;
 
   @Column({
     name: 'verification_status',
@@ -63,6 +67,24 @@ export class User {
   })
   @IsEnum(VerificationStatus)
   verificationStatus!: VerificationStatus;
+
+  @Column({ name: 'phone_number', nullable: true })
+  phoneNumber?: string;
+
+  @Column({ type: 'text', nullable: true })
+  address?: string;
+
+  @Column({ name: 'date_of_birth', type: 'date', nullable: true })
+  dateOfBirth?: string;
+
+  @Column({ nullable: true })
+  nationality?: string;
+
+  @Column({ nullable: true })
+  nin?: string;
+
+  @Column({ name: 'onboarding_complete', default: false })
+  onboardingComplete!: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

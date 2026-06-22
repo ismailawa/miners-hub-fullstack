@@ -1,37 +1,28 @@
-import type { Config } from "tailwindcss";
+import type { Config } from 'tailwindcss'
 
 const config: Config = {
-  darkMode: "class", // Use class-based dark mode
-  content: [
-    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
-  ],
-  theme: {
-    extend: {
-      colors: {
-        primary: {
-          DEFAULT: "var(--color-primary)",
-          light: "var(--color-primary-light)",
-          dark: "var(--color-primary-dark)",
+    content: [
+        './app/**/*.{js,ts,jsx,tsx,mdx}',
+        './components/**/*.{js,ts,jsx,tsx,mdx}',
+        './contexts/**/*.{js,ts,jsx,tsx,mdx}',
+    ],
+    darkMode: 'class',
+    theme: {
+        extend: {
+            colors: {
+                primary: 'rgb(var(--color-primary-rgb) / <alpha-value>)',
+                secondary: 'rgb(var(--color-secondary-rgb) / <alpha-value>)',
+                border: 'rgb(var(--color-border-rgb) / <alpha-value>)',
+                'text-primary': 'rgb(var(--color-text-primary-rgb) / <alpha-value>)',
+                'text-secondary': 'rgb(var(--color-text-secondary-rgb) / <alpha-value>)',
+                'text-muted': 'rgb(var(--color-text-muted-rgb) / <alpha-value>)',
+                accent: 'rgb(var(--color-accent-rgb) / <alpha-value>)',
+                'accent-content': 'rgb(var(--color-accent-content-rgb) / <alpha-value>)',
+            }
         },
-        secondary: {
-          DEFAULT: "var(--color-secondary)",
-        },
-        text: {
-          DEFAULT: "var(--color-text)",
-        },
-        accent: {
-          DEFAULT: "var(--color-accent)",
-        },
-        border: {
-          DEFAULT: "var(--color-border)",
-        },
-      },
     },
-  },
-  plugins: [],
-};
-
-export default config;
-
+    plugins: [
+        require('@tailwindcss/typography'),
+    ],
+}
+export default config

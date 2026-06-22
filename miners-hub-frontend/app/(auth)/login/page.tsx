@@ -1,56 +1,6 @@
-import { ROUTES } from "@/lib/constants/routes";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+'use client';
+import LoginPage from '@/components/LoginPage';
 
-export default function LoginPage() {
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 md:p-8">
-      <h1 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Sign In</h1>
-      <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-4 sm:mb-6">
-        Sign in to your Miners Hub account.
-      </p>
-      {/* Login form will be implemented in Epic 2 */}
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-2">Email</label>
-          <input
-            type="email"
-            className="w-full px-3 py-2 sm:py-2.5 border rounded-md min-h-[44px] text-base sm:text-sm"
-            placeholder="Enter your email"
-            disabled
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-2">Password</label>
-          <input
-            type="password"
-            className="w-full px-3 py-2 sm:py-2.5 border rounded-md min-h-[44px] text-base sm:text-sm"
-            placeholder="Enter your password"
-            disabled
-          />
-        </div>
-        <Button className="w-full min-h-[44px]" disabled>
-          Sign In
-        </Button>
-      </div>
-      <p className="mt-4 text-sm text-center text-gray-600 dark:text-gray-400">
-        Don&apos;t have an account?{" "}
-        <Link
-          href={ROUTES.REGISTER}
-          className="text-blue-600 hover:underline dark:text-blue-400"
-        >
-          Sign up
-        </Link>
-      </p>
-      <div className="mt-4 text-center">
-        <Link
-          href={ROUTES.HOME}
-          className="text-sm text-gray-600 hover:underline dark:text-gray-400"
-        >
-          ← Back to Home
-        </Link>
-      </div>
-    </div>
-  );
+export default function Page() {
+  return <LoginPage />;
 }
-

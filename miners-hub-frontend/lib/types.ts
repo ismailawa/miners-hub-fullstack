@@ -1,7 +1,8 @@
 /**
  * Central TypeScript Types & Data Models
- * Comprehensive type definitions for all data models in the application
- * Types match backend entity structure and PRD requirements
+ * 
+ * Comprehensive type definitions for all data models in the application.
+ * Types are organized by domain and match backend entity structure.
  */
 
 // ============================================================================
@@ -12,140 +13,217 @@
  * User roles in the system
  */
 export enum UserRole {
-  MINER = "miner",
-  INVESTOR = "investor",
-  GOVERNMENT = "government",
-  ADMIN = "admin",
+  MINER = 'miner',
+  INVESTOR = 'investor',
+  GOVERNMENT = 'government',
+  ADMIN = 'admin',
 }
 
 /**
  * User verification status
  */
 export enum VerificationStatus {
-  PENDING = "pending",
-  VERIFIED = "verified",
-  REJECTED = "rejected",
+  VERIFIED = 'verified',
+  PENDING = 'pending',
+  REJECTED = 'rejected',
+  NEW = 'new',
 }
 
 /**
  * Listing status
  */
 export enum ListingStatus {
-  DRAFT = "draft",
-  SUBMITTED = "submitted",
-  UNDER_REVIEW = "under_review",
-  PUBLISHED = "published",
-  SOLD = "sold",
-  EXPIRED = "expired",
-  ARCHIVED = "archived",
+  AVAILABLE = 'available',
+  SOLD = 'sold',
+  PENDING = 'pending',
+  DRAFT = 'draft',
+  ARCHIVED = 'archived',
 }
 
 /**
- * Listing type
+ * Listing type (union type for flexibility)
  */
-export type ListingType = "buy_now" | "auction";
+export type ListingType = 'buy-now' | 'auction';
+
+/**
+ * Auction status (union type)
+ */
+export type AuctionStatus = 'active' | 'ended' | 'cancelled';
 
 /**
  * Order status
  */
 export enum OrderStatus {
-  PENDING = "pending",
-  CONFIRMED = "confirmed",
-  PROCESSING = "processing",
-  SHIPPED = "shipped",
-  DELIVERED = "delivered",
-  CANCELLED = "cancelled",
-  REFUNDED = "refunded",
+  PROCESSING = 'processing',
+  SHIPPED = 'shipped',
+  IN_TRANSIT = 'in-transit',
+  DELIVERED = 'delivered',
+  CANCELLED = 'cancelled',
+  REFUNDED = 'refunded',
 }
-
-/**
- * Payment status
- */
-export type PaymentStatus = "pending" | "paid" | "refunded";
 
 /**
  * Contract status
  */
 export enum ContractStatus {
-  DRAFT = "draft",
-  PROPOSED = "proposed",
-  UNDER_REVIEW = "under_review",
-  SIGNED = "signed",
-  EXECUTED = "executed",
-  TERMINATED = "terminated",
+  DRAFT = 'draft',
+  PENDING_MINER_SIGNATURE = 'pending_miner_signature',
+  PENDING_INVESTOR_SIGNATURE = 'pending_investor_signature',
+  ACTIVE = 'active',
+  COMPLETED = 'completed',
+  TERMINATED = 'terminated',
+  REJECTED = 'rejected',
 }
 
 /**
- * Auction status
+ * Payment status (union type)
  */
-export type AuctionStatus = "active" | "completed" | "cancelled";
+export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
 
 /**
  * Document type
  */
 export enum DocumentType {
-  KYC = "kyc",
-  MINING_LICENCE = "mining_licence",
-  LISTING_ATTACHMENT = "listing_attachment",
-  CONTRACT = "contract",
-  OTHER = "other",
+  IDENTIFICATION = 'identification',
+  BUSINESS_LICENSE = 'business_license',
+  MINING_PERMIT = 'mining_permit',
+  CERTIFICATE = 'certificate',
+  CONTRACT = 'contract',
+  INVOICE = 'invoice',
+  OTHER = 'other',
 }
 
 /**
- * Notification type
+ * Notification type (union type for flexibility)
  */
-export enum NotificationType {
-  INFO = "info",
-  SUCCESS = "success",
-  WARNING = "warning",
-  ERROR = "error",
+export type NotificationType = 'success' | 'info' | 'warning' | 'error';
+
+/**
+ * Task status
+ */
+export enum TaskStatus {
+  PENDING = 'pending',
+  IN_PROGRESS = 'in-progress',
+  COMPLETED = 'completed',
 }
+
+/**
+ * Task priority
+ */
+export enum TaskPriority {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+}
+
+/**
+ * Transaction status (union type)
+ */
+export type TransactionStatus = 'completed' | 'pending' | 'failed';
+
+/**
+ * Unit of measurement
+ */
+export type Unit = 'tonne' | 'kg' | 'gram';
+
+/**
+ * Risk appetite level
+ */
+export type RiskAppetite = 'low' | 'medium' | 'high';
 
 // ============================================================================
 // USER TYPES
 // ============================================================================
 
 /**
- * Base user type
+ * User document
+ */
+export interface UserDocument {
+  name: string;
+  url: string; // base64 data URL or file URL
+}
+
+/**
+ * Core user type matching backend entity
  */
 export interface User {
-  readonly id: string;
+  id: string;
+  name: string;
   email: string;
-  role: UserRole;
-  verificationStatus: VerificationStatus;
-  readonly createdAt: string;
-  readonly updatedAt: string;
+  role: UserRole | null;
+  onboardingComplete: boolean;
+  status: VerificationStatus;
+  profileImageUrl?: string;
+  
+  // Personal Info
+  phoneNumber?: string;
+  address?: string;
+  dateOfBirth?: string;
+  nationality?: string;
+  nin?: string;
+  
+  // Business Info
+  businessName?: string;
+  companyRegNumber?: string;
+  businessAddress?: string;
+  businessWebsite?: string;
+  industry?: string;
+  yearsInOperation?: string;
+  
+  // Miner-specific Info
+  miningEquipment?: string[];
+  certifications?: string[];
+  
+  // Investor-specific Info
+  investmentPreferences?: string[];
+  riskAppetite?: RiskAppetite | null;
+  
+  // Government-specific info
+  jurisdiction?: string;
+  
+  // Documents
+  documents?: { [key: string]: UserDocument[] };
+  
+  // Settings
+  notificationSettings?: {
+    marketUpdates: boolean;
+    platformAnnouncements: boolean;
+  };
+  twoFactorEnabled?: boolean;
+  
+  // Relationships (optional full objects)
+  tasks?: Task[];
+  transactions?: Transaction[];
 }
 
 /**
- * Miner profile
+ * Miner-specific type with relationships
  */
 export interface Miner {
-  readonly id: string;
+  id: string;
   userId: string;
-  companyName: string;
-  miningLicence: string | null;
-  location: string; // State/LGA
-  readonly createdAt: string;
-  readonly updatedAt: string;
-  // Relationships (optional, populated when needed)
+  name: string;
+  location: string;
+  minerals: string[];
+  rating: number;
+  imageUrl: string;
+  contactEmail: string;
+  history: string;
+  siteImages: string[];
+  // Relationship
   user?: User;
-  listings?: Listing[];
 }
 
 /**
- * Investor profile
+ * Investor-specific type with relationships
  */
 export interface Investor {
-  readonly id: string;
+  id: string;
   userId: string;
-  companyName: string;
-  investmentFocus: string[];
-  readonly createdAt: string;
-  readonly updatedAt: string;
-  // Relationships (optional, populated when needed)
+  investmentPreferences?: string[];
+  riskAppetite?: RiskAppetite;
+  // Relationship
   user?: User;
-  orders?: Order[];
 }
 
 // ============================================================================
@@ -153,59 +231,76 @@ export interface Investor {
 // ============================================================================
 
 /**
- * Mineral listing
+ * Listing type matching backend entity
  */
 export interface Listing {
-  readonly id: string;
+  id: string;
   minerId: string;
-  mineralType: string;
-  quantity: number; // in tons
-  price: number;
-  gradePurity: string | null;
-  location: string | null; // State/LGA
-  moisturePercentage: number | null;
+  mineral: string;
+  quantity: number;
+  unit: Unit;
+  pricePerUnit: number;
+  grade: string;
+  location: string;
+  description: string;
+  images: string[];
   status: ListingStatus;
-  listingType: ListingType;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-  // Relationships (optional, populated when needed)
-  miner?: Miner;
-  auctions?: Auction[];
-  orders?: Order[];
-  documents?: Document[];
+  type: ListingType;
+  datePosted: string; // ISO 8601
+  createdAt: string; // ISO 8601
+  updatedAt: string; // ISO 8601
+  // Relationships (optional full objects)
+  miner?: User;
+  // Display fields (for UI convenience)
+  minerName?: string;
+  minerImageUrl?: string;
 }
 
 /**
- * Auction
- */
-export interface Auction {
-  readonly id: string;
-  listingId: string;
-  startTime: string;
-  endTime: string;
-  startingBid: number;
-  currentBid: number | null;
-  minimumIncrement: number;
-  status: AuctionStatus;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-  // Relationships (optional, populated when needed)
-  listing?: Listing;
-  bids?: Bid[];
-}
-
-/**
- * Bid on an auction
+ * Bid type for auctions
  */
 export interface Bid {
-  readonly id: string;
+  id: string;
   auctionId: string;
   bidderId: string;
   amount: number;
-  readonly createdAt: string;
-  // Relationships (optional, populated when needed)
-  auction?: Auction;
+  date: string; // ISO 8601
+  createdAt: string; // ISO 8601
+  // Relationships (optional full objects)
   bidder?: User;
+  // Display fields (for UI convenience)
+  bidderName?: string;
+}
+
+/**
+ * Auction type matching backend entity
+ */
+export interface Auction {
+  id: string;
+  minerId: string;
+  mineral: string;
+  quantity: number;
+  unit: Unit;
+  startingBid: number;
+  currentBid: number;
+  highestBidderId: string | null;
+  auctionEndDate: string; // ISO 8601
+  bidHistory: Bid[];
+  grade: string;
+  location: string;
+  description: string;
+  images: string[];
+  status: AuctionStatus;
+  datePosted: string; // ISO 8601
+  createdAt: string; // ISO 8601
+  updatedAt: string; // ISO 8601
+  // Relationships (optional full objects)
+  miner?: User;
+  highestBidder?: User;
+  // Display fields (for UI convenience)
+  minerName?: string;
+  minerImageUrl?: string;
+  highestBidderName?: string;
 }
 
 // ============================================================================
@@ -213,47 +308,103 @@ export interface Bid {
 // ============================================================================
 
 /**
- * Order
+ * Order status history item
  */
-export interface Order {
-  readonly id: string;
-  buyerId: string;
-  sellerId: string;
-  listingId: string;
-  totalAmount: number;
-  quantity: number;
+export interface OrderStatusHistoryItem {
   status: OrderStatus;
-  deliveryAddress: string | null;
-  paymentStatus: PaymentStatus;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-  // Relationships (optional, populated when needed)
-  buyer?: User;
-  seller?: User;
-  listing?: Listing;
+  date: string; // ISO 8601
+  location: string;
+  notes?: string;
 }
 
 /**
- * Contract
+ * Order type matching backend entity
+ */
+export interface Order {
+  id: string;
+  transactionId: string;
+  listingId: string;
+  mineral: string;
+  quantity: number;
+  unit: Unit;
+  totalAmount: number;
+  orderDate: string; // ISO 8601
+  buyerId: string;
+  sellerId: string;
+  status: OrderStatus;
+  trackingNumber?: string;
+  estimatedDelivery?: string;
+  shippingAddress: string;
+  statusHistory: OrderStatusHistoryItem[];
+  createdAt: string; // ISO 8601
+  updatedAt: string; // ISO 8601
+  // Relationships (optional full objects)
+  buyer?: User;
+  seller?: User;
+  listing?: Listing;
+  // Display fields (for UI convenience)
+  buyerName?: string;
+  sellerName?: string;
+}
+
+/**
+ * Transaction type
+ */
+export interface Transaction {
+  id: string;
+  listingId: string;
+  orderId: string;
+  mineral: string;
+  amount: number;
+  quantity: number;
+  unit: string;
+  date: string; // ISO 8601
+  status: TransactionStatus;
+  buyerId: string;
+  sellerId: string;
+  createdAt: string; // ISO 8601
+  // Relationships (optional full objects)
+  buyer?: User;
+  seller?: User;
+  // Display fields (for UI convenience)
+  sellerName?: string;
+}
+
+/**
+ * Contract signature
+ */
+export interface ContractSignature {
+  userId: string;
+  userName: string;
+  signatureDataUrl: string; // base64 data URL from canvas
+  signedAt: string; // ISO 8601
+}
+
+/**
+ * Contract type matching backend entity
  */
 export interface Contract {
-  readonly id: string;
-  party1Id: string;
-  party2Id: string;
-  listingId: string | null;
+  id: string;
+  listingId: string;
+  mineral: string;
+  minerId: string;
+  investorId: string;
   terms: string;
-  metadata: Record<string, any> | null;
   status: ContractStatus;
-  party1SignedAt: string | null;
-  party2SignedAt: string | null;
-  party1Signature: string | null;
-  party2Signature: string | null;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-  // Relationships (optional, populated when needed)
-  party1?: User;
-  party2?: User;
+  investorSignature?: ContractSignature;
+  minerSignature?: ContractSignature;
+  quantity: number;
+  unit: Unit;
+  pricePerUnit: number;
+  createdAt: string; // ISO 8601
+  updatedAt: string; // ISO 8601
+  // Relationships (optional full objects)
+  miner?: User;
+  investor?: User;
   listing?: Listing;
+  // Display fields (for UI convenience)
+  minerName?: string;
+  investorName?: string;
 }
 
 // ============================================================================
@@ -261,36 +412,49 @@ export interface Contract {
 // ============================================================================
 
 /**
- * Chat message
+ * Chat message type
  */
-export interface Chat {
-  readonly id: string;
+export interface ChatMessage {
+  id: string;
+  chatThreadId: string;
   senderId: string;
-  receiverId: string;
-  threadId: string;
-  message: string;
-  read: boolean;
-  readAt: string | null;
-  readonly createdAt: string;
-  // Relationships (optional, populated when needed)
+  text: string;
+  timestamp: string; // ISO 8601
+  createdAt: string; // ISO 8601
+  // Relationships (optional full objects)
   sender?: User;
-  receiver?: User;
+  // Display fields (for UI convenience)
+  senderName?: string;
 }
 
 /**
- * Notification
+ * Chat thread type
+ */
+export interface Chat {
+  id: string;
+  participantIds: string[];
+  lastMessage?: ChatMessage;
+  lastMessageAt?: string; // ISO 8601
+  createdAt: string; // ISO 8601
+  updatedAt: string; // ISO 8601
+  // Relationships (optional full objects)
+  participants?: User[];
+  messages?: ChatMessage[];
+}
+
+/**
+ * Notification type matching backend entity
  */
 export interface Notification {
-  readonly id: string;
+  id: string;
   userId: string;
+  type: NotificationType;
   title: string;
   message: string;
+  timestamp: string; // ISO 8601
   read: boolean;
-  readAt: string | null;
-  notificationType: NotificationType;
-  metadata: Record<string, any> | null;
-  readonly createdAt: string;
-  // Relationships (optional, populated when needed)
+  createdAt: string; // ISO 8601
+  // Relationships (optional full objects)
   user?: User;
 }
 
@@ -299,23 +463,20 @@ export interface Notification {
 // ============================================================================
 
 /**
- * Document
+ * Document type matching backend entity
  */
 export interface Document {
-  readonly id: string;
+  id: string;
   userId: string;
-  listingId: string | null;
+  name: string;
   type: DocumentType;
-  fileUrl: string;
-  fileName: string;
-  fileSize: number;
-  mimeType: string;
-  metadata: Record<string, any> | null;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-  // Relationships (optional, populated when needed)
+  url: string; // File URL or base64 data URL
+  mimeType?: string;
+  size?: number; // in bytes
+  uploadedAt: string; // ISO 8601
+  createdAt: string; // ISO 8601
+  // Relationships (optional full objects)
   user?: User;
-  listing?: Listing;
 }
 
 // ============================================================================
@@ -323,183 +484,236 @@ export interface Document {
 // ============================================================================
 
 /**
- * Industry event
+ * Event type
  */
 export interface Event {
-  readonly id: string;
+  id: string;
   title: string;
-  description: string;
+  date: string; // ISO 8601
   location: string;
-  startDate: string;
-  endDate: string;
-  organizer: string;
-  registrationUrl: string | null;
-  imageUrl: string | null;
-  readonly createdAt: string;
-  readonly updatedAt: string;
+  imageUrl: string;
+  description?: string;
 }
 
 /**
- * Mineral price data
+ * Mineral price type
  */
 export interface MineralPrice {
-  readonly id: string;
-  mineralType: string;
+  name: string;
   price: number;
-  unit: string; // e.g., "per ton", "per kg"
-  location: string | null; // State/LGA, null for national average
-  source: string;
-  date: string;
-  readonly createdAt: string;
+  change: number;
+  symbol: string;
 }
 
 /**
- * Map location data for mineral deposits
+ * Map location data type
  */
 export interface MapLocationData {
-  readonly id: string;
+  id: string;
   name: string;
-  state: string;
-  lga: string; // Local Government Area
-  coordinates: {
+  minerals: string[];
+  factories: number;
+  coordinates?: {
     lat: number;
     lng: number;
   };
-  mineralTypes: string[];
-  description: string | null;
-  verified: boolean;
-  readonly createdAt: string;
-  readonly updatedAt: string;
 }
 
 /**
- * Testimonial
+ * Testimonial type
  */
 export interface Testimonial {
-  readonly id: string;
-  authorName: string;
-  authorRole: string;
-  authorCompany: string | null;
-  authorImageUrl: string | null;
-  content: string;
-  rating: number; // 1-5
-  featured: boolean;
-  readonly createdAt: string;
-  readonly updatedAt: string;
+  id: string;
+  name: string;
+  role: string;
+  quote: string;
+  videoThumbnailUrl: string;
+  videoUrl: string;
 }
 
 /**
- * News article
+ * News article type
  */
 export interface NewsArticle {
-  readonly id: string;
-  title: string;
-  content: string;
-  excerpt: string;
-  author: string;
-  imageUrl: string | null;
-  publishedAt: string;
+  id: string;
   category: string;
-  tags: string[];
-  views: number;
-  readonly createdAt: string;
-  readonly updatedAt: string;
+  title: string;
+  imageUrl: string;
+  author: string;
+  date: string; // ISO 8601
+  summary: string;
+  content?: string;
+  country?: string;
+  isHeadline?: boolean;
+  isBreaking?: boolean;
 }
 
 /**
- * Webinar
+ * Webinar type
  */
 export interface Webinar {
-  readonly id: string;
+  id: string;
   title: string;
   description: string;
-  presenter: string;
-  presenterBio: string | null;
-  scheduledDate: string;
-  duration: number; // in minutes
-  registrationUrl: string | null;
-  recordingUrl: string | null;
-  imageUrl: string | null;
-  readonly createdAt: string;
-  readonly updatedAt: string;
+  thumbnailUrl: string;
+  videoUrl: string;
+  speaker: string;
+  date: string; // ISO 8601
 }
 
 /**
- * Knowledge base article
+ * Knowledge base article type
  */
 export interface KnowledgeBaseArticle {
-  readonly id: string;
+  id: string;
+  category: string;
   title: string;
   content: string;
-  category: string;
   tags: string[];
-  author: string;
-  views: number;
-  helpful: number;
-  notHelpful: number;
-  readonly createdAt: string;
-  readonly updatedAt: string;
+  createdAt?: string; // ISO 8601
 }
 
 /**
- * Forum post
+ * Forum reply type
+ */
+export interface ForumReply {
+  id: string;
+  postId: string;
+  authorId: string;
+  content: string;
+  date: string; // ISO 8601
+  createdAt: string; // ISO 8601
+  // Relationships (optional full objects)
+  author?: User;
+  // Display fields (for UI convenience)
+  authorName?: string;
+}
+
+/**
+ * Forum post type
  */
 export interface ForumPost {
-  readonly id: string;
+  id: string;
   authorId: string;
   title: string;
   content: string;
   category: string;
+  date: string; // ISO 8601
+  replies: ForumReply[];
   tags: string[];
-  views: number;
-  replies: number;
-  pinned: boolean;
-  locked: boolean;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-  // Relationships (optional, populated when needed)
+  createdAt: string; // ISO 8601
+  // Relationships (optional full objects)
   author?: User;
+  // Display fields (for UI convenience)
+  authorName?: string;
 }
 
 /**
- * Task status
- */
-export enum TaskStatus {
-  TODO = "todo",
-  IN_PROGRESS = "in_progress",
-  COMPLETED = "completed",
-  CANCELLED = "cancelled",
-}
-
-/**
- * Task priority
- */
-export enum TaskPriority {
-  LOW = "low",
-  MEDIUM = "medium",
-  HIGH = "high",
-}
-
-/**
- * Task (for task management features)
+ * Task type
  */
 export interface Task {
-  readonly id: string;
+  id: string;
   userId: string;
   title: string;
-  description: string | null;
+  description: string;
+  dueDate: string; // ISO 8601
   status: TaskStatus;
   priority: TaskPriority;
-  dueDate: string | null;
-  completedAt: string | null;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-  // Relationships (optional, populated when needed)
+  createdAt: string; // ISO 8601
+  updatedAt: string; // ISO 8601
+  // Relationships (optional full objects)
   user?: User;
 }
 
 // ============================================================================
-// REQUEST/RESPONSE TYPES
+// DATA ANALYTICS TYPES
+// ============================================================================
+
+/**
+ * Production data point
+ */
+export interface ProductionDataPoint {
+  month: string;
+  [mineral: string]: number | string;
+}
+
+/**
+ * Price correlation
+ */
+export interface PriceCorrelation {
+  mineralA: string;
+  mineralB: string;
+  correlation: number;
+}
+
+/**
+ * Export data
+ */
+export interface ExportData {
+  country: string;
+  volume: number; // in thousand tonnes
+}
+
+/**
+ * Market sentiment
+ */
+export interface MarketSentiment {
+  sentiment: 'Bullish' | 'Neutral' | 'Bearish';
+  value: number; // e.g. 75 for 75%
+}
+
+/**
+ * Historical price point
+ */
+export interface HistoricalPricePoint {
+  date: string; // YYYY-MM-DD
+  price: number;
+}
+
+/**
+ * Mineral history
+ */
+export interface MineralHistory {
+  [mineral: string]: HistoricalPricePoint[];
+}
+
+/**
+ * Forecast data point
+ */
+export interface ForecastDataPoint {
+  date: string;
+  demand: number;
+  type: 'historical' | 'forecast';
+}
+
+// ============================================================================
+// LOGISTICS TYPES
+// ============================================================================
+
+/**
+ * Shipment status
+ */
+export interface ShipmentStatus {
+  status: 'pending' | 'in-transit' | 'at-port' | 'customs' | 'delivered';
+  location: string;
+  timestamp: string; // ISO 8601
+  notes: string;
+}
+
+/**
+ * Shipment type
+ */
+export interface Shipment {
+  trackingId: string;
+  origin: string;
+  destination: string;
+  currentStatus: ShipmentStatus['status'];
+  estimatedDelivery: string; // ISO 8601
+  history: ShipmentStatus[];
+}
+
+// ============================================================================
+// UTILITY TYPES
 // ============================================================================
 
 /**
@@ -510,28 +724,15 @@ export interface PaginationMeta {
   limit: number;
   total: number;
   totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
 }
 
 /**
- * Paginated response
+ * Paginated response wrapper
  */
 export interface PaginatedResponse<T> {
   data: T[];
   meta: PaginationMeta;
-}
-
-/**
- * Audit log entry
- */
-export interface AuditLog {
-  readonly id: string;
-  userId: string;
-  action: string;
-  metadata: Record<string, any> | null;
-  ipAddress: string | null;
-  userAgent: string | null;
-  readonly timestamp: string;
-  // Relationships (optional, populated when needed)
-  user?: User;
 }
 

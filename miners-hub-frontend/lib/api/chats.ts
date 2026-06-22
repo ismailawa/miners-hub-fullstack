@@ -1,38 +1,45 @@
 /**
  * Chats API Service
- * Handles all chat-related API calls
+ * 
+ * Placeholder service for chat/messaging endpoints.
+ * To be implemented in future stories.
  */
 
-import { get, post } from "./client";
-import type { Chat } from "@/lib/types";
-
-// Re-export for convenience
-export type { Chat } from "@/lib/types";
-
-// Chat is the message type (backend uses Chat entity for messages)
-export type Message = Chat;
+import apiClient from './client';
+import type { Chat, ChatMessage } from '../types';
 
 /**
- * Get conversations
+ * Get all chat threads
+ * TODO: Implement when chat endpoints are available
  */
-export async function getConversations(): Promise<Chat[]> {
-  return get<Chat[]>("/chats");
+export async function getChatThreads(): Promise<Chat[]> {
+  return apiClient.get<Chat[]>('/api/chats');
 }
 
 /**
- * Get messages for a conversation
+ * Get chat messages for a thread
+ * TODO: Implement when chat endpoints are available
  */
-export async function getMessages(chatId: string): Promise<Message[]> {
-  return get<Message[]>(`/chats/${chatId}/messages`);
+export async function getChatMessages(threadId: string): Promise<ChatMessage[]> {
+  return apiClient.get<ChatMessage[]>(`/api/chats/${threadId}/messages`);
 }
 
 /**
  * Send message
+ * TODO: Implement when chat endpoints are available
  */
 export async function sendMessage(
-  chatId: string,
-  content: string
-): Promise<Message> {
-  return post<Message>(`/chats/${chatId}/messages`, { content });
+  threadId: string,
+  message: string,
+): Promise<ChatMessage> {
+  return apiClient.post<ChatMessage>(`/api/chats/${threadId}/messages`, { text: message });
+}
+
+/**
+ * Create new chat thread
+ * TODO: Implement when chat endpoints are available
+ */
+export async function createChatThread(participantId: string): Promise<Chat> {
+  return apiClient.post<Chat>('/api/chats', { participantId });
 }
 

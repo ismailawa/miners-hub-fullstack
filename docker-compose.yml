@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./miners-hub-backend
+      dockerfile: Dockerfile
+    container_name: miners-hub-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - FRONTEND_URL=http://localhost:3000
+      # Database configuration (update with your actual values)
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=minershub
+      - DB_PASSWORD=minershub_password
+      - DB_DATABASE=minershub
+      # Supabase configuration (if using)
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_KEY=${SUPABASE_KEY:-}
+    networks:
+      - miners-hub-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./miners-hub-frontend
+      dockerfile: Dockerfile
+    container_name: miners-hub-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    networks:
+      - miners-hub-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: miners-hub-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=minershub
+      - POSTGRES_PASSWORD=minershub_password
+      - POSTGRES_DB=minershub
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - miners-hub-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U minershub"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  miners-hub-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

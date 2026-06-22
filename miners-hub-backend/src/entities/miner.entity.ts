@@ -43,6 +43,37 @@ export class Miner {
   @IsString()
   location!: string; // State/LGA
 
+  @Column({ name: 'company_reg_number', nullable: true })
+  @IsOptional()
+  @IsString()
+  companyRegNumber?: string;
+
+  @Column({ name: 'business_address', type: 'text', nullable: true })
+  @IsOptional()
+  @IsString()
+  businessAddress?: string;
+
+  @Column({ name: 'business_website', nullable: true })
+  @IsOptional()
+  @IsString()
+  businessWebsite?: string;
+
+  @Column({ nullable: true })
+  @IsOptional()
+  @IsString()
+  industry?: string;
+
+  @Column({ name: 'years_in_operation', nullable: true })
+  @IsOptional()
+  @IsString()
+  yearsInOperation?: string;
+
+  @Column({ name: 'mining_equipment', type: 'text', array: true, default: [] })
+  miningEquipment!: string[];
+
+  @Column({ type: 'text', array: true, default: [] })
+  certifications!: string[];
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

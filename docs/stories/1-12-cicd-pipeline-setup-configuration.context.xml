@@ -1,0 +1,129 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1.12</storyId>
+    <title>CI/CD Pipeline Setup & Configuration</title>
+    <status>drafted</status>
+    <generatedAt>2025-01-XX</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-12-cicd-pipeline-setup-configuration.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>automated CI/CD pipelines configured for frontend and backend</iWant>
+    <soThat>code changes are automatically tested, validated, and deployed to appropriate environments</soThat>
+    <tasks>
+      <task id="1" ac="1">Verify GitHub Actions Workflows - Verify frontend and backend workflows exist, review configurations, verify trigger conditions, update if needed</task>
+      <task id="2" ac="2">Configure Vercel Integration - Install Vercel CLI, create project, configure environment variables, enable auto-deployment, configure branch deployments</task>
+      <task id="3" ac="3">Configure Railway/Render Integration - Create account/project, link repository, configure service settings, set environment variables, enable auto-deployment</task>
+      <task id="4" ac="5">Configure GitHub Secrets - Add Vercel tokens/IDs, Railway tokens/IDs, database URLs, Supabase keys, JWT secrets, Gemini API key</task>
+      <task id="5" ac="6">Configure Database Migration Automation - Review migration workflow, verify commands, test execution, document rollback procedure</task>
+      <task id="6" ac="4">Add Security Scanning - Add npm audit steps to workflows, configure security scanning</task>
+      <task id="7" ac="7">Verify Pipeline Execution - Test frontend and backend pipelines, verify all stages, verify deployment and health checks</task>
+      <task id="8" ac="7">Create CI/CD Documentation - Document deployment process, environment variables, rollback procedures, troubleshooting</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <ac id="1">GitHub Actions Workflows Configured - Frontend and backend workflows exist with lint, build, test, deploy stages, trigger on main/staging/develop branches and PRs</ac>
+    <ac id="2">Vercel Integration (Frontend) - Project created and linked, environment variables configured for dev/preview/staging/production, auto-deployment enabled</ac>
+    <ac id="3">Railway/Render Integration (Backend) - Project created and linked, environment variables configured, auto-deployment enabled, health check endpoint configured</ac>
+    <ac id="4">CI/CD Pipeline Stages - Lint & Type Check, Build, Test, Security scanning, Deploy, Health Check</ac>
+    <ac id="5">Secrets Management - GitHub Secrets configured for Vercel, Railway, database URLs, Supabase keys, JWT secrets, Gemini API key, secrets not exposed in logs</ac>
+    <ac id="6">Database Migration Strategy - Automated migrations run before deployment, rollback plan documented, test migrations validated before staging/production</ac>
+    <ac id="7">Pipeline Execution Verification - All stages execute successfully, tests run automatically, deployment occurs, health checks verify success</ac>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/epics.md" title="Miners Hub - Epic Breakdown" section="Story 1.12: CI/CD Pipeline Setup & Configuration">
+        Story acceptance criteria and technical notes for CI/CD pipeline setup including GitHub Actions workflows, Vercel integration, Railway/Render integration, secrets management, and database migration strategy.
+      </doc>
+      <doc path="docs/tech-spec-epic-1.md" title="Epic Technical Specification: Foundation & Core Infrastructure" section="AC12: CI/CD Pipeline Setup">
+        Technical specification for CI/CD pipeline setup including deployment targets, integration points, and acceptance criteria. Specifies Vercel for frontend, Railway/Render for backend, and GitHub Actions for CI/CD.
+      </doc>
+      <doc path="docs/deployment-cicd-strategy.md" title="Miners Hub - Deployment and CI/CD Strategy" section="CI/CD Pipeline Architecture">
+        Comprehensive deployment and CI/CD strategy document covering frontend and backend pipeline stages, platform-specific configurations, environment strategy, secrets management, and deployment procedures.
+      </doc>
+      <doc path="docs/architecture.md" title="Miners Hub - Architecture Document" section="Deployment Architecture">
+        Architecture patterns and component structure relevant to CI/CD setup, including deployment targets, environment configuration, and integration patterns.
+      </doc>
+      <doc path="docs/stories/1-11-test-framework-setup-configuration.md" title="Story 1.11: Test Framework Setup & Configuration" section="Completion Notes List">
+        Previous story that created GitHub Actions workflows. Workflows already exist at .github/workflows/frontend-ci-cd.yml and backend-ci-cd.yml with test integration configured.
+      </doc>
+    </docs>
+    <code>
+      <artifact path=".github/workflows/frontend-ci-cd.yml" kind="workflow" symbol="Frontend CI/CD" lines="1-184" reason="Existing frontend CI/CD workflow with lint, build, test, and deploy stages. Needs verification and potential enhancement for security scanning." />
+      <artifact path=".github/workflows/backend-ci-cd.yml" kind="workflow" symbol="Backend CI/CD" lines="1-304" reason="Existing backend CI/CD workflow with lint, build, test, migration, and deploy stages. Needs verification and potential enhancement for security scanning." />
+      <artifact path="miners-hub-backend/src/common/health/health.controller.ts" kind="controller" symbol="HealthController" lines="1-35" reason="Health check endpoint at /api/health used for post-deployment verification. Returns status, timestamp, environment, and database connection status." />
+      <artifact path="miners-hub-backend/src/main.ts" kind="entry" symbol="bootstrap" lines="1-56" reason="Backend entry point with health check endpoint registration. Shows global prefix 'api' and health check URL." />
+      <artifact path="miners-hub-backend/package.json" kind="manifest" symbol="package.json" lines="8-28" reason="Migration commands available: migration:generate, migration:create, migration:run, migration:revert, migration:show. Used in CI/CD for database migrations." />
+      <artifact path="miners-hub-frontend/package.json" kind="manifest" symbol="package.json" lines="5-16" reason="Frontend build and test scripts used in CI/CD pipeline: build, test:unit, test:integration, test:e2e, test:coverage." />
+    </code>
+    <dependencies>
+      <ecosystem name="node">
+        <package name="@nestjs/common" version="^11.0.1" />
+        <package name="@nestjs/core" version="^11.0.1" />
+        <package name="@nestjs/platform-express" version="^11.0.1" />
+        <package name="@nestjs/typeorm" version="^11.0.0" />
+        <package name="@nestjs/config" version="^4.0.2" />
+        <package name="typeorm" version="^0.3.27" />
+        <package name="pg" version="^8.16.3" />
+        <package name="next" version="16.0.1" />
+        <package name="react" version="19.2.0" />
+        <package name="react-dom" version="19.2.0" />
+        <package name="vitest" version="^4.0.8" />
+        <package name="@playwright/test" version="^1.56.1" />
+        <package name="jest" version="^30.0.0" />
+        <package name="supertest" version="^7.0.0" />
+      </ecosystem>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>GitHub Actions workflows already exist from Story 1.11 - verify and enhance rather than recreate</constraint>
+    <constraint>Three-environment approach required: dev, staging, production</constraint>
+    <constraint>Frontend deploys to Vercel, backend deploys to Railway/Render</constraint>
+    <constraint>Database migrations must run before backend deployment</constraint>
+    <constraint>Health check endpoint at /api/health must be verified post-deployment</constraint>
+    <constraint>Secrets must be stored in GitHub Secrets and never exposed in logs</constraint>
+    <constraint>Test frameworks from Story 1.11 are already integrated - reuse existing test commands</constraint>
+    <constraint>Coverage reporting via Codecov already configured - maintain existing integration</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface name="Health Check API" kind="REST endpoint" signature="GET /api/health" path="miners-hub-backend/src/common/health/health.controller.ts">
+      Returns health status with database connection status. Used for post-deployment verification in CI/CD pipelines.
+    </interface>
+    <interface name="Vercel Deployment API" kind="GitHub Action" signature="amondnet/vercel-action@v25" path=".github/workflows/frontend-ci-cd.yml">
+      GitHub Action for deploying to Vercel. Requires VERCEL_TOKEN, VERCEL_ORG_ID, and VERCEL_PROJECT_ID secrets.
+    </interface>
+    <interface name="Railway Deployment API" kind="GitHub Action" signature="bervProject/railway-deploy@main" path=".github/workflows/backend-ci-cd.yml">
+      GitHub Action for deploying to Railway. Requires RAILWAY_TOKEN and RAILWAY_SERVICE_ID secrets.
+    </interface>
+    <interface name="TypeORM Migration Commands" kind="CLI commands" signature="npm run migration:*" path="miners-hub-backend/package.json">
+      Migration commands: migration:generate, migration:create, migration:run, migration:revert, migration:show. Used in CI/CD for database schema updates.
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Testing standards from Story 1.11: Frontend uses Vitest (unit/integration) and Playwright (E2E). Backend uses Jest (unit/integration/E2E) and Supertest (API testing). Test coverage thresholds: Frontend 70%, Backend 80%. Tests are already integrated into CI/CD workflows and run automatically on commits. Coverage reports are uploaded to Codecov.
+    </standards>
+    <locations>
+      Frontend tests: __tests__/unit/, __tests__/integration/, tests/e2e/, tests/component/
+      Backend tests: src/**/*.spec.ts (unit), test/integration/ (integration), test/*.e2e-spec.ts (E2E)
+    </locations>
+    <ideas>
+      <test ac="1">Verify GitHub Actions workflows execute successfully with test commits</test>
+      <test ac="2">Test Vercel deployment with preview, staging, and production environments</test>
+      <test ac="3">Test Railway/Render deployment with staging and production environments</test>
+      <test ac="4">Verify security scanning (npm audit) runs in both workflows</test>
+      <test ac="5">Verify GitHub Secrets are accessible but not exposed in logs</test>
+      <test ac="6">Test database migration execution in CI/CD pipeline</test>
+      <test ac="7">Verify health check endpoint responds correctly after deployment</test>
+    </ideas>
+  </tests>
+</story-context>
+

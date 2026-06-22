@@ -1,60 +1,178 @@
 /**
  * API Client Index
- * Central export point for all API services
+ * 
+ * Central export point for all API services and utilities.
  */
 
-// Base client
-export {
-  apiRequest,
-  get,
-  post,
-  put,
-  patch,
-  del,
-  addRequestInterceptor,
-  addResponseInterceptor,
-  addErrorInterceptor,
-  removeInterceptor,
-} from "./client";
+// Export centralized client
+export { ApiClient, apiClient, default as client } from './client';
 
-// Types
+// Export token utilities
+export {
+  getAccessToken,
+  getRefreshToken,
+  setTokens,
+  removeTokens,
+  hasValidToken,
+} from './token';
+
+// Export error utilities
+export {
+  type ApiError,
+  getUserFriendlyMessage,
+  isApiError,
+  createApiErrorFromResponse,
+  createNetworkError,
+  createTimeoutError,
+} from './errors';
+
+// Export common types
 export type {
-  ApiError,
-  ApiRequestConfig,
+  HttpMethod,
+  RequestConfig,
   ApiResponse,
   RequestInterceptor,
   ResponseInterceptor,
   ErrorInterceptor,
-} from "./types";
+  InterceptorConfig,
+  ApiClientConfig,
+} from './types';
 
-// Error utilities
+// Export auth service
 export {
-  getErrorMessage,
-  isNetworkError,
-  isTimeoutError,
-  isAuthError,
-  createApiError,
-} from "./errors";
+  login,
+  register,
+  logout,
+  getCurrentUser,
+  refreshToken,
+  type LoginRequest,
+  type RegisterRequest,
+  type AuthResponse,
+} from './auth';
 
-// Token utilities
+// Export notification service
 export {
-  getAccessToken,
-  getRefreshToken,
-  storeTokens,
-  removeTokens,
-} from "./token";
+  getNotifications,
+  getUnreadCount,
+  createNotification,
+  markAsRead,
+  markAllAsRead,
+  type CreateNotificationRequest,
+} from './notifications';
 
-// Service modules
-export * from "./auth";
-export * from "./notifications";
-export * from "./users";
-export * from "./listings";
-export * from "./auctions";
-export * from "./contracts";
-export * from "./orders";
-export * from "./chats";
-export * from "./documents";
+// Export user service
+export { getProfile, updateProfile } from './users';
+
+// Export listing service
+export {
+  getListings,
+  getListing,
+  createListing,
+  updateListing,
+  deleteListing,
+} from './listings';
+
+// Export auction service
+export { getAuction, placeBid, getAuctionBids } from './auctions';
+
+// Export contract service
+export {
+  getContracts,
+  getContract,
+  createContractProposal,
+  updateContractStatus,
+  signContract,
+  getContractHistory,
+} from './contracts';
+
+// Export order service
+export {
+  getOrders,
+  getOrder,
+  createOrder,
+  updateOrderStatus,
+} from './orders';
+
+// Export chat service
+export {
+  getChatThreads,
+  getChatMessages,
+  sendMessage,
+  createChatThread,
+} from './chats';
+
+// Export document service
+export {
+  uploadDocument,
+  getDocument,
+  downloadDocument,
+  downloadDocumentFile,
+  deleteDocument,
+} from './documents';
 
 // Re-export types from central types file
-export * from "@/lib/types";
+export type {
+  // Enums
+  UserRole,
+  VerificationStatus,
+  ListingStatus,
+  ListingType,
+  AuctionStatus,
+  OrderStatus,
+  ContractStatus,
+  PaymentStatus,
+  DocumentType,
+  NotificationType,
+  TaskStatus,
+  TaskPriority,
+  TransactionStatus,
+  Unit,
+  RiskAppetite,
+  // User Types
+  User,
+  UserDocument,
+  Miner,
+  Investor,
+  // Marketplace Types
+  Listing,
+  Bid,
+  Auction,
+  // Transaction Types
+  Order,
+  OrderStatusHistoryItem,
+  Transaction,
+  Contract,
+  ContractSignature,
+  // Communication Types
+  Chat,
+  ChatMessage,
+  Notification,
+  // Document Types
+  Document,
+  // Additional Types
+  Event,
+  MineralPrice,
+  MapLocationData,
+  Testimonial,
+  NewsArticle,
+  Webinar,
+  KnowledgeBaseArticle,
+  ForumPost,
+  ForumReply,
+  Task,
+  // Data Analytics Types
+  ProductionDataPoint,
+  PriceCorrelation,
+  ExportData,
+  MarketSentiment,
+  HistoricalPricePoint,
+  MineralHistory,
+  ForecastDataPoint,
+  // Logistics Types
+  Shipment,
+  ShipmentStatus,
+  // Utility Types
+  PaginationMeta,
+  PaginatedResponse,
+} from '../types';
 

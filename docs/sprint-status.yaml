@@ -55,8 +55,8 @@ development_status:
   1-8-typescript-types-data-models: done
   1-9-constants-initial-dummy-data: done
   1-10-responsive-design-foundation: done
-  1-11-test-framework-setup-configuration: ready-for-dev
-  1-12-cicd-pipeline-setup-configuration: backlog
+  1-11-test-framework-setup-configuration: done
+  1-12-cicd-pipeline-setup-configuration: review
   epic-1-retrospective: optional
 
   # Epic 2: User Onboarding & Authentication

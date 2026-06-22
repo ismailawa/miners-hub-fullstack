@@ -31,7 +31,7 @@ export const getDatabaseConfig = (
             rejectUnauthorized: false,
           }
         : false,
-    synchronize: false, // Use migrations instead
+    synchronize: configService.get<string>('NODE_ENV') === 'development',
     logging: configService.get<string>('NODE_ENV') === 'development',
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
     migrations: [__dirname + '/../../migrations/*{.ts,.js}'],

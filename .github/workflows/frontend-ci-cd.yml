@@ -38,6 +38,11 @@ jobs:
         working-directory: ./miners-hub-frontend
         run: npx tsc --noEmit
 
+      - name: Security audit
+        working-directory: ./miners-hub-frontend
+        run: npm audit --audit-level=moderate || true
+        continue-on-error: true
+
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest

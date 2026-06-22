@@ -16,6 +16,11 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
+  // Increase payload limit for base64 document uploads
+  const express = require('express');
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
   // Global prefix for API routes
   app.setGlobalPrefix('api');
 

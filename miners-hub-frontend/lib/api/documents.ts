@@ -1,86 +1,71 @@
 /**
  * Documents API Service
- * Handles all document-related API calls
+ * 
+ * Placeholder service for document upload/download endpoints.
+ * To be implemented in future stories.
  */
 
-import { get, post, del } from "./client";
-import type { Document } from "@/lib/types";
-
-// Re-export for convenience
-export type { Document } from "@/lib/types";
+import apiClient from './client';
+import type { Document, DocumentType } from '../types';
 
 /**
  * Upload document
+ * TODO: Implement when document endpoints are available
  */
 export async function uploadDocument(
   file: File,
-  metadata?: Record<string, any>
+  metadata?: { type?: DocumentType; description?: string },
 ): Promise<Document> {
   const formData = new FormData();
-  formData.append("file", file);
-  if (metadata) {
-    formData.append("metadata", JSON.stringify(metadata));
-  }
+  formData.append('file', file);
+  if (metadata?.type) formData.append('type', metadata.type);
+  if (metadata?.description)
+    formData.append('description', metadata.description);
 
-  // Use apiRequest directly for file uploads (FormData)
-  const { apiRequest } = await import("./client");
-  const { getAccessToken } = await import("./token");
-  
-  const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-  const token = getAccessToken();
-
-  const headers = new Headers();
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
-  // Don't set Content-Type, let browser set it with boundary for FormData
-
-  const response = await fetch(`${API_BASE_URL}/documents`, {
-    method: "POST",
-    body: formData,
-    headers,
+  return apiClient.post<Document>('/api/documents', formData, {
+    headers: {}, // Let browser set Content-Type for FormData
   });
-
-  if (!response.ok) {
-    throw new Error("Upload failed");
-  }
-
-  return response.json();
 }
 
 /**
- * Download document
+ * Get document by ID
+ * TODO: Implement when document endpoints are available
  */
-export async function downloadDocument(id: string): Promise<Blob> {
-  const { apiRequest } = await import("./client");
-  const { getAccessToken } = await import("./token");
-  
-  const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-  const token = getAccessToken();
+export async function getDocument(id: string): Promise<Document> {
+  return apiClient.get<Document>(`/api/documents/${id}`);
+}
 
-  const headers = new Headers();
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
+/**
+ * Download document file
+ * TODO: Implement when document endpoints are available
+ */
+export async function downloadDocumentFile(id: string): Promise<Blob> {
+  return apiClient.get<Blob>(`/api/documents/${id}/file`, {
+    skipErrorHandling: true, // Handle blob response manually
+  }) as Promise<Blob>;
+}
 
-  const response = await fetch(`${API_BASE_URL}/documents/${id}/download`, {
-    method: "GET",
-    headers,
-  });
-
-  if (!response.ok) {
-    throw new Error("Download failed");
-  }
-
-  return response.blob();
+/**
+ * Download document (helper function)
+ * TODO: Implement when document endpoints are available
+ */
+export async function downloadDocument(id: string): Promise<void> {
+  const blob = await downloadDocumentFile(id);
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `document-${id}`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
 }
 
 /**
  * Delete document
+ * TODO: Implement when document endpoints are available
  */
 export async function deleteDocument(id: string): Promise<void> {
-  return del<void>(`/documents/${id}`);
+  return apiClient.delete<void>(`/api/documents/${id}`);
 }
 

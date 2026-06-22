@@ -1,180 +1,100 @@
-"use client";
+import React, { useRef, useEffect } from 'react';
+import { useNotification } from '../contexts/NotificationContext';
+import { Notification } from '../lib/types';
 
-import { useState } from "react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { Bell, Check, CheckCheck } from "lucide-react";
-import { useNotifications } from "@/lib/contexts/NotificationContext";
-import { useAuth } from "@/lib/contexts/AuthContext";
-import { formatDistanceToNow } from "date-fns";
+const timeSince = (date: string) => {
+    const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
+    if (seconds < 60) return "just now";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+};
 
-export function NotificationCenter() {
-  const { isAuthenticated } = useAuth();
-  const {
-    notifications,
-    unreadCount,
-    isLoading,
-    markAsRead,
-    markAllAsRead,
-  } = useNotifications();
-  const [isOpen, setIsOpen] = useState(false);
+const icons = {
+    success: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+    info: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+    warning: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
+    error: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+};
 
-  // Don't show notification center if not authenticated
-  if (!isAuthenticated) {
-    return null;
-  }
+const colors = {
+    success: 'text-green-400',
+    info: 'text-blue-400',
+    warning: 'text-yellow-400',
+    error: 'text-red-400',
+};
 
-  const unreadNotifications = notifications.filter((n) => !n.read);
-  const readNotifications = notifications.filter((n) => n.read);
-
-  const handleMarkAsRead = async (id: string) => {
-    await markAsRead(id);
-  };
-
-  const handleMarkAllAsRead = async () => {
-    await markAllAsRead();
-  };
-
-  return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5 text-text" />
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </span>
-          )}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="w-80 !bg-primary-light !border-border max-h-[500px] overflow-y-auto"
-      >
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h3 className="font-semibold text-text">Notifications</h3>
-          {unreadCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleMarkAllAsRead}
-              className="text-xs !text-accent hover:!text-accent hover:!bg-transparent"
-            >
-              <CheckCheck className="h-3 w-3 mr-1" />
-              Mark all read
-            </Button>
-          )}
+const NotificationItem: React.FC<{ notification: Notification; onClick: () => void }> = ({ notification, onClick }) => (
+    <button onClick={onClick} className="w-full text-left p-3 hover:bg-border/50 rounded-lg flex items-start space-x-3">
+        <div className={`mt-1 flex-shrink-0 ${colors[notification.type]}`}>{icons[notification.type]}</div>
+        <div className="flex-1">
+            <p className="text-sm font-semibold text-text-primary">{notification.title}</p>
+            <p className="text-sm text-text-secondary">{notification.message}</p>
+            <p className="text-xs text-text-muted mt-1">{timeSince(notification.timestamp)}</p>
         </div>
+        {!notification.read && <div className="mt-1 w-2.5 h-2.5 bg-accent rounded-full flex-shrink-0"></div>}
+    </button>
+);
 
-        {isLoading ? (
-          <div className="p-4 text-center text-text/60 text-sm">
-            Loading notifications...
-          </div>
-        ) : notifications.length === 0 ? (
-          <div className="p-4 text-center text-text/60 text-sm">
-            No notifications
-          </div>
-        ) : (
-          <>
-            {/* Unread notifications */}
-            {unreadNotifications.length > 0 && (
-              <div className="py-2">
-                {unreadNotifications.map((notification) => (
-                  <DropdownMenuItem
-                    key={notification.id}
-                    className="!bg-transparent hover:!bg-primary/50 !p-3 !cursor-pointer"
-                    onClick={() => handleMarkAsRead(notification.id)}
-                  >
-                    <div className="flex items-start gap-3 w-full">
-                      <div
-                        className={`mt-1 h-2 w-2 rounded-full ${
-                          notification.notificationType === "error"
-                            ? "bg-red-500"
-                            : notification.notificationType === "warning"
-                            ? "bg-yellow-500"
-                            : notification.notificationType === "success"
-                            ? "bg-green-500"
-                            : "bg-blue-500"
-                        }`}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-text text-sm">
-                          {notification.title}
-                        </p>
-                        <p className="text-text/70 text-xs mt-1">
-                          {notification.message}
-                        </p>
-                        <p className="text-text/50 text-xs mt-1">
-                          {formatDistanceToNow(new Date(notification.createdAt), {
-                            addSuffix: true,
-                          })}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 !text-text/50 hover:!text-accent"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleMarkAsRead(notification.id);
-                        }}
-                      >
-                        <Check className="h-3 w-3" />
-                      </Button>
+
+const NotificationCenter: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+    const { notifications, markAsRead, markAllAsRead, unreadCount, isLoading, error, clearError, refreshNotifications } = useNotification();
+    const centerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (centerRef.current && !centerRef.current.contains(event.target as Node)) {
+                onClose();
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [onClose]);
+
+    return (
+        <div ref={centerRef} className="absolute top-full right-0 mt-2 w-80 md:w-96 bg-secondary rounded-lg shadow-2xl border border-border z-50 flex flex-col max-h-[80vh]">
+            <div className="p-3 flex justify-between items-center border-b border-border">
+                <h3 className="font-bold text-text-primary">Notifications</h3>
+                <div className="flex items-center gap-2">
+                    {unreadCount > 0 && <button onClick={markAllAsRead} className="text-xs font-semibold text-accent hover:underline">Mark all as read</button>}
+                    <button onClick={refreshNotifications} className="text-xs text-text-muted hover:text-text-primary" aria-label="Refresh notifications">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            {error && (
+                <div className="p-3 bg-red-500/10 border-b border-red-500/20 flex items-center justify-between">
+                    <p className="text-sm text-red-400">{error}</p>
+                    <button onClick={clearError} className="text-red-400 hover:text-red-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            )}
+            <div className="flex-1 overflow-y-auto p-2 no-scrollbar">
+                {isLoading ? (
+                    <div className="text-center py-16">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto"></div>
+                        <p className="mt-4 text-sm text-text-muted">Loading notifications...</p>
                     </div>
-                  </DropdownMenuItem>
-                ))}
-              </div>
-            )}
-
-            {/* Separator if both unread and read */}
-            {unreadNotifications.length > 0 && readNotifications.length > 0 && (
-              <DropdownMenuSeparator className="!bg-border" />
-            )}
-
-            {/* Read notifications */}
-            {readNotifications.length > 0 && (
-              <div className="py-2">
-                {readNotifications.slice(0, 5).map((notification) => (
-                  <DropdownMenuItem
-                    key={notification.id}
-                    className="!bg-transparent hover:!bg-primary/30 !p-3 !cursor-pointer opacity-70"
-                  >
-                    <div className="flex items-start gap-3 w-full">
-                      <div className="mt-1 h-2 w-2 rounded-full bg-text/30" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-text/70 text-sm">
-                          {notification.title}
-                        </p>
-                        <p className="text-text/50 text-xs mt-1">
-                          {notification.message}
-                        </p>
-                        <p className="text-text/40 text-xs mt-1">
-                          {formatDistanceToNow(new Date(notification.createdAt), {
-                            addSuffix: true,
-                          })}
-                        </p>
-                      </div>
+                ) : notifications.length > 0 ? (
+                    <div className="space-y-1">
+                        {notifications.map(n => <NotificationItem key={n.id} notification={n} onClick={() => markAsRead(n.id)} />)}
                     </div>
-                  </DropdownMenuItem>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
+                ) : (
+                    <div className="text-center py-16 text-text-muted">
+                        <p>No notifications yet.</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
 
+export default NotificationCenter;

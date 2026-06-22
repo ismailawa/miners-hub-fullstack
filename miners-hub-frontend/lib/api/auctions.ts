@@ -1,35 +1,34 @@
 /**
  * Auctions API Service
- * Handles all auction-related API calls
+ * 
+ * Placeholder service for auction-related endpoints.
+ * To be implemented in future stories.
  */
 
-import { get, post, patch } from "./client";
-import type { Auction, Bid } from "@/lib/types";
-
-// Re-export for convenience
-export type { Auction, Bid } from "@/lib/types";
+import apiClient from './client';
+import type { Auction, Bid } from '../types';
 
 /**
  * Get auction by ID
+ * TODO: Implement when auction endpoints are available
  */
 export async function getAuction(id: string): Promise<Auction> {
-  return get<Auction>(`/auctions/${id}`);
+  return apiClient.get<Auction>(`/api/auctions/${id}`);
 }
 
 /**
- * Place a bid
+ * Place bid on auction
+ * TODO: Implement when auction endpoints are available
  */
-export async function placeBid(
-  auctionId: string,
-  amount: number
-): Promise<Bid> {
-  return post<Bid>(`/auctions/${auctionId}/bids`, { amount });
+export async function placeBid(auctionId: string, amount: number): Promise<Bid> {
+  return apiClient.post<Bid>(`/api/auctions/${auctionId}/bids`, { amount });
 }
 
 /**
- * Get auction status
+ * Get auction bids
+ * TODO: Implement when auction endpoints are available
  */
-export async function getAuctionStatus(id: string): Promise<Auction> {
-  return get<Auction>(`/auctions/${id}/status`);
+export async function getAuctionBids(auctionId: string): Promise<Bid[]> {
+  return apiClient.get<Bid[]>(`/api/auctions/${auctionId}/bids`);
 }
 

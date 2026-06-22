@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { DataSource, EntityTarget, Repository } from 'typeorm';
 import { User } from '../../src/entities/user.entity';
 import { Listing } from '../../src/entities/listing.entity';
@@ -5,13 +6,13 @@ import { Auction } from '../../src/entities/auction.entity';
 
 /**
  * Database Helper
- * 
+ *
  * Utilities for database operations in tests
  */
 
 /**
  * Get repository for an entity
- * 
+ *
  * @param dataSource - TypeORM DataSource
  * @param entity - Entity class
  * @returns Repository instance
@@ -25,7 +26,7 @@ export function getRepository<T>(
 
 /**
  * Clean up test data from database
- * 
+ *
  * @param dataSource - TypeORM DataSource
  * @param entities - Array of entity classes to clean
  */
@@ -35,7 +36,7 @@ export async function cleanupTestData(
 ): Promise<void> {
   // Delete in reverse order to respect foreign key constraints
   const reversedEntities = [...entities].reverse();
-  
+
   for (const entity of reversedEntities) {
     const repository = getRepository(dataSource, entity);
     await repository.delete({});
@@ -44,10 +45,12 @@ export async function cleanupTestData(
 
 /**
  * Clean up all test data (common entities)
- * 
+ *
  * @param dataSource - TypeORM DataSource
  */
-export async function cleanupAllTestData(dataSource: DataSource): Promise<void> {
+export async function cleanupAllTestData(
+  dataSource: DataSource,
+): Promise<void> {
   // Order matters: delete child entities first
   await cleanupTestData(dataSource, [
     Auction,
@@ -59,7 +62,7 @@ export async function cleanupAllTestData(dataSource: DataSource): Promise<void> 
 
 /**
  * Save test entity to database
- * 
+ *
  * @param dataSource - TypeORM DataSource
  * @param entity - Entity class
  * @param data - Entity data
@@ -77,7 +80,7 @@ export async function saveTestEntity<T>(
 
 /**
  * Find test entity by ID
- * 
+ *
  * @param dataSource - TypeORM DataSource
  * @param entity - Entity class
  * @param id - Entity ID
@@ -94,7 +97,7 @@ export async function findTestEntityById<T>(
 
 /**
  * Find all test entities
- * 
+ *
  * @param dataSource - TypeORM DataSource
  * @param entity - Entity class
  * @returns Array of entities
@@ -109,7 +112,7 @@ export async function findAllTestEntities<T>(
 
 /**
  * Delete test entity by ID
- * 
+ *
  * @param dataSource - TypeORM DataSource
  * @param entity - Entity class
  * @param id - Entity ID
@@ -127,7 +130,7 @@ export async function deleteTestEntityById<T>(
 
 /**
  * Count test entities
- * 
+ *
  * @param dataSource - TypeORM DataSource
  * @param entity - Entity class
  * @returns Count of entities
@@ -142,7 +145,7 @@ export async function countTestEntities<T>(
 
 /**
  * Execute raw SQL query (use with caution)
- * 
+ *
  * @param dataSource - TypeORM DataSource
  * @param query - SQL query string
  * @param parameters - Query parameters
@@ -158,7 +161,7 @@ export async function executeRawQuery(
 
 /**
  * Truncate table (faster than delete, but resets auto-increment)
- * 
+ *
  * @param dataSource - TypeORM DataSource
  * @param tableName - Table name
  */
@@ -166,12 +169,14 @@ export async function truncateTable(
   dataSource: DataSource,
   tableName: string,
 ): Promise<void> {
-  await dataSource.query(`TRUNCATE TABLE ${tableName} RESTART IDENTITY CASCADE`);
+  await dataSource.query(
+    `TRUNCATE TABLE ${tableName} RESTART IDENTITY CASCADE`,
+  );
 }
 
 /**
  * Begin transaction
- * 
+ *
  * @param dataSource - TypeORM DataSource
  * @returns Query runner with transaction
  */
@@ -184,7 +189,7 @@ export async function beginTransaction(dataSource: DataSource) {
 
 /**
  * Rollback transaction
- * 
+ *
  * @param queryRunner - Query runner with active transaction
  */
 export async function rollbackTransaction(queryRunner: any): Promise<void> {
@@ -194,11 +199,10 @@ export async function rollbackTransaction(queryRunner: any): Promise<void> {
 
 /**
  * Commit transaction
- * 
+ *
  * @param queryRunner - Query runner with active transaction
  */
 export async function commitTransaction(queryRunner: any): Promise<void> {
   await queryRunner.commitTransaction();
   await queryRunner.release();
 }
-

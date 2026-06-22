@@ -1,12 +1,26 @@
 /**
  * Authentication API Service
- * Handles all authentication-related API calls
+ * 
+ * Refactored to use centralized API client.
+ * Maintains backward compatibility with existing code.
  */
 
-import { post, get } from "./client";
-import { storeTokens } from "./token";
-import type { User, UserRole } from "@/lib/types";
-import { ApiError } from "./types";
+import apiClient from './client';
+import { setTokens, removeTokens } from './token';
+import type { ApiError } from './errors';
+import type { User, UserRole } from '../types';
+
+// Re-export token utilities for backward compatibility
+export {
+  getAccessToken,
+  getRefreshToken,
+  setTokens,
+  removeTokens,
+  hasValidToken,
+} from './token';
+
+// Re-export types for backward compatibility
+export type { User, UserRole } from '../types';
 
 export interface LoginRequest {
   email: string;
@@ -14,66 +28,72 @@ export interface LoginRequest {
 }
 
 export interface RegisterRequest {
+  name: string;
   email: string;
   password: string;
-  role: UserRole;
 }
 
 export interface AuthResponse {
   accessToken: string;
-  refreshToken?: string;
+  refreshToken: string;
   user: User;
 }
 
-// Re-export types for backward compatibility
-export type { User } from "@/lib/types";
-export type { ApiError } from "./types";
-
-// Re-export token functions for backward compatibility
-export {
-  getAccessToken,
-  getRefreshToken,
-  storeTokens,
-  removeTokens,
-} from "./token";
+// Re-export ApiError for backward compatibility
+export type { ApiError } from './errors';
 
 /**
- * Login user
+ * Login
  */
-export async function login(credentials: LoginRequest): Promise<AuthResponse> {
-  const response = await post<AuthResponse>("/auth/login", credentials, {
-    skipAuth: true,
+export async function login(
+  email: string,
+  password: string,
+): Promise<AuthResponse> {
+  const response = await apiClient.post<any>('/api/auth/login', {
+    email,
+    password,
   });
 
-  storeTokens(response.accessToken, response.refreshToken);
-  return response;
+  if (response.user?.verificationStatus && !response.user.status) {
+    response.user.status = response.user.verificationStatus;
+  }
+
+  setTokens(response.accessToken, response.refreshToken);
+  return response as AuthResponse;
 }
 
 /**
- * Register new user
+ * Register
  */
 export async function register(
-  data: RegisterRequest
+  name: string,
+  email: string,
+  password: string,
 ): Promise<AuthResponse> {
-  const response = await post<AuthResponse>("/auth/register", data, {
-    skipAuth: true,
+  const response = await apiClient.post<any>('/api/auth/register', {
+    name,
+    email,
+    password,
   });
 
-  storeTokens(response.accessToken, response.refreshToken);
-  return response;
+  if (response.user?.verificationStatus && !response.user.status) {
+    response.user.status = response.user.verificationStatus;
+  }
+
+  setTokens(response.accessToken, response.refreshToken);
+  return response as AuthResponse;
 }
 
 /**
- * Logout user
+ * Logout
  */
 export async function logout(): Promise<void> {
   try {
-    await post("/auth/logout", {});
+    await apiClient.post('/api/auth/logout');
   } catch (error) {
-    // Even if logout fails on server, clear local tokens
-    console.error("Logout error:", error);
+    // Continue with logout even if API call fails
+    console.error('Logout API call failed:', error);
   } finally {
-    const { removeTokens } = await import("./token");
     removeTokens();
   }
 }
@@ -81,26 +101,37 @@ export async function logout(): Promise<void> {
 /**
  * Get current user (token validation)
  */
-export async function getCurrentUser(): Promise<User> {
-  return get<User>("/auth/me");
+export async function getCurrentUser(): Promise<AuthResponse['user']> {
+  const response = await apiClient.get<{ user: any }>(
+    '/api/auth/me',
+  );
+  if (response.user.verificationStatus && !response.user.status) {
+    response.user.status = response.user.verificationStatus;
+  }
+  return response.user as AuthResponse['user'];
 }
 
 /**
  * Refresh access token
  */
-export async function refreshToken(): Promise<AuthResponse> {
-  const { getRefreshToken, storeTokens } = await import("./token");
+export async function refreshToken(): Promise<string> {
+  const { getRefreshToken, setTokens } = await import('./token');
   const refreshTokenValue = getRefreshToken();
+  
   if (!refreshTokenValue) {
-    throw new Error("No refresh token available");
+    throw { message: 'No refresh token available', status: 401 } as ApiError;
   }
 
-  const response = await post<AuthResponse>(
-    "/auth/refresh",
+  const response = await apiClient.post<{ accessToken: string }>(
+    '/api/auth/refresh',
     { refreshToken: refreshTokenValue },
-    { skipAuth: true }
   );
 
-  storeTokens(response.accessToken, response.refreshToken);
-  return response;
+  // Update access token
+  const currentRefreshToken = getRefreshToken();
+  if (currentRefreshToken) {
+    setTokens(response.accessToken, currentRefreshToken);
+  }
+
+  return response.accessToken;
 }
