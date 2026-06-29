@@ -13,7 +13,11 @@ const NavLink: React.FC<{ href: string; children: React.ReactNode; onClick?: (e:
 );
 
 const ThemeToggle: React.FC = () => {
-    const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'));
+    const [isDark, setIsDark] = useState(false);
+
+    useEffect(() => {
+        setIsDark(document.documentElement.classList.contains('dark'));
+    }, []);
 
     const toggleTheme = () => {
         if (isDark) {

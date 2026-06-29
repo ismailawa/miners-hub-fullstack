@@ -1,16 +1,24 @@
-import { Controller, Get, Patch, Param, Body, UseGuards, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole, VerificationStatus } from '../entities/user.entity';
 import { ListingStatus } from '../entities/listing.entity';
+import { CreateEventDto, UpdateEventDto } from '../events/events.dto';
+import { OrderStatus } from '../entities/order.entity';
+import { DocumentReviewStatus, DocumentType } from '../entities/document.entity';
+import { ReviewDocumentDto } from '../documents/documents.dto';
+import { EscrowService } from '../escrow/escrow.service';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly escrowService: EscrowService,
+  ) {}
 
   @Get('users')
   async getUsers(@Query('status') status?: VerificationStatus) {
@@ -36,5 +44,62 @@ export class AdminController {
     @Body('status') status: ListingStatus,
   ) {
     return this.adminService.updateListingStatus(id, status);
+  }
+
+  @Get('orders')
+  async getOrders(@Query('status') status?: OrderStatus) {
+    return this.adminService.getOrders(status);
+  }
+
+  @Get('orders/:id')
+  async getOrder(@Param('id') id: string) {
+    return this.adminService.getOrder(id);
+  }
+
+  @Post('orders/:id/escrow/release')
+  async releaseEscrow(@Param('id') id: string, @Request() req: any) {
+    return this.escrowService.releaseEscrow(id, req.user.id);
+  }
+
+  @Post('orders/:id/escrow/refund')
+  async refundEscrow(@Param('id') id: string, @Request() req: any) {
+    return this.escrowService.refundEscrow(id, req.user.id);
+  }
+
+  @Get('documents')
+  async getDocuments(
+    @Query('status') status?: DocumentReviewStatus,
+    @Query('type') type?: DocumentType,
+  ) {
+    return this.adminService.getDocuments(status, type);
+  }
+
+  @Patch('documents/:id/review')
+  async reviewDocument(
+    @Param('id') id: string,
+    @Body() dto: ReviewDocumentDto,
+    @Request() req: any,
+  ) {
+    return this.adminService.reviewDocument(id, req.user.id, dto);
+  }
+
+  @Get('events')
+  async getEvents() {
+    return this.adminService.getEvents();
+  }
+
+  @Post('events')
+  async createEvent(@Body() dto: CreateEventDto) {
+    return this.adminService.createEvent(dto);
+  }
+
+  @Patch('events/:id')
+  async updateEvent(@Param('id') id: string, @Body() dto: UpdateEventDto) {
+    return this.adminService.updateEvent(id, dto);
+  }
+
+  @Delete('events/:id')
+  async deleteEvent(@Param('id') id: string) {
+    return this.adminService.deleteEvent(id);
   }
 }

@@ -105,6 +105,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const adminNavItems: NavItem[] = currentUser?.role === 'admin' ? [
         { name: 'User Management', href: '/admin/users', icon: Icons.Profile },
         { name: 'Listing Approvals', href: '/admin/listings', icon: Icons.Listings },
+        { name: 'Orders', href: '/admin/orders', icon: Icons.Orders },
+        { name: 'KYC Documents', href: '/admin/documents', icon: Icons.Contracts },
+        { name: 'Events', href: '/admin/events', icon: Icons.Tasks },
     ] : [];
 
     const navSections = [
@@ -126,6 +129,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         '/marketplace': 'Marketplace',
         '/admin/users': 'User Management',
         '/admin/listings': 'Listing Approvals',
+        '/admin/orders': 'Orders',
+        '/admin/documents': 'KYC Documents',
+        '/admin/events': 'Events',
     };
     const pageTitle = pageTitles[pathname || ''] || (pathname?.split('/').pop()?.replace(/-/g, ' ') || 'Dashboard');
 

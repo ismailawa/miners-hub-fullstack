@@ -31,8 +31,9 @@ export const getDatabaseConfig = (
             rejectUnauthorized: false,
           }
         : false,
-    synchronize: configService.get<string>('NODE_ENV') === 'development',
+    synchronize: configService.get<string>('TYPEORM_SYNC') === 'true',
     logging: configService.get<string>('NODE_ENV') === 'development',
+    autoLoadEntities: true,
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
     migrations: [__dirname + '/../../migrations/*{.ts,.js}'],
     migrationsRun: false,

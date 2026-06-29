@@ -11,6 +11,7 @@ services:
       - "3001:3001"
     environment:
       - NODE_ENV=development
+      - TYPEORM_SYNC=true
       - PORT=3001
       - FRONTEND_URL=http://localhost:3000
       # Database configuration
@@ -20,9 +21,9 @@ services:
       - DB_PASSWORD=minershub_password
       - DB_DATABASE=minershub
       - DATABASE_URL=postgresql://minershub:minershub_password@postgres:5432/minershub
-      # Supabase configuration (if using)
-      - SUPABASE_URL=${SUPABASE_URL:-}
-      - SUPABASE_KEY=${SUPABASE_KEY:-}
+      # The Supabase configuration is now loaded exclusively from env_file below
+    env_file:
+      - ./miners-hub-backend/.env
     volumes:
       - ./miners-hub-backend:/app
       - /app/node_modules

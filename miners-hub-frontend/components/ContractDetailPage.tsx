@@ -1,29 +1,33 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
-import { Contract, ContractStatus } from '../lib/types';
+import { getContract, signContract, updateContractStatus, BackendContract } from '../lib/api/contracts';
 import SignaturePad, { SignaturePadHandles } from './SignaturePad';
 
 const ContractDetailPage: React.FC = () => {
     const { currentUser, pagePayload, setPage } = useAuth();
     const { addNotification } = useNotification();
-    const contractId = pagePayload && 'contractId' in pagePayload ? pagePayload.contractId : undefined;
-    const [contract, setContract] = useState<Contract | null>(null);
+    const contractId = pagePayload && 'contractId' in pagePayload ? pagePayload.contractId as string : undefined;
+    const [contract, setContract] = useState<BackendContract | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isUpdating, setIsUpdating] = useState(false);
     const signaturePadRef = useRef<SignaturePadHandles>(null);
 
-    const getStatusChip = (status: ContractStatus) => {
-        switch (status) {
-            case ContractStatus.PENDING_MINER_SIGNATURE:
-            case ContractStatus.PENDING_INVESTOR_SIGNATURE:
-                return <span className="bg-yellow-500/20 text-yellow-400 text-sm font-semibold px-3 py-1 rounded-full">Pending Signature</span>;
-            case ContractStatus.ACTIVE:
-                return <span className="bg-green-500/20 text-green-400 text-sm font-semibold px-3 py-1 rounded-full">Active</span>;
-            case ContractStatus.REJECTED:
-                return <span className="bg-red-500/20 text-red-400 text-sm font-semibold px-3 py-1 rounded-full">Rejected</span>;
-            default:
-                return <span className="bg-gray-500/20 text-gray-400 text-sm font-semibold px-3 py-1 rounded-full">{status.replace('_', ' ')}</span>;
-        }
+    const getStatusChip = (status: string) => {
+        const map: Record<string, string> = {
+            pending: 'bg-orange-500/20 text-orange-400',
+            negotiating: 'bg-blue-500/20 text-blue-400',
+            pending_signatures: 'bg-yellow-500/20 text-yellow-400',
+            signed: 'bg-sky-500/20 text-sky-400',
+            active: 'bg-green-500/20 text-green-400',
+            completed: 'bg-green-700/20 text-green-300',
+            cancelled: 'bg-red-500/20 text-red-400',
+            rejected: 'bg-red-700/20 text-red-300',
+        };
+        const cls = map[status] ?? 'bg-gray-500/20 text-gray-400';
+        return <span className={`${cls} text-sm font-semibold px-3 py-1 rounded-full capitalize`}>{status.replace(/_/g, ' ')}</span>;
     };
     
     useEffect(() => {
@@ -31,84 +35,75 @@ const ContractDetailPage: React.FC = () => {
             setPage('home');
             return;
         }
-        try {
-            const allContracts: Contract[] = JSON.parse(localStorage.getItem('miners_hub_contracts') || '[]');
-            const foundContract = allContracts.find(c => c.id === contractId);
-            if (foundContract && (foundContract.minerId === currentUser.id || foundContract.investorId === currentUser.id)) {
-                setContract(foundContract);
-            } else {
-                setPage('profile', { initialTab: 'contracts' }); // Not authorized
-            }
-        } catch (error) {
-            console.error("Failed to load contract", error);
-        }
-        setIsLoading(false);
-    }, [currentUser, contractId, setPage]);
 
-    const updateContract = (updatedContract: Contract) => {
-        try {
-            const allContracts: Contract[] = JSON.parse(localStorage.getItem('miners_hub_contracts') || '[]');
-            const contractIndex = allContracts.findIndex(c => c.id === updatedContract.id);
-            if(contractIndex > -1) {
-                allContracts[contractIndex] = updatedContract;
-                localStorage.setItem('miners_hub_contracts', JSON.stringify(allContracts));
-                setContract(updatedContract);
+        const fetchContractDetail = async () => {
+            setIsLoading(true);
+            try {
+                const data = await getContract(contractId);
+                // Ensure user is authorized
+                if (data.party1Id !== currentUser.id && data.party2Id !== currentUser.id) {
+                    setPage('profile', { initialTab: 'contracts' });
+                    return;
+                }
+                setContract(data);
+            } catch (error) {
+                console.error("Failed to load contract", error);
+            } finally {
+                setIsLoading(false);
             }
-        } catch (error) {
-            console.error("Failed to update contract", error);
-        }
-    };
+        };
+
+        fetchContractDetail();
+    }, [currentUser, contractId, setPage]);
     
-    const handleSign = () => {
+    const handleSign = async () => {
         if (!contract || !currentUser) return;
         const signatureDataUrl = signaturePadRef.current?.toDataURL();
-        if(!signatureDataUrl || signatureDataUrl.length < 100) { // basic check for empty canvas
+        if(!signatureDataUrl || signatureDataUrl.length < 100) { 
              alert("Please provide your signature.");
             return;
         }
         
-        let updatedContract = { ...contract };
-        let nextStatus: Contract['status'] = contract.status;
-
-        const signature = {
-            userId: currentUser.id,
-            userName: currentUser.name,
-            signatureDataUrl,
-            signedAt: new Date().toISOString()
-        };
-
-        if (contract.status === ContractStatus.PENDING_MINER_SIGNATURE && currentUser.id === contract.minerId) {
-            updatedContract.minerSignature = signature;
-            nextStatus = ContractStatus.PENDING_INVESTOR_SIGNATURE;
-        } else if (contract.status === ContractStatus.PENDING_INVESTOR_SIGNATURE && currentUser.id === contract.investorId) {
-            updatedContract.investorSignature = signature;
-            nextStatus = ContractStatus.ACTIVE;
-        }
-
-        updatedContract.status = nextStatus;
-        updatedContract.updatedAt = new Date().toISOString();
-        updateContract(updatedContract);
-        addNotification({
-            userId: currentUser.id,
-            type: 'success',
-            title: 'Contract Signed',
-            message: `You have successfully signed the contract for ${contract.mineral}.`,
-            createdAt: new Date().toISOString(),
-        });
-    };
-
-    const handleReject = () => {
-         if (!contract || !currentUser) return;
-         if (window.confirm("Are you sure you want to reject this contract? This action cannot be undone.")) {
-            const updatedContract = { ...contract, status: ContractStatus.REJECTED, updatedAt: new Date().toISOString() };
-            updateContract(updatedContract);
+        setIsUpdating(true);
+        try {
+            const updated = await signContract(contract.id, { signatureData: signatureDataUrl });
+            setContract(updated);
+            
             addNotification({
                 userId: currentUser.id,
-                type: 'warning',
-                title: 'Contract Rejected',
-                message: `You have rejected the contract for ${contract.mineral}.`,
+                type: 'success',
+                title: 'Contract Signed',
+                message: `You have successfully signed the contract: ${contract.title}.`,
                 createdAt: new Date().toISOString(),
             });
+        } catch (error) {
+            console.error("Failed to sign contract", error);
+            alert("Failed to sign contract. Please try again.");
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const handleReject = async () => {
+         if (!contract || !currentUser) return;
+         if (window.confirm("Are you sure you want to reject this contract? This action cannot be undone.")) {
+            setIsUpdating(true);
+            try {
+                const updated = await updateContractStatus(contract.id, 'rejected');
+                setContract(updated);
+                addNotification({
+                    userId: currentUser.id,
+                    type: 'warning',
+                    title: 'Contract Rejected',
+                    message: `You have rejected the contract: ${contract.title}.`,
+                    createdAt: new Date().toISOString(),
+                });
+            } catch (error) {
+                console.error("Failed to reject contract", error);
+                alert("Failed to reject contract. Please try again.");
+            } finally {
+                setIsUpdating(false);
+            }
          }
     };
 
@@ -116,15 +111,18 @@ const ContractDetailPage: React.FC = () => {
         return <div className="pt-20 text-center">Loading contract...</div>;
     }
 
-    const canSign = (contract.status === ContractStatus.PENDING_MINER_SIGNATURE && currentUser?.id === contract.minerId) ||
-                    (contract.status === ContractStatus.PENDING_INVESTOR_SIGNATURE && currentUser?.id === contract.investorId);
+    const isParty1 = contract.party1Id === currentUser?.id;
+    const isParty2 = contract.party2Id === currentUser?.id;
+    
+    const canSign = contract.status === 'pending_signatures' &&
+        ((isParty1 && !contract.party1SignedAt) || (isParty2 && !contract.party2SignedAt));
 
-    const SignatureDisplay = ({ signature }: { signature?: Contract['minerSignature']}) => (
-        signature ? (
+    const SignatureDisplay = ({ signature, signedAt, partyName }: { signature?: string, signedAt?: string, partyName: string }) => (
+        signature && signedAt ? (
             <div className="mt-4">
-                <img src={signature.signatureDataUrl} alt="signature" className="h-16 bg-white p-2 rounded" />
-                <p className="text-sm text-text-primary mt-2">{signature.userName}</p>
-                <p className="text-xs text-text-muted">Signed on {new Date(signature.signedAt).toLocaleDateString()}</p>
+                <img src={signature} alt={`${partyName} signature`} className="h-16 bg-white p-2 rounded border border-border" />
+                <p className="text-sm text-text-primary mt-2 font-medium">{partyName}</p>
+                <p className="text-xs text-text-muted">Signed on {new Date(signedAt).toLocaleDateString()}</p>
             </div>
         ) : <p className="text-sm text-text-muted mt-4">Awaiting Signature</p>
     );
@@ -136,8 +134,8 @@ const ContractDetailPage: React.FC = () => {
                     <div className="p-8 border-b border-border">
                         <div className="flex justify-between items-start">
                             <div>
-                                <h1 className="text-2xl md:text-3xl font-bold text-text-primary">Contract Agreement</h1>
-                                <p className="text-sm text-text-muted">ID: {contract.id}</p>
+                                <h1 className="text-2xl md:text-3xl font-bold text-text-primary mb-2">{contract.title}</h1>
+                                <p className="text-sm text-text-muted font-mono">ID: {contract.id}</p>
                             </div>
                             {getStatusChip(contract.status)}
                         </div>
@@ -145,10 +143,14 @@ const ContractDetailPage: React.FC = () => {
                     
                     <div className="p-8">
                         <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm bg-primary p-4 rounded-md">
-                            <div><span className="font-semibold text-text-muted block">Miner</span>{contract.minerName}</div>
-                            <div><span className="font-semibold text-text-muted block">Investor</span>{contract.investorName}</div>
-                            <div><span className="font-semibold text-text-muted block">Mineral</span>{contract.mineral}</div>
-                            <div><span className="font-semibold text-text-muted block">Total</span>${(contract.pricePerUnit * contract.quantity).toLocaleString()}</div>
+                            <div><span className="font-semibold text-text-muted block">Party 1 (Proposer)</span>{contract.party1?.name}</div>
+                            <div><span className="font-semibold text-text-muted block">Party 2</span>{contract.party2?.name}</div>
+                            {contract.listing && (
+                                <>
+                                    <div><span className="font-semibold text-text-muted block">Mineral</span>{contract.listing.mineralType}</div>
+                                    <div><span className="font-semibold text-text-muted block">Value</span>₦{contract.value ? contract.value.toLocaleString() : 'N/A'}</div>
+                                </>
+                            )}
                         </div>
 
                         <h2 className="text-lg font-semibold text-text-primary mb-4">Terms and Conditions</h2>
@@ -158,12 +160,12 @@ const ContractDetailPage: React.FC = () => {
 
                         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-border pt-8">
                             <div>
-                                <h3 className="text-lg font-semibold text-text-primary">Miner Signature</h3>
-                                <SignatureDisplay signature={contract.minerSignature} />
+                                <h3 className="text-lg font-semibold text-text-primary">Proposer Signature</h3>
+                                <SignatureDisplay signature={contract.party1SignatureData} signedAt={contract.party1SignedAt} partyName={contract.party1?.name ?? 'Party 1'} />
                             </div>
                              <div>
-                                <h3 className="text-lg font-semibold text-text-primary">Investor Signature</h3>
-                                <SignatureDisplay signature={contract.investorSignature} />
+                                <h3 className="text-lg font-semibold text-text-primary">Counterparty Signature</h3>
+                                <SignatureDisplay signature={contract.party2SignatureData} signedAt={contract.party2SignedAt} partyName={contract.party2?.name ?? 'Party 2'} />
                             </div>
                         </div>
 
@@ -171,14 +173,16 @@ const ContractDetailPage: React.FC = () => {
                             <div className="mt-8 border-t border-border pt-8">
                                 <h3 className="text-lg font-semibold text-text-primary mb-2">Your Signature</h3>
                                 <p className="text-sm text-text-secondary mb-4">By signing below, you agree to all terms and conditions outlined in this contract.</p>
-                                <div className="h-48">
+                                <div className="h-48 border border-border rounded-lg overflow-hidden bg-white">
                                     <SignaturePad ref={signaturePadRef} />
                                 </div>
                                 <div className="flex items-center justify-between mt-4">
                                      <button onClick={() => signaturePadRef.current?.clear()} className="text-sm text-text-muted hover:text-text-primary">Clear Signature</button>
                                      <div className="flex space-x-2">
-                                        <button onClick={handleReject} className="bg-red-500/20 text-red-400 font-semibold py-2 px-5 rounded-md hover:bg-red-500/30">Reject</button>
-                                        <button onClick={handleSign} className="bg-green-500 text-white font-semibold py-2 px-5 rounded-md hover:bg-green-600">Accept & Sign</button>
+                                        <button onClick={handleReject} disabled={isUpdating} className="bg-red-500/20 text-red-400 font-semibold py-2 px-5 rounded-md hover:bg-red-500/30 disabled:opacity-50">Reject</button>
+                                        <button onClick={handleSign} disabled={isUpdating} className="bg-green-600 text-white font-semibold py-2 px-5 rounded-md hover:bg-green-500 disabled:opacity-50">
+                                            {isUpdating ? 'Saving...' : 'Accept & Sign'}
+                                        </button>
                                      </div>
                                 </div>
                             </div>

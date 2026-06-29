@@ -20,7 +20,11 @@ export class UsersService {
   ) {}
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { email } });
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.email = :email', { email })
+      .getOne();
   }
 
   async findById(id: string): Promise<User | null> {
@@ -31,6 +35,58 @@ export class UsersService {
     return this.usersRepository.findOne({ 
       where: { id },
       relations: ['miner', 'investor', 'documents']
+    });
+  }
+
+  async findVerifiedMiners() {
+    const miners = await this.minersRepository.find({
+      where: {
+        user: {
+          role: UserRole.MINER,
+          verificationStatus: VerificationStatus.VERIFIED,
+        },
+      },
+      relations: ['user', 'listings'],
+      order: { createdAt: 'DESC' },
+      take: 12,
+    });
+
+    return miners.map((miner) => {
+      const minerals = Array.from(
+        new Set(
+          (miner.listings || [])
+            .map((listing) => listing.mineralType)
+            .filter(Boolean),
+        ),
+      );
+      const displayMinerals =
+        minerals.length > 0
+          ? minerals
+          : [miner.industry, ...miner.certifications].filter(
+              (value): value is string => Boolean(value),
+            );
+
+      return {
+        id: miner.id,
+        userId: miner.userId,
+        name: miner.companyName || miner.user?.name || 'Verified Miner',
+        location: miner.location || miner.businessAddress || 'Nigeria',
+        minerals: displayMinerals.length > 0 ? displayMinerals : ['Minerals'],
+        rating: 4.8,
+        imageUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(
+          miner.companyName || miner.user?.name || 'Miner',
+        )}&background=d97706&color=fff`,
+        contactEmail: miner.user?.email || '',
+        history:
+          miner.businessAddress ||
+          miner.industry ||
+          `${miner.companyName || 'This miner'} is a verified mining operator on Miners Hub.`,
+        siteImages: [
+          `https://picsum.photos/seed/${miner.id}-site-1/600/400`,
+          `https://picsum.photos/seed/${miner.id}-site-2/600/400`,
+          `https://picsum.photos/seed/${miner.id}-site-3/600/400`,
+        ],
+      };
     });
   }
 

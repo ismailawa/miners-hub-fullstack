@@ -65,24 +65,32 @@ export { getProfile, updateProfile } from './users';
 
 // Export listing service
 export {
-  getListings,
-  getListing,
+  getPublishedListings,
+  getMyListings,
   createListing,
   updateListing,
   deleteListing,
+  mapBackendListingToFrontend,
+  mapBackendListingToAuction,
+  type BackendListing,
+  type CreateListingPayload,
+  type ListingFilterPayload,
 } from './listings';
 
 // Export auction service
-export { getAuction, placeBid, getAuctionBids } from './auctions';
+export { getActiveAuctions, getAuction, placeBid, getAuctionBids } from './auctions';
 
 // Export contract service
 export {
   getContracts,
   getContract,
-  createContractProposal,
+  proposeContract,
   updateContractStatus,
   signContract,
-  getContractHistory,
+  type BackendContract,
+  type ProposeContractPayload,
+  type SignContractPayload,
+  type UpdateContractStatusPayload,
 } from './contracts';
 
 // Export order service
@@ -90,7 +98,14 @@ export {
   getOrders,
   getOrder,
   createOrder,
+  confirmPayment,
+  initiateEscrowPayment,
   updateOrderStatus,
+  type BackendOrder,
+  type BackendEscrowTransaction,
+  type BackendPayoutAccount,
+  type CreateOrderPayload,
+  type UpdateOrderStatusPayload,
 } from './orders';
 
 // Export chat service
@@ -98,7 +113,8 @@ export {
   getChatThreads,
   getChatMessages,
   sendMessage,
-  createChatThread,
+  type BackendThread,
+  type BackendMessage,
 } from './chats';
 
 // Export document service
@@ -175,4 +191,3 @@ export type {
   PaginationMeta,
   PaginatedResponse,
 } from '../types';
-

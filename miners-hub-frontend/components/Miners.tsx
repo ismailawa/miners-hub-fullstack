@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { MINERS_DATA } from '../lib/constants/data';
 import { Miner } from '../lib/types';
 import { useAuth } from '../contexts/AuthContext';
+import { getVerifiedMiners } from '../lib/api/users';
 import MinerChatModal from './MinerChatModal';
 
 const StarRating: React.FC<{ rating: number }> = ({ rating }) => {
@@ -165,10 +165,29 @@ const MinerCard: React.FC<{ miner: Miner, onSelect: (miner: Miner) => void }> = 
 };
 
 const Miners: React.FC = () => {
-  const [miners] = useState<Miner[]>(MINERS_DATA);
+  const [miners, setMiners] = useState<Miner[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [selectedMiner, setSelectedMiner] = useState<Miner | null>(null);
   const { currentUser, setPage } = useAuth();
   const [chattingWith, setChattingWith] = useState<Miner | null>(null);
+
+  const fetchVerifiedMiners = async () => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const data = await getVerifiedMiners();
+      setMiners(data);
+    } catch {
+      setApiError('Failed to load verified miners. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void fetchVerifiedMiners();
+  }, []);
 
   const handleStartChat = (minerToChat: Miner) => {
     if (!currentUser) {
@@ -187,11 +206,38 @@ const Miners: React.FC = () => {
             <h2 className="text-3xl md:text-4xl font-extrabold text-text-primary">Credible & Verified Miners</h2>
             <p className="text-lg text-text-secondary mt-4 max-w-2xl mx-auto">Connect with trusted mining professionals and companies across Nigeria.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {miners.map((miner) => (
-              <MinerCard key={miner.id} miner={miner} onSelect={setSelectedMiner} />
-            ))}
-          </div>
+          {apiError && (
+            <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-lg text-center mb-8">
+              {apiError}
+              <button onClick={fetchVerifiedMiners} className="ml-3 underline">Retry</button>
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="bg-secondary rounded-lg overflow-hidden shadow-lg animate-pulse">
+                  <div className="w-full h-48 bg-border" />
+                  <div className="p-6 space-y-4">
+                    <div className="h-5 bg-border rounded w-2/3" />
+                    <div className="h-4 bg-border rounded w-1/2" />
+                    <div className="h-10 bg-border rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : miners.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              {miners.map((miner) => (
+                <MinerCard key={miner.id} miner={miner} onSelect={setSelectedMiner} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16 text-text-muted border border-dashed border-border rounded-lg">
+              <p className="text-lg font-semibold">No verified miners yet</p>
+              <p className="mt-1 text-sm">Verified miner profiles will appear here after admin approval.</p>
+            </div>
+          )}
         </div>
       </section>
       <MinerDetailModal miner={selectedMiner} onClose={() => setSelectedMiner(null)} onStartChat={handleStartChat} />

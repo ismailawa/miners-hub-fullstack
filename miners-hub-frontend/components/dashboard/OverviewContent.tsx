@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Listing, Contract, ContractStatus, Order, Task } from '../../lib/types';
-import { MARKETPLACE_LISTINGS_DATA, CONTRACTS_DATA } from '../../lib/constants/data';
+import { getMyListings, mapBackendListingToFrontend } from '../../lib/api/listings';
+import { getOrders, mapBackendOrderToOrder } from '../../lib/api/orders';
+import { getContracts } from '../../lib/api/contracts';
 import Link from 'next/link';
 
 const StatCard: React.FC<{ title: string; value: string | number | React.ReactNode; icon: React.ReactNode; link?: string }> = ({ title, value, icon, link }) => (
@@ -29,18 +31,42 @@ export const OverviewContent: React.FC = () => {
     const [myOrders, setMyOrders] = useState<Order[]>([]);
     const [myContracts, setMyContracts] = useState<Contract[]>([]);
     const [myTasks, setMyTasks] = useState<Task[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         if (!currentUser) return;
-        try {
-            const allListings: Listing[] = JSON.parse(localStorage.getItem('miners_hub_listings') || JSON.stringify(MARKETPLACE_LISTINGS_DATA));
-            setMyListings(allListings.filter(l => l.minerId === currentUser.id));
-            const allOrders: Order[] = JSON.parse(localStorage.getItem('miners_hub_orders') || '[]');
-            setMyOrders(allOrders.filter(o => o.buyerId === currentUser.id || o.sellerId === currentUser.id));
-            const allContracts: Contract[] = JSON.parse(localStorage.getItem('miners_hub_contracts') || JSON.stringify(CONTRACTS_DATA));
-            setMyContracts(allContracts.filter(c => c.minerId === currentUser.id || c.investorId === currentUser.id));
-            setMyTasks(currentUser.tasks || []);
-        } catch (e) { /* silent */ }
+        const fetchOverview = async () => {
+            setIsLoading(true);
+            try {
+                const [buyerOrders, sellerOrders, contracts] = await Promise.all([
+                    getOrders({ role: 'buyer', limit: 50 }),
+                    getOrders({ role: 'seller', limit: 50 }),
+                    getContracts({ limit: 50 }),
+                ]);
+
+                const mergedOrders = Array.from(
+                    new Map([...(buyerOrders.data || []), ...(sellerOrders.data || [])].map((order) => [order.id, order])).values(),
+                ).map(mapBackendOrderToOrder);
+                setMyOrders(mergedOrders as unknown as Order[]);
+                setMyContracts((contracts.data || []) as unknown as Contract[]);
+
+                if (currentUser.role === 'miner') {
+                    const listings = await getMyListings();
+                    setMyListings(listings.map(mapBackendListingToFrontend));
+                } else {
+                    setMyListings([]);
+                }
+                setMyTasks(currentUser.tasks || []);
+            } catch {
+                setMyOrders([]);
+                setMyContracts([]);
+                setMyListings([]);
+                setMyTasks(currentUser.tasks || []);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        void fetchOverview();
     }, [currentUser]);
 
     if (!currentUser) return null;
@@ -54,13 +80,14 @@ export const OverviewContent: React.FC = () => {
         }
     };
 
-    const activeContracts = myContracts.filter(c => c.status === ContractStatus.ACTIVE).length;
+    const activeContracts = myContracts.filter(c => ['active', 'signed', ContractStatus.ACTIVE].includes(c.status as string)).length;
     const pendingTasks = myTasks.filter(t => t.status === 'pending' || t.status === 'in-progress').length;
 
     return (
         <div>
             <h1 className="text-2xl font-bold text-text-primary mb-1">Account Overview</h1>
             <p className="text-text-muted mb-8">Welcome back, <span className="text-accent font-semibold">{currentUser.name}</span>.</p>
+            {isLoading && <p className="text-sm text-text-muted mb-4">Loading account activity...</p>}
 
             {!currentUser.onboardingComplete && (
                 <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-300 p-4 rounded-lg mb-8 flex items-center justify-between flex-wrap gap-4" role="alert">

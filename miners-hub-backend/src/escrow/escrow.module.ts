@@ -1,0 +1,21 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { EscrowTransaction } from '../entities/escrow-transaction.entity';
+import { SellerPayoutAccount } from '../entities/seller-payout-account.entity';
+import { Order } from '../entities/order.entity';
+import { User } from '../entities/user.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { EscrowController } from './escrow.controller';
+import { EscrowService } from './escrow.service';
+import { FlutterwaveService } from './flutterwave.service';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([EscrowTransaction, SellerPayoutAccount, Order, User]),
+    NotificationsModule,
+  ],
+  controllers: [EscrowController],
+  providers: [EscrowService, FlutterwaveService],
+  exports: [EscrowService],
+})
+export class EscrowModule {}

@@ -56,7 +56,7 @@ export class Contract {
   @JoinColumn({ name: 'party2_id' })
   party2!: User;
 
-  @Column({ name: 'listing_id', nullable: true })
+  @Column({ name: 'listing_id', type: 'uuid', nullable: true })
   @IsOptional()
   @IsUUID()
   listingId: string | null = null;

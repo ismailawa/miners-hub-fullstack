@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { FORUM_DATA, FORUM_CATEGORIES, FORUM_USERS } from '../lib/constants/data';
+import { FORUM_CATEGORIES } from '../lib/constants/data';
 import { ForumPost, ForumReply } from '../lib/types';
+import { createForumPost, createForumReply, getForumPosts } from '../lib/api/forum';
 import Pagination from './Pagination';
 
 const ForumPage: React.FC = () => {
@@ -11,71 +12,71 @@ const ForumPage: React.FC = () => {
     const [currentThread, setCurrentThread] = useState<ForumPost | null>(null);
     const [newPost, setNewPost] = useState({ title: '', content: '', category: 'general' });
     const [newReply, setNewReply] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
+    const [apiError, setApiError] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [activeCategory, setActiveCategory] = useState('all');
     const [currentPage, setCurrentPage] = useState(1);
     const postsPerPage = 5;
 
-    useEffect(() => {
+    const fetchPosts = async () => {
+        setIsLoading(true);
+        setApiError(null);
         try {
-            const storedPosts = localStorage.getItem('miners_hub_forum');
-            setPosts(storedPosts ? JSON.parse(storedPosts).sort((a: ForumPost, b: ForumPost) => new Date(b.date).getTime() - new Date(a.date).getTime()) : FORUM_DATA);
-        } catch (error) {
-            console.error('Failed to load forum posts from storage:', error);
-            setPosts(FORUM_DATA);
+            const data = await getForumPosts();
+            setPosts(data);
+            setCurrentThread((current) => current ? data.find(post => post.id === current.id) || current : current);
+        } catch {
+            setApiError('Failed to load forum posts. Please try again.');
+        } finally {
+            setIsLoading(false);
         }
+    };
+
+    useEffect(() => {
+        void fetchPosts();
     }, []);
 
-    const savePosts = (updatedPosts: ForumPost[]) => {
-        const sortedPosts = updatedPosts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        setPosts(sortedPosts);
-        localStorage.setItem('miners_hub_forum', JSON.stringify(sortedPosts));
-    };
-
-    const handleNewPostSubmit = (e: React.FormEvent) => {
+    const handleNewPostSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!currentUser) return;
-        const now = new Date().toISOString();
-        const post: ForumPost = {
-            id: `post-${Date.now()}`,
-            authorId: currentUser.id,
-            authorName: currentUser.name,
-            date: now,
-            createdAt: now,
-            replies: [],
-            tags: newPost.title.toLowerCase().split(' ').filter(tag => tag.length > 3),
-            ...newPost
-        };
-        const updatedPosts = [post, ...posts];
-        savePosts(updatedPosts);
-        setView('thread');
-        setCurrentThread(post);
-        setNewPost({ title: '', content: '', category: 'general' });
+        setIsSubmitting(true);
+        setApiError(null);
+        try {
+            const post = await createForumPost(newPost);
+            setPosts((current) => [post, ...current]);
+            setView('thread');
+            setCurrentThread(post);
+            setNewPost({ title: '', content: '', category: 'general' });
+        } catch {
+            setApiError('Failed to create post. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
     
-    const handleReplySubmit = (e: React.FormEvent) => {
+    const handleReplySubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!currentUser || !currentThread) return;
-        const now = new Date().toISOString();
-        const reply: ForumReply = {
-            id: `reply-${Date.now()}`,
-            postId: currentThread.id,
-            authorId: currentUser.id,
-            authorName: currentUser.name,
-            content: newReply,
-            date: now,
-            createdAt: now
-        };
-        const updatedPosts = posts.map(p => {
-            if (p.id === currentThread.id) {
-                return { ...p, replies: [...p.replies, reply] };
-            }
-            return p;
-        });
-        savePosts(updatedPosts);
-        setCurrentThread(updatedPosts.find(p => p.id === currentThread.id) || null);
-        setNewReply('');
+        setIsSubmitting(true);
+        try {
+            const reply: ForumReply = await createForumReply(currentThread.id, { content: newReply });
+            const updatedPosts = posts.map(p => {
+                if (p.id === currentThread.id) {
+                    return { ...p, replies: [...p.replies, reply] };
+                }
+                return p;
+            });
+            setPosts(updatedPosts);
+            setCurrentThread(updatedPosts.find(p => p.id === currentThread.id) || null);
+            setNewReply('');
+        } catch {
+            setApiError('Failed to post reply. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
     
     const timeSince = (date: string) => {
@@ -116,12 +117,13 @@ const ForumPage: React.FC = () => {
     const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
     const UserAvatar: React.FC<{ userId: string; className?: string }> = ({ userId, className = 'w-10 h-10' }) => {
-        const user = FORUM_USERS[userId] || { name: 'Unknown User' };
-        return user.imageUrl ? (
-            <img src={user.imageUrl} alt={user.name} className={`${className} rounded-full object-cover`} />
-        ) : (
+        const authorName =
+            posts.find(post => post.authorId === userId)?.authorName ||
+            posts.flatMap(post => post.replies).find(reply => reply.authorId === userId)?.authorName ||
+            'User';
+        return (
             <div className={`${className} rounded-full bg-primary flex items-center justify-center text-accent font-bold border-2 border-border`}>
-                {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                {authorName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
             </div>
         );
     };
@@ -202,7 +204,26 @@ const ForumPage: React.FC = () => {
                 </div>
             </div>
 
-            {currentPosts.length > 0 ? (
+            {apiError && (
+                <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-lg text-center mb-6">
+                    {apiError}
+                    <button onClick={fetchPosts} className="ml-3 underline">Retry</button>
+                </div>
+            )}
+
+            {isLoading ? (
+                <div className="space-y-4">
+                    {Array.from({ length: 4 }).map((_, index) => (
+                        <div key={index} className="bg-secondary p-4 rounded-lg border border-border flex items-start space-x-4 animate-pulse">
+                            <div className="w-10 h-10 rounded-full bg-border flex-shrink-0" />
+                            <div className="flex-grow space-y-3">
+                                <div className="h-5 bg-border rounded w-2/3" />
+                                <div className="h-4 bg-border rounded w-1/2" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : currentPosts.length > 0 ? (
                 <div className="space-y-4">
                     {currentPosts.map(post => <PostItem key={post.id} post={post} />)}
                 </div>
@@ -264,7 +285,9 @@ const ForumPage: React.FC = () => {
                                 <div className="flex-grow">
                                     <textarea value={newReply} onChange={e => setNewReply(e.target.value)} required rows={4} placeholder="Write a reply..." className="w-full bg-primary p-3 border border-border rounded-md focus:ring-2 focus:ring-accent focus:outline-none"></textarea>
                                     <div className="text-right mt-2">
-                                        <button type="submit" className="bg-accent text-accent-content font-semibold py-2 px-5 rounded-md hover:bg-yellow-400">Post Reply</button>
+                                        <button type="submit" disabled={isSubmitting} className="bg-accent text-accent-content font-semibold py-2 px-5 rounded-md hover:bg-yellow-400 disabled:opacity-60">
+                                            {isSubmitting ? 'Posting...' : 'Post Reply'}
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -292,8 +315,11 @@ const ForumPage: React.FC = () => {
                     <div><label className="block text-sm font-medium text-text-secondary">Category</label><select value={newPost.category} onChange={e => setNewPost({...newPost, category: e.target.value})} className="w-full bg-primary p-2 border border-border rounded-md mt-1">{Object.entries(FORUM_CATEGORIES).map(([key, {name}]) => <option key={key} value={key}>{name}</option>)}</select></div>
                     <div><label className="block text-sm font-medium text-text-secondary">Content</label><textarea value={newPost.content} onChange={e => setNewPost({...newPost, content: e.target.value})} required rows={8} className="w-full bg-primary p-2 border border-border rounded-md mt-1" /></div>
                 </div>
+                {apiError && <p className="text-sm text-red-400 mt-4">{apiError}</p>}
                 <div className="text-right mt-6">
-                    <button type="submit" className="bg-accent text-accent-content font-semibold py-2 px-6 rounded-md hover:bg-yellow-400">Create Post</button>
+                    <button type="submit" disabled={isSubmitting} className="bg-accent text-accent-content font-semibold py-2 px-6 rounded-md hover:bg-yellow-400 disabled:opacity-60">
+                        {isSubmitting ? 'Creating...' : 'Create Post'}
+                    </button>
                 </div>
             </form>
         </>

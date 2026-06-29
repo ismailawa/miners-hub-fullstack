@@ -374,7 +374,7 @@ class ApiClient {
   /**
    * POST request
    */
-  post<T>(endpoint: string, data?: Record<string, unknown> | unknown[] | FormData, config?: RequestConfig): Promise<T> {
+  post<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
     return this.request<T>(endpoint, {
       ...config,
       method: 'POST',
@@ -385,7 +385,7 @@ class ApiClient {
   /**
    * PUT request
    */
-  put<T>(endpoint: string, data?: Record<string, unknown> | unknown[] | FormData, config?: RequestConfig): Promise<T> {
+  put<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
     return this.request<T>(endpoint, {
       ...config,
       method: 'PUT',
@@ -396,7 +396,7 @@ class ApiClient {
   /**
    * PATCH request
    */
-  patch<T>(endpoint: string, data?: Record<string, unknown> | unknown[] | FormData, config?: RequestConfig): Promise<T> {
+  patch<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
     return this.request<T>(endpoint, {
       ...config,
       method: 'PATCH',
@@ -422,4 +422,3 @@ const apiClient = new ApiClient();
  */
 export { ApiClient, apiClient };
 export default apiClient;
-

@@ -1,72 +1,91 @@
 /**
  * Contracts API Service
- * 
- * Placeholder service for contract-related endpoints.
- * To be implemented in future stories.
+ *
+ * Connects to the backend /api/contracts endpoints.
  */
 
 import apiClient from './client';
-import type { Contract, ContractStatus, ContractSignature, PaginatedResponse } from '../types';
+import type { PaginatedResponse } from '../types';
+
+export interface BackendContract {
+  id: string;
+  party1Id: string;
+  party2Id: string;
+  listingId?: string;
+  title: string;
+  terms: string;
+  status: 'pending' | 'negotiating' | 'pending_signatures' | 'signed' | 'active' | 'completed' | 'cancelled' | 'rejected';
+  party1SignedAt?: string;
+  party2SignedAt?: string;
+  party1SignatureData?: string;
+  party2SignatureData?: string;
+  startDate?: string;
+  endDate?: string;
+  value?: number;
+  createdAt: string;
+  updatedAt: string;
+  party1?: { id: string; name: string; email: string };
+  party2?: { id: string; name: string; email: string };
+  listing?: { mineralType: string; price: number };
+}
+
+export interface ProposeContractPayload {
+  party2Id: string;
+  listingId?: string;
+  title: string;
+  terms: string;
+  value?: number;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface SignContractPayload {
+  signatureData: string; // base64 canvas data URL
+}
+
+export interface UpdateContractStatusPayload {
+  status: BackendContract['status'];
+}
 
 /**
- * Get all contracts
- * TODO: Implement when contract endpoints are available
+ * Get all contracts for the current user
  */
 export async function getContracts(params?: {
-  status?: ContractStatus;
+  status?: BackendContract['status'];
   limit?: number;
   offset?: number;
-}): Promise<Contract[] | PaginatedResponse<Contract>> {
-  const queryParams = new URLSearchParams();
-  if (params?.status) queryParams.append('status', params.status);
-  if (params?.limit) queryParams.append('limit', params.limit.toString());
-  if (params?.offset) queryParams.append('offset', params.offset.toString());
-
-  const query = queryParams.toString();
-  const endpoint = `/api/contracts${query ? `?${query}` : ''}`;
-  return apiClient.get<Contract[] | PaginatedResponse<Contract>>(endpoint);
+}): Promise<PaginatedResponse<BackendContract>> {
+  const query = new URLSearchParams();
+  if (params?.status) query.append('status', params.status);
+  if (params?.limit) query.append('limit', String(params.limit));
+  if (params?.offset) query.append('offset', String(params.offset));
+  return apiClient.get<PaginatedResponse<BackendContract>>(`/api/contracts?${query.toString()}`);
 }
 
 /**
- * Get contract by ID
- * TODO: Implement when contract endpoints are available
+ * Get a single contract by ID
  */
-export async function getContract(id: string): Promise<Contract> {
-  return apiClient.get<Contract>(`/api/contracts/${id}`);
+export async function getContract(id: string): Promise<BackendContract> {
+  return apiClient.get<BackendContract>(`/api/contracts/${id}`);
 }
 
 /**
- * Create contract proposal
- * TODO: Implement when contract endpoints are available
+ * Propose a new contract to another party
  */
-export async function createContractProposal(data: Partial<Contract>): Promise<Contract> {
-  return apiClient.post<Contract>('/api/contracts', data);
+export async function proposeContract(data: ProposeContractPayload): Promise<BackendContract> {
+  return apiClient.post<BackendContract>('/api/contracts', data);
 }
 
 /**
- * Update contract status
- * TODO: Implement when contract endpoints are available
+ * Sign a contract
  */
-export async function updateContractStatus(
-  id: string,
-  status: ContractStatus,
-): Promise<Contract> {
-  return apiClient.patch<Contract>(`/api/contracts/${id}/status`, { status });
+export async function signContract(id: string, payload: SignContractPayload): Promise<BackendContract> {
+  return apiClient.post<BackendContract>(`/api/contracts/${id}/sign`, payload);
 }
 
 /**
- * Sign contract
- * TODO: Implement when contract endpoints are available
+ * Update contract status (accept/reject/complete)
  */
-export async function signContract(id: string, signature: ContractSignature): Promise<Contract> {
-  return apiClient.post<Contract>(`/api/contracts/${id}/sign`, { signature });
+export async function updateContractStatus(id: string, status: BackendContract['status']): Promise<BackendContract> {
+  return apiClient.patch<BackendContract>(`/api/contracts/${id}/status`, { status });
 }
-
-/**
- * Get contract history
- * TODO: Implement when contract endpoints are available
- */
-export async function getContractHistory(id: string): Promise<Contract[]> {
-  return apiClient.get<Contract[]>(`/api/contracts/${id}/history`);
-}
-

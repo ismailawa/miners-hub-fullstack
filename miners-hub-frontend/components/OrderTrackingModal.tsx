@@ -46,8 +46,11 @@ const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ isOpen, onClose
     
     if (!isOpen || !order) return null;
     
-    const statuses = ['processing', 'shipped', 'in-transit', 'delivered'];
+    const statuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'];
     const currentStatusIndex = statuses.indexOf(order.status);
+    const history = order.statusHistory?.length
+        ? order.statusHistory
+        : [{ status: order.status, date: order.updatedAt || order.createdAt, location: '', notes: 'Current order status.' }];
 
     return (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
@@ -86,7 +89,7 @@ const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ isOpen, onClose
                     <div>
                         <h3 className="font-bold text-text-primary mb-4">Tracking History</h3>
                         <div className="relative">
-                            {order.statusHistory.slice().reverse().map((item, index) => (
+                            {history.slice().reverse().map((item, index) => (
                                 <HistoryItem key={index} item={item} isFirst={index === 0} />
                             ))}
                         </div>

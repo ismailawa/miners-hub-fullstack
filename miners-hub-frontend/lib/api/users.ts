@@ -7,6 +7,7 @@
 
 import apiClient from './client';
 import type { User, Miner, Investor } from '../types';
+import type { BackendPayoutAccount } from './orders';
 
 /**
  * Get user profile
@@ -32,6 +33,29 @@ export async function updateProfile(data: Partial<User>): Promise<User> {
   return response as User;
 }
 
+export interface PayoutAccountPayload {
+  bankName: string;
+  bankCode: string;
+  accountNumber: string;
+  accountName: string;
+  currency?: string;
+}
+
+export async function getPayoutAccount(): Promise<BackendPayoutAccount | null> {
+  return apiClient.get<BackendPayoutAccount | null>('/api/users/payout-account');
+}
+
+export async function savePayoutAccount(payload: PayoutAccountPayload): Promise<BackendPayoutAccount> {
+  return apiClient.post<BackendPayoutAccount>('/api/users/payout-account', payload);
+}
+
+/**
+ * Get verified miners shown on the public homepage.
+ */
+export async function getVerifiedMiners(): Promise<Miner[]> {
+  return apiClient.get<Miner[]>('/api/users/miners/verified', { skipAuth: true });
+}
+
 /**
  * Get miner profile
  * TODO: Implement when miner endpoints are available
@@ -47,4 +71,3 @@ export async function getMinerProfile(minerId: string): Promise<Miner> {
 export async function getInvestorProfile(investorId: string): Promise<Investor> {
   return apiClient.get<Investor>(`/api/investors/${investorId}`);
 }
-

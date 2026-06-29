@@ -1,7 +1,10 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
-import { Listing, Contract, ContractStatus } from '../lib/types';
+import { Listing } from '../lib/types';
+import { proposeContract } from '../lib/api/contracts';
 
 const ContractProposalPage: React.FC = () => {
     const { currentUser, pagePayload, setPage } = useAuth();
@@ -9,6 +12,7 @@ const ContractProposalPage: React.FC = () => {
     const listing: Listing | null = pagePayload && 'listing' in pagePayload && pagePayload.listing ? pagePayload.listing as Listing : null;
 
     const [terms, setTerms] = useState('');
+    const [title, setTitle] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
@@ -16,7 +20,8 @@ const ContractProposalPage: React.FC = () => {
             setPage('marketplace');
         } else {
             const totalCost = (listing.pricePerUnit * listing.quantity).toLocaleString();
-            const template = `This agreement is made for the sale of ${listing.quantity} ${listing.unit}(s) of ${listing.mineral} (${listing.grade}) at a price of $${listing.pricePerUnit.toLocaleString()} per ${listing.unit}, for a total of $${totalCost}.
+            setTitle(`Purchase Agreement: ${listing.quantity} ${listing.unit} of ${listing.mineral}`);
+            const template = `This agreement is made for the sale of ${listing.quantity} ${listing.unit}(s) of ${listing.mineral} (${listing.grade}) at a price of ₦${listing.pricePerUnit.toLocaleString()} per ${listing.unit}, for a total of ₦${totalCost}.
 
 1. **Payment:** Full payment to be made via Miners Hub Escrow service within 3 business days of this contract becoming active.
 2. **Shipment:** Seller (${listing.minerName}) agrees to ship the goods to the buyer's specified port within 14 days of payment confirmation.
@@ -33,32 +38,18 @@ const ContractProposalPage: React.FC = () => {
         return null; // Or a loading spinner while redirecting
     }
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
-        
-        const newContract: Contract = {
-            id: `contract-${Date.now()}`,
-            listingId: listing.id,
-            mineral: listing.mineral,
-            minerId: listing.minerId,
-            minerName: listing.minerName,
-            investorId: currentUser.id,
-            investorName: currentUser.name,
-            terms,
-            status: ContractStatus.PENDING_MINER_SIGNATURE,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            quantity: listing.quantity,
-            unit: listing.unit,
-            pricePerUnit: listing.pricePerUnit,
-        };
 
-        // Simulate saving to DB (localStorage)
         try {
-            const existingContracts = JSON.parse(localStorage.getItem('miners_hub_contracts') || '[]');
-            existingContracts.push(newContract);
-            localStorage.setItem('miners_hub_contracts', JSON.stringify(existingContracts));
+            await proposeContract({
+                party2Id: listing.minerId,
+                listingId: listing.id,
+                title: title,
+                terms: terms,
+                value: listing.pricePerUnit * listing.quantity,
+            });
 
             addNotification({
                 userId: currentUser.id,
@@ -74,7 +65,8 @@ const ContractProposalPage: React.FC = () => {
             }, 500);
 
         } catch (error) {
-            console.error("Failed to save contract", error);
+            console.error("Failed to propose contract", error);
+            alert("Failed to send proposal. Please try again.");
             setIsSubmitting(false);
         }
     };
@@ -94,11 +86,21 @@ const ContractProposalPage: React.FC = () => {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm bg-primary p-4 rounded-md mb-6">
                             <div><span className="font-semibold text-text-muted block">Seller</span>{listing.minerName}</div>
                             <div><span className="font-semibold text-text-muted block">Quantity</span>{listing.quantity} {listing.unit}s</div>
-                            <div><span className="font-semibold text-text-muted block">Price/Unit</span>${listing.pricePerUnit.toLocaleString()}</div>
-                            <div><span className="font-semibold text-text-muted block">Total</span>${(listing.pricePerUnit * listing.quantity).toLocaleString()}</div>
+                            <div><span className="font-semibold text-text-muted block">Price/Unit</span>₦{listing.pricePerUnit.toLocaleString()}</div>
+                            <div><span className="font-semibold text-text-muted block">Total</span>₦{(listing.pricePerUnit * listing.quantity).toLocaleString()}</div>
                         </div>
 
                         <form onSubmit={handleSubmit}>
+                             <div className="mb-4">
+                                <label htmlFor="title" className="block text-sm font-medium text-text-secondary mb-2">Contract Title</label>
+                                <input 
+                                    id="title" 
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    required 
+                                    className="w-full bg-primary p-3 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                                />
+                            </div>
                             <div>
                                 <label htmlFor="terms" className="block text-sm font-medium text-text-secondary mb-2">Terms and Conditions</label>
                                 <textarea 
@@ -107,12 +109,12 @@ const ContractProposalPage: React.FC = () => {
                                     onChange={(e) => setTerms(e.target.value)}
                                     required 
                                     rows={15}
-                                    className="w-full bg-primary p-3 border border-border rounded-md font-mono text-sm"
+                                    className="w-full bg-primary p-3 border border-border rounded-md font-mono text-sm focus:outline-none focus:ring-2 focus:ring-accent"
                                 />
                             </div>
 
                             <div className="mt-6 flex justify-end">
-                                <button type="submit" disabled={isSubmitting} className="bg-accent text-accent-content font-semibold py-2.5 px-6 rounded-md hover:bg-yellow-400 disabled:bg-border">
+                                <button type="submit" disabled={isSubmitting} className="bg-accent text-accent-content font-semibold py-2.5 px-6 rounded-md hover:bg-yellow-400 disabled:bg-border transition-colors">
                                     {isSubmitting ? 'Submitting...' : 'Send Proposal to Miner'}
                                 </button>
                             </div>

@@ -46,7 +46,7 @@ export class User {
   @IsNotEmpty()
   email!: string;
 
-  @Column({ name: 'password_hash' })
+  @Column({ name: 'password_hash', select: false })
   @IsNotEmpty()
   passwordHash!: string;
 

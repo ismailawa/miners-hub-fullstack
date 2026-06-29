@@ -27,10 +27,17 @@ export enum DocumentType {
   OTHER = 'other',
 }
 
+export enum DocumentReviewStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+}
+
 @Entity('documents')
 @Index(['userId'])
 @Index(['listingId'])
 @Index(['type'])
+@Index('IDX_documents_review_status', ['reviewStatus'])
 @Index(['createdAt'])
 export class Document {
   @PrimaryGeneratedColumn('uuid')
@@ -45,7 +52,7 @@ export class Document {
   @JoinColumn({ name: 'user_id' })
   user!: User;
 
-  @Column({ name: 'listing_id', nullable: true })
+  @Column({ name: 'listing_id', type: 'uuid', nullable: true })
   @IsOptional()
   @IsUUID()
   listingId: string | null = null;
@@ -84,6 +91,28 @@ export class Document {
   @IsOptional()
   @IsJSON()
   metadata: Record<string, any> | null = null;
+
+  @Column({
+    name: 'review_status',
+    type: 'enum',
+    enum: DocumentReviewStatus,
+    default: DocumentReviewStatus.PENDING,
+  })
+  @IsEnum(DocumentReviewStatus)
+  reviewStatus!: DocumentReviewStatus;
+
+  @Column({ name: 'review_notes', type: 'text', nullable: true })
+  @IsOptional()
+  @IsString()
+  reviewNotes?: string | null;
+
+  @Column({ name: 'reviewed_by', type: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  reviewedBy?: string | null;
+
+  @Column({ name: 'reviewed_at', type: 'timestamp', nullable: true })
+  reviewedAt?: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

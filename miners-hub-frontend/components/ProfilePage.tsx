@@ -3,6 +3,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { User } from '../lib/types';
+import { getPayoutAccount, savePayoutAccount, type PayoutAccountPayload } from '../lib/api/users';
+import type { BackendPayoutAccount } from '../lib/api/orders';
 
 const toBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -11,7 +13,7 @@ const toBase64 = (file: File): Promise<string> => new Promise((resolve, reject) 
     reader.onerror = error => reject(error);
 });
 
-type Tab = 'info' | 'security' | 'notifications';
+type Tab = 'info' | 'payout' | 'security' | 'notifications';
 
 const ProfilePage: React.FC = () => {
     const { currentUser, updateUser } = useAuth();
@@ -19,10 +21,36 @@ const ProfilePage: React.FC = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [formData, setFormData] = useState<Partial<User>>(currentUser || {});
     const [saveMsg, setSaveMsg] = useState('');
+    const [payoutAccount, setPayoutAccount] = useState<BackendPayoutAccount | null>(null);
+    const [payoutForm, setPayoutForm] = useState<PayoutAccountPayload>({
+        bankName: '',
+        bankCode: '',
+        accountNumber: '',
+        accountName: '',
+        currency: 'NGN',
+    });
+    const [payoutMsg, setPayoutMsg] = useState('');
+    const [payoutLoading, setPayoutLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (currentUser) setFormData(currentUser);
+    }, [currentUser]);
+
+    useEffect(() => {
+        if (!currentUser || currentUser.role !== 'miner') return;
+        void getPayoutAccount().then((account) => {
+            setPayoutAccount(account);
+            if (account) {
+                setPayoutForm({
+                    bankName: account.bankName,
+                    bankCode: account.bankCode,
+                    accountNumber: '',
+                    accountName: account.accountName,
+                    currency: account.currency,
+                });
+            }
+        }).catch(() => undefined);
     }, [currentUser]);
 
     if (!currentUser) return null;
@@ -45,6 +73,23 @@ const ProfilePage: React.FC = () => {
         setTimeout(() => setSaveMsg(''), 2500);
     };
 
+    const handlePayoutSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setPayoutLoading(true);
+        setPayoutMsg('');
+        try {
+            const saved = await savePayoutAccount(payoutForm);
+            setPayoutAccount(saved);
+            setPayoutForm((prev) => ({ ...prev, accountNumber: '' }));
+            setPayoutMsg(saved.status === 'active' ? 'Payout account linked.' : 'Payout account submitted.');
+        } catch (error: any) {
+            setPayoutMsg(error?.message || 'Unable to link payout account.');
+        } finally {
+            setPayoutLoading(false);
+            setTimeout(() => setPayoutMsg(''), 3500);
+        }
+    };
+
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0] && currentUser) {
             const file = e.target.files[0];
@@ -57,6 +102,7 @@ const ProfilePage: React.FC = () => {
 
     const TABS: { id: Tab; label: string }[] = [
         { id: 'info', label: 'Personal & Business Info' },
+        ...(currentUser.role === 'miner' ? [{ id: 'payout' as const, label: 'Payout Bank Account' }] : []),
         { id: 'security', label: 'Security' },
         { id: 'notifications', label: 'Notifications' },
     ];
@@ -208,6 +254,92 @@ const ProfilePage: React.FC = () => {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {activeTab === 'payout' && currentUser.role === 'miner' && (
+                    <div>
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+                            <div>
+                                <h2 className="text-xl font-bold text-text-primary">Payout Bank Account</h2>
+                                <p className="text-sm text-text-muted mt-1">Escrow releases are sent to your linked Flutterwave payout account.</p>
+                            </div>
+                            {payoutAccount && (
+                                <span className={`self-start text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
+                                    payoutAccount.status === 'active'
+                                        ? 'bg-green-500/20 text-green-400'
+                                        : payoutAccount.status === 'failed'
+                                            ? 'bg-red-500/20 text-red-400'
+                                            : 'bg-yellow-500/20 text-yellow-400'
+                                }`}>
+                                    {payoutAccount.status}
+                                </span>
+                            )}
+                        </div>
+
+                        {payoutAccount && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-primary rounded-lg border border-border">
+                                <InfoField label="Bank" value={payoutAccount.bankName} />
+                                <InfoField label="Account Name" value={payoutAccount.accountName} />
+                                <InfoField label="Account Number" value={payoutAccount.accountNumberMasked} />
+                            </div>
+                        )}
+
+                        {payoutMsg && (
+                            <div className="mb-4 bg-primary border border-border rounded-lg p-3 text-sm text-text-secondary">
+                                {payoutMsg}
+                            </div>
+                        )}
+
+                        <form onSubmit={handlePayoutSave} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-text-muted">Bank Name</label>
+                                <input
+                                    value={payoutForm.bankName}
+                                    onChange={(e) => setPayoutForm((prev) => ({ ...prev, bankName: e.target.value }))}
+                                    required
+                                    className="mt-1 block w-full bg-primary p-2.5 border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-accent"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-text-muted">Bank Code</label>
+                                <input
+                                    value={payoutForm.bankCode}
+                                    onChange={(e) => setPayoutForm((prev) => ({ ...prev, bankCode: e.target.value }))}
+                                    required
+                                    className="mt-1 block w-full bg-primary p-2.5 border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-accent"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-text-muted">Account Number</label>
+                                <input
+                                    value={payoutForm.accountNumber}
+                                    onChange={(e) => setPayoutForm((prev) => ({ ...prev, accountNumber: e.target.value.replace(/\D/g, '') }))}
+                                    required
+                                    inputMode="numeric"
+                                    placeholder={payoutAccount ? 'Enter again to update' : ''}
+                                    className="mt-1 block w-full bg-primary p-2.5 border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-accent"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-text-muted">Account Name</label>
+                                <input
+                                    value={payoutForm.accountName}
+                                    onChange={(e) => setPayoutForm((prev) => ({ ...prev, accountName: e.target.value }))}
+                                    required
+                                    className="mt-1 block w-full bg-primary p-2.5 border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-accent"
+                                />
+                            </div>
+                            <div className="md:col-span-2 text-right">
+                                <button
+                                    type="submit"
+                                    disabled={payoutLoading}
+                                    className="px-6 py-2 text-sm rounded-lg bg-accent text-accent-content hover:bg-yellow-400 disabled:bg-border disabled:cursor-not-allowed transition-colors"
+                                >
+                                    {payoutLoading ? 'Saving...' : 'Save Payout Account'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 )}
 

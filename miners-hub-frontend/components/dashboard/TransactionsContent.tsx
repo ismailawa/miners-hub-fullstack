@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Transaction } from '../../lib/types';
+import { getOrders, mapBackendOrderToTransaction } from '../../lib/api/orders';
 
 const getStatusChip = (status: string) => {
     switch (status) {
@@ -33,10 +34,40 @@ const TransactionItem: React.FC<{ transaction: Transaction }> = ({ transaction }
 
 const TransactionsContent: React.FC = () => {
     const { currentUser } = useAuth();
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [apiError, setApiError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!currentUser) return;
+        const fetchTransactions = async () => {
+            setIsLoading(true);
+            setApiError(null);
+            try {
+                const [buyerOrders, sellerOrders] = await Promise.all([
+                    getOrders({ role: 'buyer', limit: 100 }),
+                    getOrders({ role: 'seller', limit: 100 }),
+                ]);
+                const mergedOrders = Array.from(
+                    new Map([...(buyerOrders.data || []), ...(sellerOrders.data || [])].map((order) => [order.id, order])).values(),
+                );
+                setTransactions(
+                    mergedOrders
+                        .filter((order) => order.paymentStatus === 'paid' || order.paymentStatus === 'refunded')
+                        .map(mapBackendOrderToTransaction)
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+                );
+            } catch {
+                setApiError('Failed to load transactions. Please try again.');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        void fetchTransactions();
+    }, [currentUser]);
 
     if (!currentUser) return null;
 
-    const transactions = currentUser.transactions ? [...currentUser.transactions].reverse() : [];
     const totalAmount = transactions.filter(t => t.status === 'completed').reduce((sum, t) => sum + t.amount, 0);
 
     return (
@@ -54,7 +85,21 @@ const TransactionsContent: React.FC = () => {
                 )}
             </div>
 
-            {transactions.length > 0 ? (
+            {apiError && (
+                <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-lg text-sm mb-4">
+                    {apiError}
+                </div>
+            )}
+
+            {isLoading ? (
+                <div className="space-y-4">
+                    {Array.from({ length: 4 }).map((_, index) => (
+                        <div key={index} className="bg-primary p-4 rounded-lg border border-border grid grid-cols-2 md:grid-cols-4 gap-4 animate-pulse">
+                            {Array.from({ length: 4 }).map((__, itemIndex) => <div key={itemIndex} className="h-5 bg-border rounded" />)}
+                        </div>
+                    ))}
+                </div>
+            ) : transactions.length > 0 ? (
                 <div className="space-y-4">
                     {transactions.map(transaction => (
                         <TransactionItem key={transaction.id} transaction={transaction} />

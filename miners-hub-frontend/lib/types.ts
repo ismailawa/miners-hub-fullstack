@@ -352,6 +352,7 @@ export interface Order {
  */
 export interface Transaction {
   id: string;
+  type?: string;
   listingId: string;
   orderId: string;
   mineral: string;
@@ -493,6 +494,11 @@ export interface Event {
   location: string;
   imageUrl: string;
   description?: string;
+  registrationUrl?: string | null;
+  featured?: boolean;
+  status?: 'draft' | 'published' | 'archived';
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /**
@@ -735,4 +741,3 @@ export interface PaginatedResponse<T> {
   data: T[];
   meta: PaginationMeta;
 }
-

@@ -7,6 +7,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
+  OneToOne,
 } from 'typeorm';
 import {
   IsNotEmpty,
@@ -19,6 +20,7 @@ import {
 } from 'class-validator';
 import { User } from './user.entity';
 import { Listing } from './listing.entity';
+import { EscrowTransaction } from './escrow-transaction.entity';
 
 export enum OrderStatus {
   PENDING = 'pending',
@@ -95,6 +97,17 @@ export class Order {
   @Column({ name: 'payment_status', default: 'pending' })
   @IsString()
   paymentStatus!: 'pending' | 'paid' | 'refunded';
+
+  @Column({ name: 'status_history', type: 'jsonb', default: [] })
+  statusHistory!: Array<{
+    status: OrderStatus;
+    date: string;
+    location?: string;
+    notes?: string;
+  }>;
+
+  @OneToOne(() => EscrowTransaction, (escrow) => escrow.order)
+  escrowTransaction?: EscrowTransaction | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
