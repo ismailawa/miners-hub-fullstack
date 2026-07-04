@@ -10,6 +10,7 @@ export interface BackendMessage {
   id: string;
   threadId: string;
   senderId: string;
+  message?: string;
   text: string;
   read: boolean;
   createdAt: string;
@@ -23,8 +24,12 @@ export interface BackendThread {
     name: string;
     profileImageUrl?: string;
   };
-  lastMessage?: BackendMessage;
+  latestMessage?: BackendMessage;
   unreadCount: number;
+}
+
+interface BackendPaginatedResponse<T> {
+  data: T[];
 }
 
 /**
@@ -38,12 +43,27 @@ export async function getChatThreads(): Promise<BackendThread[]> {
  * Get messages in a specific thread
  */
 export async function getChatMessages(threadId: string): Promise<BackendMessage[]> {
-  return apiClient.get<BackendMessage[]>(`/api/chats/${threadId}/messages`);
+  const response = await apiClient.get<BackendPaginatedResponse<BackendMessage> | BackendMessage[]>(
+    `/api/chats/threads/${threadId}`,
+  );
+  const messages = Array.isArray(response) ? response : response.data;
+  return messages.map(normalizeMessage);
 }
 
 /**
  * Send a message to a user (creates or continues a thread)
  */
 export async function sendMessage(recipientId: string, text: string): Promise<BackendMessage> {
-  return apiClient.post<BackendMessage>('/api/chats', { recipientId, text });
+  const response = await apiClient.post<BackendMessage>('/api/chats', {
+    receiverId: recipientId,
+    message: text,
+  });
+  return normalizeMessage(response);
+}
+
+function normalizeMessage(message: BackendMessage): BackendMessage {
+  return {
+    ...message,
+    text: message.text || message.message || '',
+  };
 }

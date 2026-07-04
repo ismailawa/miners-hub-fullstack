@@ -121,7 +121,9 @@ class ApiClient {
       processedConfig.headers = new Headers();
     }
     const headers = new Headers(processedConfig.headers);
-    if (!headers.has('Content-Type')) {
+    const isFormData =
+      typeof FormData !== 'undefined' && processedConfig.body instanceof FormData;
+    if (!headers.has('Content-Type') && !isFormData) {
       headers.set('Content-Type', 'application/json');
     }
     processedConfig.headers = headers;

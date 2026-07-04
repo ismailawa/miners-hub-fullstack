@@ -48,10 +48,14 @@ export class OrdersService {
 
     if (!listing) throw new NotFoundException('Listing not found.');
     if (listing.status !== ListingStatus.PUBLISHED) {
-      throw new BadRequestException('This listing is not available for purchase.');
+      throw new BadRequestException(
+        'This listing is not available for purchase.',
+      );
     }
     if (listing.listingType !== 'buy_now') {
-      throw new BadRequestException('This listing is auction-only. Use the bidding system.');
+      throw new BadRequestException(
+        'This listing is auction-only. Use the bidding system.',
+      );
     }
     if (dto.quantity > Number(listing.quantity)) {
       throw new BadRequestException(
@@ -176,6 +180,7 @@ export class OrdersService {
         notes: 'Payment confirmed.',
       },
     ];
+    await this.markListingQuantitySold(order);
     const saved = await this.orderRepository.save(order);
 
     // Notify seller
@@ -195,6 +200,23 @@ export class OrdersService {
     return saved;
   }
 
+  private async markListingQuantitySold(order: Order) {
+    const listing = await this.listingRepository.findOne({
+      where: { id: order.listingId },
+    });
+    if (!listing) return;
+
+    const remaining = Math.max(
+      0,
+      Number(listing.quantity) - Number(order.quantity),
+    );
+    listing.quantity = remaining;
+    if (remaining === 0) {
+      listing.status = ListingStatus.SOLD;
+    }
+    await this.listingRepository.save(listing);
+  }
+
   async updateStatus(
     id: string,
     userId: string,
@@ -205,9 +227,9 @@ export class OrdersService {
     const isSeller = order.sellerId === userId;
 
     const allowedTransitions = isBuyer
-      ? BUYER_TRANSITIONS[order.status] ?? []
+      ? (BUYER_TRANSITIONS[order.status] ?? [])
       : isSeller
-        ? SELLER_TRANSITIONS[order.status] ?? []
+        ? (SELLER_TRANSITIONS[order.status] ?? [])
         : [];
 
     if (!allowedTransitions.includes(dto.status)) {
@@ -218,7 +240,10 @@ export class OrdersService {
 
     const previousStatus = order.status;
     order.status = dto.status;
-    if (dto.status === OrderStatus.CANCELLED && order.paymentStatus === 'paid') {
+    if (
+      dto.status === OrderStatus.CANCELLED &&
+      order.paymentStatus === 'paid'
+    ) {
       order.paymentStatus = 'refunded';
     }
     order.statusHistory = [
@@ -258,7 +283,11 @@ export class OrdersService {
 
   async cancel(id: string, userId: string): Promise<Order> {
     const order = await this.findOne(id, userId);
-    const canCancel = [OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PROCESSING].includes(order.status);
+    const canCancel = [
+      OrderStatus.PENDING,
+      OrderStatus.CONFIRMED,
+      OrderStatus.PROCESSING,
+    ].includes(order.status);
     if (!canCancel) {
       throw new BadRequestException('This order can no longer be cancelled.');
     }
@@ -277,7 +306,8 @@ export class OrdersService {
     ];
 
     const saved = await this.orderRepository.save(order);
-    const notifyUserId = order.buyerId === userId ? order.sellerId : order.buyerId;
+    const notifyUserId =
+      order.buyerId === userId ? order.sellerId : order.buyerId;
     await this.notificationsService.create(notifyUserId, {
       title: 'Order Cancelled',
       message: `Order #${id.slice(0, 8)} has been cancelled.`,

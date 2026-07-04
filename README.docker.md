@@ -71,9 +71,10 @@ DB_USERNAME=minershub
 DB_PASSWORD=minershub_password
 DB_DATABASE=minershub
 
-# Supabase (if using)
-SUPABASE_URL=your_supabase_url
-SUPABASE_KEY=your_supabase_key
+# Cloudinary uploads
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 ```
 
 ## Building Individual Services
@@ -104,6 +105,29 @@ docker-compose exec backend npm run migration:run
 
 # Development
 docker-compose -f docker-compose.dev.yml exec backend npm run migration:run
+```
+
+## Development Database Persistence and Seeding
+
+The development compose file persists PostgreSQL data in the named volume
+`postgres_data_dev`. The first startup waits for PostgreSQL to become healthy,
+runs migrations, seeds MVP data, and then starts the backend and frontend:
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+To run the seed job again against the persisted database:
+
+```bash
+docker compose -f docker-compose.dev.yml run --rm seed
+```
+
+To reset all development database data and seed from scratch:
+
+```bash
+docker compose -f docker-compose.dev.yml down -v
+docker compose -f docker-compose.dev.yml up --build
 ```
 
 ## Troubleshooting

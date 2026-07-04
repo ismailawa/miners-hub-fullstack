@@ -1,9 +1,13 @@
 import { faker } from '@faker-js/faker';
-import { User, UserRole, VerificationStatus } from '../../src/entities/user.entity';
+import {
+  User,
+  UserRole,
+  VerificationStatus,
+} from '../../src/entities/user.entity';
 
 /**
  * User Factory
- * 
+ *
  * Generates test data for User entities using Faker.js
  */
 
@@ -16,7 +20,7 @@ export interface UserFactoryOptions {
 
 /**
  * Create a User entity with fake data
- * 
+ *
  * @param options - Optional overrides for specific fields
  * @returns Partial User entity (without relationships)
  */
@@ -37,7 +41,7 @@ export function createUserFactory(
 
 /**
  * Create multiple User entities
- * 
+ *
  * @param count - Number of users to create
  * @param options - Optional overrides for all users
  * @returns Array of partial User entities
@@ -87,4 +91,3 @@ export function createAdminUserFactory(): Partial<User> {
     verificationStatus: VerificationStatus.VERIFIED,
   });
 }
-

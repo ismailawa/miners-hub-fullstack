@@ -117,6 +117,16 @@ export {
   type BackendMessage,
 } from './chats';
 
+export {
+  connectChatSocket,
+  joinThread,
+  leaveThread,
+  sendSocketMessage,
+  onChatMessage,
+  onChatError,
+  isChatSocketConnected,
+} from './chat-socket';
+
 // Export document service
 export {
   uploadDocument,
@@ -125,6 +135,13 @@ export {
   downloadDocumentFile,
   deleteDocument,
 } from './documents';
+
+// Export media service
+export {
+  uploadImage,
+  type MediaUploadContext,
+  type MediaUploadResult,
+} from './media';
 
 // Re-export types from central types file
 export type {

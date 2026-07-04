@@ -52,10 +52,18 @@ export class SellerPayoutAccount {
   })
   status!: SellerPayoutStatus;
 
-  @Column({ name: 'flutterwave_subaccount_id', type: 'varchar', nullable: true })
+  @Column({
+    name: 'flutterwave_subaccount_id',
+    type: 'varchar',
+    nullable: true,
+  })
   flutterwaveSubaccountId: string | null = null;
 
-  @Column({ name: 'flutterwave_subaccount_reference', type: 'varchar', nullable: true })
+  @Column({
+    name: 'flutterwave_subaccount_reference',
+    type: 'varchar',
+    nullable: true,
+  })
   flutterwaveSubaccountReference: string | null = null;
 
   @Column({ name: 'failure_reason', type: 'text', nullable: true })

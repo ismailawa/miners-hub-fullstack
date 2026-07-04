@@ -10,12 +10,13 @@ import { Auction } from '../entities/auction.entity';
 import { Bid } from '../entities/bid.entity';
 import { Listing, ListingStatus } from '../entities/listing.entity';
 import { Miner } from '../entities/miner.entity';
+import { Order, OrderStatus } from '../entities/order.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuditLogService } from '../common/audit-log/audit-log.service';
 import { CreateAuctionDto, PlaceBidDto } from './auctions.dto';
 import { PaginationDto, paginate } from '../common/dto/pagination.dto';
 
-const ANTI_SNIPING_WINDOW_MS = 2 * 60 * 1000;  // 2 minutes
+const ANTI_SNIPING_WINDOW_MS = 2 * 60 * 1000; // 2 minutes
 const ANTI_SNIPING_EXTENSION_MS = 5 * 60 * 1000; // 5-minute extension
 
 @Injectable()
@@ -29,6 +30,8 @@ export class AuctionsService {
     private readonly listingRepository: Repository<Listing>,
     @InjectRepository(Miner)
     private readonly minerRepository: Repository<Miner>,
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
     private readonly notificationsService: NotificationsService,
     private readonly auditLogService: AuditLogService,
   ) {}
@@ -36,12 +39,14 @@ export class AuctionsService {
   async create(userId: string, dto: CreateAuctionDto): Promise<Auction> {
     // Verify caller is a miner who owns the listing
     const miner = await this.minerRepository.findOne({ where: { userId } });
-    if (!miner) throw new ForbiddenException('Only miners can create auctions.');
+    if (!miner)
+      throw new ForbiddenException('Only miners can create auctions.');
 
     const listing = await this.listingRepository.findOne({
       where: { id: dto.listingId, minerId: miner.id },
     });
-    if (!listing) throw new NotFoundException('Listing not found or not yours.');
+    if (!listing)
+      throw new NotFoundException('Listing not found or not yours.');
 
     const startTime = new Date(dto.startTime);
     const endTime = new Date(dto.endTime);
@@ -82,14 +87,19 @@ export class AuctionsService {
   }
 
   async findAll(pagination: PaginationDto = new PaginationDto()) {
+    await this.finalizeExpiredAuctions();
+
     const [data, total] = await this.auctionRepository
       .createQueryBuilder('auction')
       .leftJoinAndSelect('auction.listing', 'listing')
       .leftJoinAndSelect('listing.miner', 'miner')
       .leftJoinAndSelect('miner.user', 'user')
+      .leftJoinAndSelect('auction.bids', 'bids')
+      .leftJoinAndSelect('bids.bidder', 'bidder')
       .where('auction.status = :status', { status: 'active' })
       .andWhere('auction.endTime > :now', { now: new Date() })
       .orderBy('auction.endTime', 'ASC')
+      .addOrderBy('bids.amount', 'DESC')
       .skip(pagination.offset)
       .take(pagination.limit)
       .getManyAndCount();
@@ -98,15 +108,28 @@ export class AuctionsService {
   }
 
   async findOne(id: string): Promise<Auction & { bids: Bid[] }> {
+    await this.finalizeExpiredAuctions();
+
     const auction = await this.auctionRepository.findOne({
       where: { id },
-      relations: ['listing', 'listing.miner', 'listing.miner.user', 'bids'],
+      relations: [
+        'listing',
+        'listing.miner',
+        'listing.miner.user',
+        'bids',
+        'bids.bidder',
+      ],
+      order: { bids: { amount: 'DESC' } },
     });
     if (!auction) throw new NotFoundException('Auction not found.');
     return auction as Auction & { bids: Bid[] };
   }
 
-  async placeBid(auctionId: string, bidderId: string, dto: PlaceBidDto): Promise<Bid> {
+  async placeBid(
+    auctionId: string,
+    bidderId: string,
+    dto: PlaceBidDto,
+  ): Promise<Bid> {
     const auction = await this.auctionRepository.findOne({
       where: { id: auctionId },
       relations: ['listing', 'listing.miner'],
@@ -115,7 +138,9 @@ export class AuctionsService {
 
     // Check auction is active and not expired
     if (auction.status !== 'active') {
-      throw new BadRequestException(`Auction is ${auction.status}. Bidding closed.`);
+      throw new BadRequestException(
+        `Auction is ${auction.status}. Bidding closed.`,
+      );
     }
     const now = new Date();
     if (now > auction.endTime) {
@@ -144,7 +169,9 @@ export class AuctionsService {
     // Anti-sniping: extend endTime if bid placed in last 2 minutes
     const timeLeft = auction.endTime.getTime() - now.getTime();
     if (timeLeft <= ANTI_SNIPING_WINDOW_MS) {
-      auction.endTime = new Date(auction.endTime.getTime() + ANTI_SNIPING_EXTENSION_MS);
+      auction.endTime = new Date(
+        auction.endTime.getTime() + ANTI_SNIPING_EXTENSION_MS,
+      );
     }
 
     // Update currentBid
@@ -177,7 +204,10 @@ export class AuctionsService {
     return savedBid;
   }
 
-  async getBids(auctionId: string, pagination: PaginationDto = new PaginationDto()) {
+  async getBids(
+    auctionId: string,
+    pagination: PaginationDto = new PaginationDto(),
+  ) {
     const [data, total] = await this.bidRepository
       .createQueryBuilder('bid')
       .leftJoinAndSelect('bid.bidder', 'bidder')
@@ -188,5 +218,75 @@ export class AuctionsService {
       .getManyAndCount();
 
     return paginate(data, total, pagination);
+  }
+
+  async finalizeExpiredAuctions(): Promise<Auction[]> {
+    const expired = await this.auctionRepository.find({
+      where: { status: 'active' },
+      relations: ['listing', 'listing.miner'],
+    });
+    const now = new Date();
+    const finalized: Auction[] = [];
+
+    for (const auction of expired.filter((item) => item.endTime <= now)) {
+      const highestBid = await this.bidRepository.findOne({
+        where: { auctionId: auction.id },
+        order: { amount: 'DESC', createdAt: 'ASC' },
+      });
+
+      auction.status = 'completed';
+      if (highestBid) {
+        auction.currentBid = highestBid.amount;
+        auction.listing.status = ListingStatus.SOLD;
+        await this.listingRepository.save(auction.listing);
+
+        const existingOrder = await this.orderRepository.findOne({
+          where: { listingId: auction.listingId, buyerId: highestBid.bidderId },
+        });
+        if (!existingOrder) {
+          const order = this.orderRepository.create({
+            buyerId: highestBid.bidderId,
+            sellerId: auction.listing.miner.userId,
+            listingId: auction.listingId,
+            quantity: auction.listing.quantity,
+            totalAmount: highestBid.amount,
+            status: OrderStatus.PENDING,
+            paymentStatus: 'pending',
+            statusHistory: [
+              {
+                status: OrderStatus.PENDING,
+                date: now.toISOString(),
+                location: auction.listing.location || undefined,
+                notes: 'Order created from winning auction bid.',
+              },
+            ],
+          });
+          const savedOrder = await this.orderRepository.save(order);
+
+          await this.notificationsService.create(highestBid.bidderId, {
+            title: 'Auction Won',
+            message: `You won the auction for ${auction.listing.mineralType}. Please complete escrow payment.`,
+            notificationType: 'success',
+          });
+          await this.notificationsService.create(auction.listing.miner.userId, {
+            title: 'Auction Completed',
+            message: `Your auction for ${auction.listing.mineralType} has a winning bid.`,
+            notificationType: 'info',
+          });
+
+          this.auditLogService.log({
+            userId: highestBid.bidderId,
+            action: 'auction.finalized',
+            resource: 'auction',
+            resourceId: auction.id,
+            metadata: { orderId: savedOrder.id, winningBidId: highestBid.id },
+          });
+        }
+      }
+
+      finalized.push(await this.auctionRepository.save(auction));
+    }
+
+    return finalized;
   }
 }

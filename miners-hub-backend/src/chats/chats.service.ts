@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Chat } from '../entities/chat.entity';
+import { User } from '../entities/user.entity';
 import { SendMessageDto } from './chats.dto';
 import { PaginationDto, paginate } from '../common/dto/pagination.dto';
 
@@ -22,12 +23,19 @@ export class ChatsService {
   constructor(
     @InjectRepository(Chat)
     private readonly chatRepository: Repository<Chat>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   async sendMessage(senderId: string, dto: SendMessageDto): Promise<Chat> {
     if (senderId === dto.receiverId) {
       throw new ForbiddenException('Cannot send a message to yourself.');
     }
+
+    const receiver = await this.userRepository.findOne({
+      where: { id: dto.receiverId },
+    });
+    if (!receiver) throw new NotFoundException('Receiver not found.');
 
     const threadId = buildThreadId(senderId, dto.receiverId);
 
@@ -39,7 +47,7 @@ export class ChatsService {
       read: false,
     });
 
-    return this.chatRepository.save(chat);
+    return this.serializeMessage(await this.chatRepository.save(chat));
   }
 
   /**
@@ -76,9 +84,13 @@ export class ChatsService {
           threadId: t.threadId,
           lastMessageAt: t.lastMessageAt,
           unreadCount: Number(t.unreadCount),
-          latestMessage: latest?.message,
+          latestMessage: latest ? this.serializeMessage(latest) : null,
           counterparty: counterparty
-            ? { id: counterparty.id, name: counterparty.name, email: counterparty.email }
+            ? {
+                id: counterparty.id,
+                name: counterparty.name,
+                email: counterparty.email,
+              }
             : null,
         };
       }),
@@ -97,10 +109,7 @@ export class ChatsService {
       where: { threadId },
     });
     if (!threadCheck) throw new NotFoundException('Thread not found.');
-    if (
-      threadCheck.senderId !== userId &&
-      threadCheck.receiverId !== userId
-    ) {
+    if (threadCheck.senderId !== userId && threadCheck.receiverId !== userId) {
       throw new ForbiddenException('Access denied.');
     }
 
@@ -119,17 +128,30 @@ export class ChatsService {
       .take(pagination.limit)
       .getManyAndCount();
 
-    return paginate(data, total, pagination);
+    return paginate(
+      data.map((message) => this.serializeMessage(message)),
+      total,
+      pagination,
+    );
   }
 
   async markRead(id: string, userId: string): Promise<Chat> {
     const chat = await this.chatRepository.findOne({ where: { id } });
     if (!chat) throw new NotFoundException('Message not found.');
     if (chat.receiverId !== userId) {
-      throw new ForbiddenException('Only the receiver can mark a message as read.');
+      throw new ForbiddenException(
+        'Only the receiver can mark a message as read.',
+      );
     }
     chat.read = true;
     chat.readAt = new Date();
-    return this.chatRepository.save(chat);
+    return this.serializeMessage(await this.chatRepository.save(chat));
+  }
+
+  private serializeMessage(chat: Chat): Chat {
+    return {
+      ...chat,
+      text: chat.message,
+    } as Chat;
   }
 }

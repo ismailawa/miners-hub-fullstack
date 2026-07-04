@@ -24,6 +24,9 @@ Communication style:
 
 @Injectable()
 export class AiService {
+  private marketSummaryCache: { summary: string; expiresAt: number } | null =
+    null;
+
   constructor(
     private readonly configService: ConfigService,
     @InjectRepository(Listing)
@@ -78,7 +81,7 @@ export class AiService {
       throw new ServiceUnavailableException(`Gemini API error: ${error}`);
     }
 
-    const data = (await response.json()) as any;
+    const data = await response.json();
     const text =
       data?.candidates?.[0]?.content?.parts?.[0]?.text ??
       'I apologize, I could not generate a response. Please try again.';
@@ -91,6 +94,13 @@ export class AiService {
    * Queries the database, builds a context, calls Gemini.
    */
   async getMarketSummary(): Promise<string> {
+    if (
+      this.marketSummaryCache &&
+      this.marketSummaryCache.expiresAt > Date.now()
+    ) {
+      return this.marketSummaryCache.summary;
+    }
+
     const apiKey = this.configService.get<string>('GEMINI_API_KEY');
     if (!apiKey || apiKey === 'your-gemini-api-key-here') {
       return '⚠️ AI market summary requires a valid GEMINI_API_KEY to be configured.';
@@ -107,7 +117,10 @@ export class AiService {
     }
 
     // Build market context from real data
-    const mineralStats: Record<string, { count: number; totalValue: number; locations: Set<string> }> = {};
+    const mineralStats: Record<
+      string,
+      { count: number; totalValue: number; locations: Set<string> }
+    > = {};
     let totalListings = 0;
     let totalValue = 0;
 
@@ -117,7 +130,11 @@ export class AiService {
       totalValue += value;
 
       if (!mineralStats[listing.mineralType]) {
-        mineralStats[listing.mineralType] = { count: 0, totalValue: 0, locations: new Set() };
+        mineralStats[listing.mineralType] = {
+          count: 0,
+          totalValue: 0,
+          locations: new Set(),
+        };
       }
       mineralStats[listing.mineralType].count++;
       mineralStats[listing.mineralType].totalValue += value;
@@ -128,8 +145,9 @@ export class AiService {
 
     const mineralSummary = Object.entries(mineralStats)
       .sort((a, b) => b[1].count - a[1].count)
-      .map(([mineral, stats]) =>
-        `- ${mineral}: ${stats.count} listing(s), total value ₦${stats.totalValue.toLocaleString()}, locations: ${[...stats.locations].join(', ') || 'N/A'}`,
+      .map(
+        ([mineral, stats]) =>
+          `- ${mineral}: ${stats.count} listing(s), total value ₦${stats.totalValue.toLocaleString()}, locations: ${[...stats.locations].join(', ') || 'N/A'}`,
       )
       .join('\n');
 
@@ -174,10 +192,59 @@ Provide actionable insights in plain markdown format with bullet points. Focus o
       return '⚠️ Could not generate market summary at this time. Please try again later.';
     }
 
-    const data = (await response.json()) as any;
-    return (
+    const data = await response.json();
+    const summary =
       data?.candidates?.[0]?.content?.parts?.[0]?.text ??
-      '⚠️ Market summary generation failed. Please try again.'
+      '⚠️ Market summary generation failed. Please try again.';
+    this.marketSummaryCache = {
+      summary,
+      expiresAt: Date.now() + 60 * 60 * 1000,
+    };
+    return summary;
+  }
+
+  async forecastPrices(
+    mineral: string,
+    historicalPrices: number[],
+  ): Promise<number[]> {
+    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
+    if (!apiKey || apiKey === 'your-gemini-api-key-here') {
+      throw new ServiceUnavailableException(
+        'AI forecast service is not configured. Please set GEMINI_API_KEY in your environment.',
+      );
+    }
+
+    const prompt = `Given the following historical price data for ${mineral}, predict the price for the next 30 days. Provide only a comma-separated list of 30 numerical values. Historical Data: ${JSON.stringify(historicalPrices.slice(-30))}`;
+
+    const body = {
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 512,
+      },
+    };
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      },
     );
+
+    if (!response.ok) {
+      throw new ServiceUnavailableException(
+        'Could not generate price forecast.',
+      );
+    }
+
+    const data = await response.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    return text
+      .split(',')
+      .map((price: string) => Number.parseFloat(price.trim()))
+      .filter((price: number) => Number.isFinite(price))
+      .slice(0, 30);
   }
 }

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, MouseEvent, useEffect } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import { PRODUCTION_DATA, PRICE_CORRELATION_DATA, EXPORT_DATA, MARKET_SENTIMENT_DATA, HISTORICAL_PRICE_DATA } from '../lib/constants/data';
 import { ProductionDataPoint, HistoricalPricePoint, ExportData, PriceCorrelation, ForecastDataPoint } from '../lib/types';
+import { getMarketSummary, getPriceForecast } from '../lib/api/ai';
 
 const ChartCard: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className = '' }) => (
     <div className={`bg-secondary rounded-lg p-6 border border-border h-full flex flex-col ${className}`}>
@@ -121,30 +121,11 @@ const AIMarketSummary: React.FC = () => {
     useEffect(() => {
         const fetchSummary = async () => {
             try {
-                const apiKey = process.env.API_KEY;
-                if (!apiKey) {
-                    setError("API Key not configured for AI Market Summary.");
-                    setIsLoading(false);
-                    return;
-                }
-                const ai = new GoogleGenAI({ apiKey });
-
-                const prompt = `You are a senior market analyst for the Nigerian mining sector. Based on the following data, provide a concise summary of market trends in 3-4 bullet points. Focus on actionable insights for miners and investors. Use Markdown for formatting, specifically using bullet points ('*') and bold text ('**text**') for emphasis on key terms.
-                
-                - Production Data (in thousand tonnes): ${JSON.stringify(PRODUCTION_DATA)}
-                - Top Export Destinations (in thousand tonnes): ${JSON.stringify(EXPORT_DATA)}
-                - Overall Market Sentiment: ${JSON.stringify(MARKET_SENTIMENT_DATA)}
-                `;
-
-                const response = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash',
-                    contents: prompt,
-                });
-
-                setSummary(response.text || '');
+                const response = await getMarketSummary();
+                setSummary(response.summary || '');
 
             } catch (err) {
-                console.error("Gemini API error:", err);
+                console.error("Market summary API error:", err);
                 setError("Could not generate market summary at this time.");
             } finally {
                 setIsLoading(false);
@@ -370,23 +351,11 @@ const PriceForecastChart: React.FC = () => {
             if (!historicalData) return;
 
             try {
-                const apiKey = process.env.API_KEY;
-                if (!apiKey) {
-                    throw new Error("API Key not configured");
-                }
-                const ai = new GoogleGenAI({ apiKey });
-
-                const prompt = `Given the following historical price data for ${activeMineral} over the last year, predict the price for the next 30 days. Provide only a comma-separated list of 30 numerical values representing the daily prices. Do not include any other text or explanation.
-                
-                Historical Data (last 30 days): ${JSON.stringify(historicalData.slice(-30).map(d => d.price))}`;
-
-                const response = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash',
-                    contents: prompt,
-                });
-
-                const text = response.text || '';
-                const forecastPrices = text.split(',').map(p => parseFloat(p.trim())).filter(p => !isNaN(p));
+                const response = await getPriceForecast(
+                    activeMineral,
+                    historicalData.slice(-30).map(d => d.price),
+                );
+                const forecastPrices = response.prices;
 
                 const today = new Date(historicalData[historicalData.length - 1].date);
                 const forecastDataPoints: { date: string, price: number, type: 'forecast' }[] = forecastPrices.map((price, i) => {

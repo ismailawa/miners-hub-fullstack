@@ -25,13 +25,13 @@ export class DocumentsController {
 
   /**
    * POST /api/documents/upload
-   * Upload a file to Supabase Storage and record it in the database.
+   * Upload a file to Cloudinary and record it in the database.
    * Accepts multipart/form-data with fields: file, type, listingId (optional).
    */
   @Post('upload')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: memoryStorage(), // Keep in memory; we stream directly to Supabase
+      storage: memoryStorage(), // Keep in memory; we stream directly to Cloudinary
       limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB hard limit at transport layer
     }),
   )
@@ -43,8 +43,9 @@ export class DocumentsController {
     return this.documentsService.upload(
       req.user.id,
       file,
-      dto.type as DocumentType,
+      dto.type,
       dto.listingId,
+      dto.uploadCategory,
     );
   }
 
@@ -62,22 +63,16 @@ export class DocumentsController {
    * Retrieve a single document (owner or admin).
    */
   @Get(':id')
-  async findOne(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Request() req: any,
-  ) {
+  async findOne(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
     return this.documentsService.findOne(id, req.user.id, req.user.role);
   }
 
   /**
    * DELETE /api/documents/:id
-   * Delete a document from Storage and DB (owner or admin).
+   * Soft-delete a document record (owner or admin).
    */
   @Delete(':id')
-  async remove(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Request() req: any,
-  ) {
+  async remove(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
     await this.documentsService.remove(id, req.user.id, req.user.role);
     return { success: true, message: 'Document deleted.' };
   }

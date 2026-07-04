@@ -9,6 +9,7 @@ import {
   getEvents,
   updateEvent,
 } from '../../../../lib/api/admin';
+import { uploadImage } from '../../../../lib/api/media';
 import type { Event } from '../../../../lib/types';
 import type { EventPayload } from '../../../../lib/api/events';
 
@@ -32,6 +33,8 @@ export default function AdminEventsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [eventImageFile, setEventImageFile] = useState<File | null>(null);
+  const [eventImagePreview, setEventImagePreview] = useState<string>('');
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -57,9 +60,19 @@ export default function AdminEventsPage() {
     }
   }, [currentUser, router]);
 
+  useEffect(() => {
+    return () => {
+      if (eventImagePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(eventImagePreview);
+      }
+    };
+  }, [eventImagePreview]);
+
   const resetForm = () => {
     setFormData(emptyForm);
     setEditingId(null);
+    setEventImageFile(null);
+    setEventImagePreview('');
   };
 
   const handleChange = (
@@ -73,13 +86,36 @@ export default function AdminEventsPage() {
     }));
   };
 
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a JPG or PNG image.');
+      return;
+    }
+
+    if (eventImagePreview.startsWith('blob:')) {
+      URL.revokeObjectURL(eventImagePreview);
+    }
+    setEventImageFile(file);
+    setEventImagePreview(URL.createObjectURL(file));
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setSaving(true);
     setError(null);
     try {
+      let imageUrl = formData.imageUrl;
+      if (eventImageFile) {
+        const uploaded = await uploadImage(eventImageFile, 'event');
+        imageUrl = uploaded.secureUrl;
+      }
+
       const payload: EventPayload = {
         ...formData,
+        imageUrl,
         description: formData.description || undefined,
         registrationUrl: formData.registrationUrl || undefined,
       };
@@ -111,6 +147,8 @@ export default function AdminEventsPage() {
       featured: Boolean(event.featured),
       status: event.status || 'published',
     });
+    setEventImageFile(null);
+    setEventImagePreview(event.imageUrl);
   };
 
   const handleDelete = async (id: string) => {
@@ -188,15 +226,21 @@ export default function AdminEventsPage() {
             </select>
           </label>
           <label className="block md:col-span-2">
-            <span className="text-sm font-medium text-text-secondary">Image URL</span>
+            <span className="text-sm font-medium text-text-secondary">Event Image</span>
             <input
-              name="imageUrl"
-              value={formData.imageUrl}
-              onChange={handleChange}
-              required
-              placeholder="https://..."
+              type="file"
+              accept="image/png,image/jpeg"
+              onChange={handleImageChange}
+              required={!formData.imageUrl}
               className="mt-1 w-full bg-primary border border-border rounded-lg p-3 outline-none focus:ring-2 focus:ring-accent"
             />
+            {(eventImagePreview || formData.imageUrl) && (
+              <img
+                src={eventImagePreview || formData.imageUrl}
+                alt="Event preview"
+                className="mt-3 h-36 w-full rounded-lg border border-border object-cover"
+              />
+            )}
           </label>
           <label className="block md:col-span-2">
             <span className="text-sm font-medium text-text-secondary">Registration URL</span>

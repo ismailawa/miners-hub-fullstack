@@ -16,11 +16,11 @@ NODE_ENV=development
 # Get this from Supabase Dashboard > Settings > Database > Connection string > URI
 DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
 
-# Supabase Configuration
-# Get these from Supabase Dashboard > Settings > API
-SUPABASE_URL=https://[YOUR-PROJECT-REF].supabase.co
-SUPABASE_SERVICE_KEY=your-service-key-here  # Service role key (secret, server-side only)
-SUPABASE_ANON_KEY=your-anon-key-here  # Anonymous key (public, can be used in frontend)
+# Cloudinary Upload Configuration
+# Used for KYC documents, listing attachments, and onboarding file uploads
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
 
 # JWT Configuration
 # Will be configured in Story 2.1 (Authentication)
@@ -35,6 +35,9 @@ GEMINI_API_KEY=your-gemini-api-key-here
 
 # CORS Configuration
 FRONTEND_URL=http://localhost:3000
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
 ```
 
 ## Local Development Setup
@@ -52,4 +55,3 @@ Database and other configuration will be added in subsequent stories.
 ## See Also
 
 - [Environment Variables Guide](../../docs/env-variables-guide.md) - Comprehensive guide for all environment variables
-

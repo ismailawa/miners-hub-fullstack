@@ -7,12 +7,16 @@ import { Document } from '../entities/document.entity';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { EscrowModule } from '../escrow/escrow.module';
-
+import { DocumentsModule } from '../documents/documents.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Miner, Investor, Document]), EscrowModule],
+  imports: [
+    TypeOrmModule.forFeature([User, Miner, Investor, Document]),
+    EscrowModule,
+    DocumentsModule,
+  ],
   controllers: [UsersController],
   providers: [UsersService],
   exports: [UsersService],
 })
-export class UsersModule { }
+export class UsersModule {}

@@ -1,8 +1,7 @@
 /**
  * Documents API Service
  * 
- * Placeholder service for document upload/download endpoints.
- * To be implemented in future stories.
+ * Documents API service.
  */
 
 import apiClient from './client';
@@ -10,26 +9,23 @@ import type { Document, DocumentType } from '../types';
 
 /**
  * Upload document
- * TODO: Implement when document endpoints are available
  */
 export async function uploadDocument(
   file: File,
-  metadata?: { type?: DocumentType; description?: string },
+  metadata?: { type?: DocumentType; uploadCategory?: string },
 ): Promise<Document> {
   const formData = new FormData();
   formData.append('file', file);
-  if (metadata?.type) formData.append('type', metadata.type);
-  if (metadata?.description)
-    formData.append('description', metadata.description);
+  formData.append('type', metadata?.type || 'kyc');
+  if (metadata?.uploadCategory) {
+    formData.append('uploadCategory', metadata.uploadCategory);
+  }
 
-  return apiClient.post<Document>('/api/documents', formData, {
-    headers: {}, // Let browser set Content-Type for FormData
-  });
+  return apiClient.post<Document>('/api/documents/upload', formData);
 }
 
 /**
  * Get document by ID
- * TODO: Implement when document endpoints are available
  */
 export async function getDocument(id: string): Promise<Document> {
   return apiClient.get<Document>(`/api/documents/${id}`);
@@ -37,7 +33,6 @@ export async function getDocument(id: string): Promise<Document> {
 
 /**
  * Download document file
- * TODO: Implement when document endpoints are available
  */
 export async function downloadDocumentFile(id: string): Promise<Blob> {
   return apiClient.get<Blob>(`/api/documents/${id}/file`, {
@@ -47,7 +42,6 @@ export async function downloadDocumentFile(id: string): Promise<Blob> {
 
 /**
  * Download document (helper function)
- * TODO: Implement when document endpoints are available
  */
 export async function downloadDocument(id: string): Promise<void> {
   const blob = await downloadDocumentFile(id);
@@ -63,9 +57,7 @@ export async function downloadDocument(id: string): Promise<void> {
 
 /**
  * Delete document
- * TODO: Implement when document endpoints are available
  */
 export async function deleteDocument(id: string): Promise<void> {
   return apiClient.delete<void>(`/api/documents/${id}`);
 }
-

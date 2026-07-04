@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -8,6 +12,8 @@ import { UserRole } from '../entities/user.entity';
 
 @Injectable()
 export class AuthService {
+  private readonly revokedRefreshTokens = new Set<string>();
+
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
@@ -45,7 +51,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isPasswordValid = await bcrypt.compare(loginDto.password, user.passwordHash);
+    const isPasswordValid = await bcrypt.compare(
+      loginDto.password,
+      user.passwordHash,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -61,12 +70,15 @@ export class AuthService {
 
   generateTokens(user: any) {
     const payload = { sub: user.id, email: user.email, role: user.role };
-    
+
     const accessToken = this.jwtService.sign(payload);
-    
+
     const refreshToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'refresh-secret',
-      expiresIn: (this.configService.get<string>('JWT_REFRESH_EXPIRATION') || '7d') as any,
+      secret:
+        this.configService.get<string>('JWT_REFRESH_SECRET') ||
+        'refresh-secret',
+      expiresIn: (this.configService.get<string>('JWT_REFRESH_EXPIRATION') ||
+        '7d') as any,
     });
 
     return {
@@ -76,11 +88,17 @@ export class AuthService {
   }
 
   async refreshToken(refreshToken: string) {
+    if (this.revokedRefreshTokens.has(refreshToken)) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
     try {
       const payload = this.jwtService.verify(refreshToken, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'refresh-secret',
+        secret:
+          this.configService.get<string>('JWT_REFRESH_SECRET') ||
+          'refresh-secret',
       });
-      
+
       const user = await this.usersService.findById(payload.sub);
       if (!user) {
         throw new UnauthorizedException('Invalid refresh token');
@@ -91,5 +109,12 @@ export class AuthService {
     } catch (e) {
       throw new UnauthorizedException('Invalid refresh token');
     }
+  }
+
+  logout(refreshToken?: string) {
+    if (refreshToken) {
+      this.revokedRefreshTokens.add(refreshToken);
+    }
+    return { message: 'Logged out successfully' };
   }
 }

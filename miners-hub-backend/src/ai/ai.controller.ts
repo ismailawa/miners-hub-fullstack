@@ -1,6 +1,6 @@
 import { Controller, Post, Get, Body } from '@nestjs/common';
 import { AiService } from './ai.service';
-import { ChatMessageDto } from './ai.dto';
+import { ChatMessageDto, ForecastDto } from './ai.dto';
 
 @Controller('ai')
 export class AiController {
@@ -29,5 +29,14 @@ export class AiController {
       summary,
       generatedAt: new Date().toISOString(),
     };
+  }
+
+  @Post('forecast')
+  async forecast(@Body() dto: ForecastDto): Promise<{ prices: number[] }> {
+    const prices = await this.aiService.forecastPrices(
+      dto.mineral,
+      dto.historicalPrices,
+    );
+    return { prices };
   }
 }

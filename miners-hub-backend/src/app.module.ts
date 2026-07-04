@@ -23,6 +23,8 @@ import { AiModule } from './ai/ai.module';
 import { EventsModule } from './events/events.module';
 import { ForumModule } from './forum/forum.module';
 import { EscrowModule } from './escrow/escrow.module';
+import { SignNowModule } from './common/signnow/signnow.module';
+import { MediaModule } from './media/media.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -35,10 +37,12 @@ import { EscrowModule } from './escrow/escrow.module';
         getDatabaseConfig(configService),
       inject: [ConfigService],
     }),
-    ThrottlerModule.forRoot([{
-      ttl: 60000,
-      limit: 100, // 100 requests per minute globally
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 100, // 100 requests per minute globally
+      },
+    ]),
     UsersModule,
     AuthModule,
     NotificationsModule,
@@ -54,6 +58,8 @@ import { EscrowModule } from './escrow/escrow.module';
     EventsModule,
     ForumModule,
     EscrowModule,
+    SignNowModule,
+    MediaModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

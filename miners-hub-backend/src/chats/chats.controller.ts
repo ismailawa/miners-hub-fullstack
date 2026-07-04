@@ -56,10 +56,7 @@ export class ChatsController {
    * Mark a single message as read (receiver only).
    */
   @Patch(':id/read')
-  async markRead(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Request() req: any,
-  ) {
+  async markRead(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
     return this.chatsService.markRead(id, req.user.id);
   }
 }

@@ -21,7 +21,7 @@ import {
 
 /**
  * Test Fixtures
- * 
+ *
  * Pre-defined test scenarios combining multiple factories
  * for common use cases in integration and E2E tests
  */
@@ -182,4 +182,3 @@ export function createUpcomingAuctionFixture() {
     },
   };
 }
-

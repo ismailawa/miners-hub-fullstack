@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -9,10 +9,19 @@ export default function OnboardingGroup({ children }: { children: React.ReactNod
     const router = useRouter();
     const pathname = usePathname();
     const [mounted, setMounted] = useState(false);
+    const hasRedirected = useRef(false);
 
     useEffect(() => {
         setMounted(true);
     }, []);
+
+    useEffect(() => {
+        if (!isLoading && mounted && !currentUser && !hasRedirected.current) {
+            hasRedirected.current = true;
+            const returnUrl = encodeURIComponent(pathname || '/');
+            router.replace(`/login?redirect=${returnUrl}`);
+        }
+    }, [currentUser, isLoading, mounted, pathname, router]);
 
     // Show loading state while checking auth
     if (isLoading || !mounted) {
@@ -28,8 +37,6 @@ export default function OnboardingGroup({ children }: { children: React.ReactNod
 
     // Redirect to login if accessing protected route without auth
     if (!currentUser) {
-        const returnUrl = encodeURIComponent(pathname || '/');
-        router.push(`/login?redirect=${returnUrl}`);
         return (
             <div className="bg-primary text-text-secondary min-h-screen flex items-center justify-center">
                 <p className="text-lg font-semibold">Redirecting to login...</p>

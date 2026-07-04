@@ -5,6 +5,7 @@ import { User, UserRole, VerificationStatus } from '../entities/user.entity';
 import { Miner } from '../entities/miner.entity';
 import { Investor } from '../entities/investor.entity';
 import { Document, DocumentType } from '../entities/document.entity';
+import { DocumentsService } from '../documents/documents.service';
 
 @Injectable()
 export class UsersService {
@@ -17,6 +18,7 @@ export class UsersService {
     private investorsRepository: Repository<Investor>,
     @InjectRepository(Document)
     private documentsRepository: Repository<Document>,
+    private readonly documentsService: DocumentsService,
   ) {}
 
   async findByEmail(email: string): Promise<User | null> {
@@ -32,9 +34,9 @@ export class UsersService {
   }
 
   async findByIdWithRelations(id: string): Promise<User | null> {
-    return this.usersRepository.findOne({ 
+    return this.usersRepository.findOne({
       where: { id },
-      relations: ['miner', 'investor', 'documents']
+      relations: ['miner', 'investor', 'documents'],
     });
   }
 
@@ -73,9 +75,11 @@ export class UsersService {
         location: miner.location || miner.businessAddress || 'Nigeria',
         minerals: displayMinerals.length > 0 ? displayMinerals : ['Minerals'],
         rating: 4.8,
-        imageUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-          miner.companyName || miner.user?.name || 'Miner',
-        )}&background=d97706&color=fff`,
+        imageUrl:
+          miner.user?.profileImageUrl ||
+          `https://ui-avatars.com/api/?name=${encodeURIComponent(
+            miner.companyName || miner.user?.name || 'Miner',
+          )}&background=d97706&color=fff`,
         contactEmail: miner.user?.email || '',
         history:
           miner.businessAddress ||
@@ -96,29 +100,46 @@ export class UsersService {
   }
 
   async updateProfile(userId: string, updateData: any): Promise<User> {
-    const user = await this.usersRepository.findOne({ where: { id: userId }, relations: ['miner', 'investor'] });
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      relations: ['miner', 'investor'],
+    });
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
     // 1. Update Core User Entity
     user.name = updateData.name || user.name;
-    user.phoneNumber = updateData.phoneNumber !== undefined ? updateData.phoneNumber : user.phoneNumber;
-    user.address = updateData.address !== undefined ? updateData.address : user.address;
-    user.dateOfBirth = updateData.dateOfBirth !== undefined ? updateData.dateOfBirth : user.dateOfBirth;
-    user.nationality = updateData.nationality !== undefined ? updateData.nationality : user.nationality;
+    user.phoneNumber =
+      updateData.phoneNumber !== undefined
+        ? updateData.phoneNumber
+        : user.phoneNumber;
+    user.address =
+      updateData.address !== undefined ? updateData.address : user.address;
+    user.dateOfBirth =
+      updateData.dateOfBirth !== undefined
+        ? updateData.dateOfBirth
+        : user.dateOfBirth;
+    user.nationality =
+      updateData.nationality !== undefined
+        ? updateData.nationality
+        : user.nationality;
     user.nin = updateData.nin !== undefined ? updateData.nin : user.nin;
-    
+    user.profileImageUrl =
+      updateData.profileImageUrl !== undefined
+        ? updateData.profileImageUrl
+        : user.profileImageUrl;
+
     if (updateData.role) {
-        user.role = updateData.role;
+      user.role = updateData.role;
     }
-    
+
     if (updateData.onboardingComplete !== undefined) {
-        user.onboardingComplete = updateData.onboardingComplete;
+      user.onboardingComplete = updateData.onboardingComplete;
     }
-    
+
     if (updateData.status) {
-        user.verificationStatus = updateData.status;
+      user.verificationStatus = updateData.status;
     }
 
     await this.usersRepository.save(user);
@@ -129,14 +150,32 @@ export class UsersService {
       if (!miner) {
         miner = this.minersRepository.create({ userId: user.id });
       }
-      miner.companyName = updateData.businessName || miner.companyName || updateData.name;
-      miner.companyRegNumber = updateData.companyRegNumber !== undefined ? updateData.companyRegNumber : miner.companyRegNumber;
-      miner.businessAddress = updateData.businessAddress !== undefined ? updateData.businessAddress : miner.businessAddress;
-      miner.businessWebsite = updateData.businessWebsite !== undefined ? updateData.businessWebsite : miner.businessWebsite;
-      miner.industry = updateData.industry !== undefined ? updateData.industry : miner.industry;
-      miner.yearsInOperation = updateData.yearsInOperation !== undefined ? updateData.yearsInOperation : miner.yearsInOperation;
-      miner.miningEquipment = updateData.miningEquipment || miner.miningEquipment || [];
-      miner.certifications = updateData.certifications || miner.certifications || [];
+      miner.companyName =
+        updateData.businessName || miner.companyName || updateData.name;
+      miner.companyRegNumber =
+        updateData.companyRegNumber !== undefined
+          ? updateData.companyRegNumber
+          : miner.companyRegNumber;
+      miner.businessAddress =
+        updateData.businessAddress !== undefined
+          ? updateData.businessAddress
+          : miner.businessAddress;
+      miner.businessWebsite =
+        updateData.businessWebsite !== undefined
+          ? updateData.businessWebsite
+          : miner.businessWebsite;
+      miner.industry =
+        updateData.industry !== undefined
+          ? updateData.industry
+          : miner.industry;
+      miner.yearsInOperation =
+        updateData.yearsInOperation !== undefined
+          ? updateData.yearsInOperation
+          : miner.yearsInOperation;
+      miner.miningEquipment =
+        updateData.miningEquipment || miner.miningEquipment || [];
+      miner.certifications =
+        updateData.certifications || miner.certifications || [];
       miner.location = updateData.address || miner.location || 'Unknown';
       await this.minersRepository.save(miner);
     } else if (user.role === UserRole.INVESTOR) {
@@ -144,13 +183,30 @@ export class UsersService {
       if (!investor) {
         investor = this.investorsRepository.create({ userId: user.id });
       }
-      investor.companyName = updateData.businessName || investor.companyName || updateData.name;
-      investor.companyRegNumber = updateData.companyRegNumber !== undefined ? updateData.companyRegNumber : investor.companyRegNumber;
-      investor.businessAddress = updateData.businessAddress !== undefined ? updateData.businessAddress : investor.businessAddress;
-      investor.businessWebsite = updateData.businessWebsite !== undefined ? updateData.businessWebsite : investor.businessWebsite;
-      investor.industry = updateData.industry !== undefined ? updateData.industry : investor.industry;
-      investor.yearsInOperation = updateData.yearsInOperation !== undefined ? updateData.yearsInOperation : investor.yearsInOperation;
-      investor.investmentFocus = updateData.investmentPreferences || investor.investmentFocus || [];
+      investor.companyName =
+        updateData.businessName || investor.companyName || updateData.name;
+      investor.companyRegNumber =
+        updateData.companyRegNumber !== undefined
+          ? updateData.companyRegNumber
+          : investor.companyRegNumber;
+      investor.businessAddress =
+        updateData.businessAddress !== undefined
+          ? updateData.businessAddress
+          : investor.businessAddress;
+      investor.businessWebsite =
+        updateData.businessWebsite !== undefined
+          ? updateData.businessWebsite
+          : investor.businessWebsite;
+      investor.industry =
+        updateData.industry !== undefined
+          ? updateData.industry
+          : investor.industry;
+      investor.yearsInOperation =
+        updateData.yearsInOperation !== undefined
+          ? updateData.yearsInOperation
+          : investor.yearsInOperation;
+      investor.investmentFocus =
+        updateData.investmentPreferences || investor.investmentFocus || [];
       await this.investorsRepository.save(investor);
     }
 
@@ -160,19 +216,12 @@ export class UsersService {
       for (const [key, files] of Object.entries(updateData.documents)) {
         const fileArray = files as any[];
         for (const file of fileArray) {
-          // Calculate basic size from base64 string
-          const size = file.url ? Math.round((file.url.length * 3) / 4) : 0;
-          
-          const doc = this.documentsRepository.create({
-            userId: user.id,
-            type: DocumentType.KYC, // For now, mapping everything from onboarding to KYC
-            fileName: file.name,
-            fileUrl: file.url, // In a real app, upload to S3 and save URL. Here we save base64 (not recommended for prod DB).
-            fileSize: size,
-            mimeType: 'application/octet-stream', // Could parse from base64 data URI
+          await this.documentsService.uploadBase64(user.id, {
+            type: DocumentType.KYC,
+            name: file.name,
+            url: file.url,
             metadata: { uploadCategory: key },
           });
-          await this.documentsRepository.save(doc);
         }
       }
     }

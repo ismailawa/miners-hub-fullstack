@@ -6,7 +6,7 @@ import { getContracts, updateContractStatus, BackendContract } from '../../lib/a
 
 // ── Status Chip ────────────────────────────────────────────────────────────────
 const getStatusChip = (status: string, isMyTurn: boolean) => {
-  if (status === 'pending_signatures' && isMyTurn) {
+  if ((status === 'proposed' || status === 'under_review') && isMyTurn) {
     return (
       <span className="bg-yellow-500/20 text-yellow-400 text-xs font-semibold px-2.5 py-1 rounded-full animate-pulse">
         Action Required
@@ -14,14 +14,12 @@ const getStatusChip = (status: string, isMyTurn: boolean) => {
     );
   }
   const map: Record<string, string> = {
-    pending: 'bg-orange-500/20 text-orange-400',
-    negotiating: 'bg-blue-500/20 text-blue-400',
-    pending_signatures: 'bg-gray-500/20 text-gray-400',
+    draft: 'bg-gray-500/20 text-gray-400',
+    proposed: 'bg-orange-500/20 text-orange-400',
+    under_review: 'bg-blue-500/20 text-blue-400',
     signed: 'bg-sky-500/20 text-sky-400',
-    active: 'bg-green-500/20 text-green-400',
-    completed: 'bg-green-700/20 text-green-300',
-    cancelled: 'bg-red-500/20 text-red-400',
-    rejected: 'bg-red-700/20 text-red-300',
+    executed: 'bg-green-700/20 text-green-300',
+    terminated: 'bg-red-700/20 text-red-300',
   };
   const cls = map[status] ?? 'bg-gray-500/20 text-gray-400';
   return <span className={`${cls} text-xs font-semibold px-2.5 py-1 rounded-full capitalize`}>{status.replace(/_/g, ' ')}</span>;
@@ -47,11 +45,11 @@ const ContractRow: React.FC<{
 
   // Determine if this user needs to take action
   const needsMySignature =
-    contract.status === 'pending_signatures' &&
+    (contract.status === 'proposed' || contract.status === 'under_review') &&
     ((isParty1 && !contract.party1SignedAt) || (!isParty1 && !contract.party2SignedAt));
 
   // Pending party is the proposer's counterparty who has not yet responded
-  const awaitingResponse = contract.status === 'pending' && !isParty1;
+  const awaitingResponse = contract.status === 'proposed' && !isParty1;
 
   return (
     <div className="bg-primary p-4 rounded-lg border border-border grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
@@ -71,14 +69,14 @@ const ContractRow: React.FC<{
         {awaitingResponse && (
           <>
             <button
-              onClick={() => onRespond(contract.id, 'rejected')}
+              onClick={() => onRespond(contract.id, 'terminated')}
               disabled={isUpdating === contract.id}
               className="px-2.5 py-1 text-xs rounded-md bg-red-500/20 text-red-400 hover:bg-red-500/40 disabled:opacity-60 transition-colors"
             >
-              Reject
+              Terminate
             </button>
             <button
-              onClick={() => onRespond(contract.id, 'negotiating')}
+              onClick={() => onRespond(contract.id, 'under_review')}
               disabled={isUpdating === contract.id}
               className="px-2.5 py-1 text-xs rounded-md bg-blue-500/20 text-blue-400 hover:bg-blue-500/40 disabled:opacity-60 transition-colors"
             >
@@ -97,7 +95,7 @@ const ContractRow: React.FC<{
   );
 };
 
-const STATUS_FILTERS = ['all', 'pending', 'active', 'completed', 'rejected', 'cancelled'];
+const STATUS_FILTERS = ['all', 'proposed', 'under_review', 'signed', 'executed', 'terminated'];
 
 // ── Contracts Content ──────────────────────────────────────────────────────────
 const ContractsContent: React.FC = () => {
@@ -140,8 +138,6 @@ const ContractsContent: React.FC = () => {
 
   const filtered = contracts.filter((c) => {
     if (contractFilter === 'all') return true;
-    if (contractFilter === 'pending') return c.status === 'pending' || c.status === 'pending_signatures';
-    if (contractFilter === 'active') return c.status === 'active' || c.status === 'signed';
     return c.status === contractFilter;
   });
 

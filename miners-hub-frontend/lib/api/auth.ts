@@ -6,7 +6,7 @@
  */
 
 import apiClient from './client';
-import { setTokens, removeTokens } from './token';
+import { setTokens, removeTokens, getRefreshToken } from './token';
 import type { ApiError } from './errors';
 import type { User, UserRole } from '../types';
 
@@ -89,7 +89,9 @@ export async function register(
  */
 export async function logout(): Promise<void> {
   try {
-    await apiClient.post('/api/auth/logout');
+    await apiClient.post('/api/auth/logout', {
+      refreshToken: getRefreshToken(),
+    });
   } catch (error) {
     // Continue with logout even if API call fails
     console.error('Logout API call failed:', error);

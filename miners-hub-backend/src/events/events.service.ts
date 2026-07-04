@@ -43,7 +43,8 @@ export class EventsService implements OnModuleInit {
           'A practical workshop covering KYC, licensing, documentation, and transparent reporting for mineral producers and investors.',
         date: '2026-12-01',
         location: 'Online',
-        imageUrl: 'https://picsum.photos/seed/mining-compliance-workshop/1200/800',
+        imageUrl:
+          'https://picsum.photos/seed/mining-compliance-workshop/1200/800',
         featured: false,
         status: EventStatus.PUBLISHED,
       }),

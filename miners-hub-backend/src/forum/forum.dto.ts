@@ -1,6 +1,11 @@
 import { IsIn, IsOptional, IsString, MinLength } from 'class-validator';
 
-const forumCategories = ['general', 'equipment', 'investment', 'policy'] as const;
+const forumCategories = [
+  'general',
+  'equipment',
+  'investment',
+  'policy',
+] as const;
 
 export class CreateForumPostDto {
   @IsString()

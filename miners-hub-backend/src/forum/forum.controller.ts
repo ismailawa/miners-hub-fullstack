@@ -1,7 +1,20 @@
-import { Body, Controller, Get, Param, Post, Query, Request, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ForumService } from './forum.service';
-import { CreateForumPostDto, CreateForumReplyDto, ForumFilterDto } from './forum.dto';
+import {
+  CreateForumPostDto,
+  CreateForumReplyDto,
+  ForumFilterDto,
+} from './forum.dto';
 
 @Controller('forum')
 export class ForumController {

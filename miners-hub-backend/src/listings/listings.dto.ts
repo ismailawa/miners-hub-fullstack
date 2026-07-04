@@ -6,6 +6,8 @@ import {
   Min,
   Max,
   IsNotEmpty,
+  IsArray,
+  IsUrl,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaginationDto } from '../common/dto/pagination.dto';
@@ -45,6 +47,11 @@ export class CreateListingDto {
   @Max(100)
   @Type(() => Number)
   moisturePercentage?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsUrl({ require_tld: false }, { each: true })
+  images?: string[];
 }
 
 export class ListingFilterDto extends PaginationDto {

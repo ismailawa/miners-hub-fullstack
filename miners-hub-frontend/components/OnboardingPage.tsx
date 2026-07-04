@@ -1,14 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { User, UserDocument, VerificationStatus, UserRole } from '../lib/types';
+import { User, VerificationStatus, UserRole } from '../lib/types';
 import MultiFileInput, { FilePreview } from './MultiFileInput';
-
-const toBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-});
+import { uploadDocument } from '../lib/api/documents';
 
 type StepConfig = {
     title: string;
@@ -22,6 +16,74 @@ const STEPS: StepConfig[] = [
     { title: 'Role specifics', description: 'Mining equipment or investment preferences' },
     { title: 'Upload documents', description: 'Attach required verification files' },
     { title: 'Review application', description: 'Review and submit your profile' },
+];
+
+const NATIONALITY_OPTIONS = [
+    'Nigerian',
+    'Ghanaian',
+    'Kenyan',
+    'South African',
+    'Rwandan',
+    'Tanzanian',
+    'Ugandan',
+    'Cameroonian',
+    'Ivorian',
+    'Senegalese',
+    'Egyptian',
+    'Moroccan',
+    'United States',
+    'United Kingdom',
+    'Canadian',
+    'Chinese',
+    'Indian',
+    'Other',
+];
+
+const IDENTIFICATION_TYPES = [
+    'National Identification Number (NIN)',
+    'International Passport',
+    'Driver License',
+    'Voter Card',
+    'Residence Permit',
+    'Tax Identification Number',
+    'Other',
+];
+
+const INDUSTRY_OPTIONS = [
+    'Mining',
+    'Mineral Trading',
+    'Mineral Processing',
+    'Exploration',
+    'Quarrying',
+    'Logistics',
+    'Equipment Leasing',
+    'Investment',
+    'Government / Regulatory',
+    'Other',
+];
+
+const INVESTMENT_OPTIONS = [
+    'Gold',
+    'Lithium',
+    'Iron Ore',
+    'Lead/Zinc',
+    'Gemstones',
+    'Coal',
+    'Tin',
+    'Columbite',
+    'Tantalite',
+    'Limestone',
+    'Barite',
+    'Bitumen',
+    'Granite',
+    'Gypsum',
+    'Kaolin',
+    'Manganese',
+    'Nickel',
+    'Copper',
+    'Bauxite',
+    'Silica Sand',
+    'Rare Earth Elements',
 ];
 
 const CheckIcon = () => (
@@ -96,6 +158,48 @@ const InputField: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { label
     </div>
 );
 
+const SelectField: React.FC<React.SelectHTMLAttributes<HTMLSelectElement> & { label: string; options: string[] }> = ({ label, options, ...props }) => (
+    <div>
+        <label className="block text-sm font-semibold text-text-secondary mb-1.5">{label}</label>
+        <select
+            {...props}
+            className={`w-full bg-primary p-3.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all ${props.className || ''}`}
+        >
+            <option value="">Select an option</option>
+            {options.map(option => (
+                <option key={option} value={option}>{option}</option>
+            ))}
+        </select>
+    </div>
+);
+
+const SearchableSelect: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { label: string; options: string[] }> = ({ label, options, id, ...props }) => {
+    const listId = `${id || props.name}-options`;
+
+    return (
+        <div>
+            <label className="block text-sm font-semibold text-text-secondary mb-1.5">{label}</label>
+            <input
+                {...props}
+                id={id}
+                list={listId}
+                className={`w-full bg-primary p-3.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all ${props.className || ''}`}
+            />
+            <datalist id={listId}>
+                {options.map(option => (
+                    <option key={option} value={option} />
+                ))}
+            </datalist>
+        </div>
+    );
+};
+
+const getFileTypeLabel = (file: File) => {
+    if (file.type === 'application/pdf') return 'PDF';
+    if (file.type.startsWith('image/')) return file.type.replace('image/', '').toUpperCase();
+    return 'FILE';
+};
+
 export const OnboardingPage: React.FC = () => {
     const { currentUser, updateUser, setPage } = useAuth();
     const [currentStep, setCurrentStep] = useState(0);
@@ -107,12 +211,17 @@ export const OnboardingPage: React.FC = () => {
         address: '',
         dateOfBirth: '',
         nationality: '',
+        otherNationality: '',
+        identificationType: 'National Identification Number (NIN)',
+        otherIdentificationType: '',
+        identificationNumber: '',
         nin: '',
         businessName: '',
         companyRegNumber: '',
         businessAddress: '',
         businessWebsite: '',
         industry: '',
+        otherIndustry: '',
         yearsInOperation: '',
         miningEquipment: '',
         certifications: '',
@@ -121,6 +230,8 @@ export const OnboardingPage: React.FC = () => {
     });
     const [documents, setDocuments] = useState<{ [key: string]: FilePreview[] }>({});
     const [fileErrors, setFileErrors] = useState<{ [key: string]: string | null }>({});
+    const [additionalDocs, setAdditionalDocs] = useState<Array<{ key: string; label: string }>>([]);
+    const [additionalDocName, setAdditionalDocName] = useState('');
 
     useEffect(() => {
       if(currentUser && !formData.name) {
@@ -149,23 +260,34 @@ export const OnboardingPage: React.FC = () => {
         setCurrentStep(prev => Math.max(prev - 1, 0));
     };
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
     
-    const handleCheckboxChange = (value: string) => {
-        setFormData(prev => {
-            const newPreferences = prev.investmentPreferences.includes(value)
-                ? prev.investmentPreferences.filter(item => item !== value)
-                : [...prev.investmentPreferences, value];
-            return { ...prev, investmentPreferences: newPreferences };
-        });
+    const handleInvestmentPreferenceAdd = (value: string) => {
+        if (!value) return;
+        setFormData(prev => prev.investmentPreferences.includes(value)
+            ? prev
+            : { ...prev, investmentPreferences: [...prev.investmentPreferences, value] }
+        );
+    };
+
+    const handleInvestmentPreferenceRemove = (value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            investmentPreferences: prev.investmentPreferences.filter(item => item !== value),
+        }));
     };
 
     const handleFilesAdded = (key: string, newFiles: File[]) => {
         setFileErrors(prev => ({ ...prev, [key]: null })); 
         const validFiles: FilePreview[] = [];
+        const allowedTypes = ['image/png', 'image/jpeg', 'application/pdf'];
         for (const file of newFiles) {
+            if (!allowedTypes.includes(file.type)) {
+                setFileErrors(prev => ({ ...prev, [key]: `File "${file.name}" must be a PNG, JPG, or PDF.` }));
+                continue;
+            }
             if (file.size > 10 * 1024 * 1024) { 
                 setFileErrors(prev => ({ ...prev, [key]: `File "${file.name}" exceeds 10MB limit.` }));
                 continue; 
@@ -187,32 +309,60 @@ export const OnboardingPage: React.FC = () => {
             setDocuments(prev => ({ ...prev, [key]: updatedFiles }));
         }
     };
+
+    const handleAddAdditionalDoc = () => {
+        const label = additionalDocName.trim();
+        if (!label) return;
+
+        const key = `additional:${label}`;
+        setAdditionalDocs(prev => prev.some(doc => doc.key === key) ? prev : [...prev, { key, label }]);
+        setAdditionalDocName('');
+    };
+
+    const handleRemoveAdditionalDoc = (key: string) => {
+        documents[key]?.forEach(filePreview => URL.revokeObjectURL(filePreview.previewUrl));
+        setAdditionalDocs(prev => prev.filter(doc => doc.key !== key));
+        setDocuments(prev => {
+            const next = { ...prev };
+            delete next[key];
+            return next;
+        });
+        setFileErrors(prev => {
+            const next = { ...prev };
+            delete next[key];
+            return next;
+        });
+    };
     
     const handleSubmit = async () => {
         if (!currentUser) return;
         setIsSubmitting(true);
         try {
-            const uploadedDocuments: { [key: string]: UserDocument[] } = {};
             for (const key in documents) {
-                uploadedDocuments[key] = await Promise.all(
-                    documents[key].map(async (filePreview) => ({
-                        name: filePreview.file.name,
-                        url: await toBase64(filePreview.file)
-                    }))
+                await Promise.all(
+                    documents[key].map(filePreview => uploadDocument(filePreview.file, { type: 'kyc' as any, uploadCategory: key }))
                 );
             }
+
+            const resolvedNationality = formData.nationality === 'Other' ? formData.otherNationality : formData.nationality;
+            const resolvedIdentificationType = formData.identificationType === 'Other' ? formData.otherIdentificationType : formData.identificationType;
+            const resolvedIndustry = formData.industry === 'Other' ? formData.otherIndustry : formData.industry;
 
             const updatedUser: User = {
                 ...currentUser,
                 ...formData,
                 role: formData.role === 'miner' ? UserRole.MINER : formData.role === 'investor' ? UserRole.INVESTOR : null,
+                nationality: resolvedNationality,
+                nin: resolvedIdentificationType && formData.identificationNumber
+                    ? `${resolvedIdentificationType}: ${formData.identificationNumber}`
+                    : formData.identificationNumber,
+                industry: resolvedIndustry,
                 miningEquipment: (formData.miningEquipment || '').split(',').map(s => s.trim()).filter(Boolean),
                 certifications: (formData.certifications || '').split(',').map(s => s.trim()).filter(Boolean),
                 investmentPreferences: formData.investmentPreferences,
                 riskAppetite: formData.riskAppetite,
                 onboardingComplete: true,
                 status: VerificationStatus.PENDING,
-                documents: uploadedDocuments,
             };
             await updateUser(updatedUser);
             setPage('profile', { initialTab: 'overview' });
@@ -241,6 +391,13 @@ export const OnboardingPage: React.FC = () => {
     };
     
     const requiredDocs = formData.role === 'miner' ? minerDocs : investorDocs;
+    const documentEntries = [
+        ...Object.entries(requiredDocs),
+        ...additionalDocs.map(doc => [doc.key, doc.label] as [string, string]),
+    ];
+    const resolvedNationality = formData.nationality === 'Other' ? formData.otherNationality : formData.nationality;
+    const resolvedIdentificationType = formData.identificationType === 'Other' ? formData.otherIdentificationType : formData.identificationType;
+    const resolvedIndustry = formData.industry === 'Other' ? formData.otherIndustry : formData.industry;
 
     return (
         <main className="h-screen overflow-hidden flex flex-col md:flex-row bg-primary text-text-primary font-sans">
@@ -305,8 +462,41 @@ export const OnboardingPage: React.FC = () => {
                                     <div><InputField label="Phone Number" type="tel" name="phoneNumber" value={formData.phoneNumber} onChange={handleInputChange} required placeholder="e.g., 08012345678" /></div>
                                     <div><InputField label="Date of Birth" type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleInputChange} required /></div>
                                     <div className="sm:col-span-2"><InputField label="Home Address" name="address" value={formData.address} onChange={handleInputChange} required placeholder="e.g., 123 Main Street, Lagos" /></div>
-                                    <div><InputField label="Nationality" name="nationality" value={formData.nationality} onChange={handleInputChange} required placeholder="e.g., Nigerian" /></div>
-                                    <div><InputField label="NIN" name="nin" value={formData.nin} onChange={handleInputChange} required placeholder="e.g., 123456789012" /></div>
+                                    <div>
+                                        <SearchableSelect
+                                            label="Nationality"
+                                            id="nationality"
+                                            name="nationality"
+                                            value={formData.nationality}
+                                            onChange={handleInputChange}
+                                            options={NATIONALITY_OPTIONS}
+                                            required
+                                            placeholder="Search or select nationality"
+                                        />
+                                    </div>
+                                    {formData.nationality === 'Other' && (
+                                        <div>
+                                            <InputField label="Specify Nationality" name="otherNationality" value={formData.otherNationality} onChange={handleInputChange} required placeholder="Enter nationality" />
+                                        </div>
+                                    )}
+                                    <div>
+                                        <SelectField
+                                            label="Means of Identification"
+                                            name="identificationType"
+                                            value={formData.identificationType}
+                                            onChange={handleInputChange}
+                                            options={IDENTIFICATION_TYPES}
+                                            required
+                                        />
+                                    </div>
+                                    {formData.identificationType === 'Other' && (
+                                        <div>
+                                            <InputField label="Specify Identification Type" name="otherIdentificationType" value={formData.otherIdentificationType} onChange={handleInputChange} required placeholder="e.g., Work permit" />
+                                        </div>
+                                    )}
+                                    <div className={formData.identificationType === 'Other' ? 'sm:col-span-2' : ''}>
+                                        <InputField label={`${resolvedIdentificationType || 'Identification'} Number`} name="identificationNumber" value={formData.identificationNumber} onChange={handleInputChange} required placeholder="Enter ID number" />
+                                    </div>
                                 </div>
                             </div>
                             )}
@@ -321,7 +511,21 @@ export const OnboardingPage: React.FC = () => {
                                     <div className="sm:col-span-2"><InputField label="Business Address" name="businessAddress" value={formData.businessAddress} onChange={handleInputChange} required placeholder="e.g., 456 Business Avenue, Abuja" /></div>
                                     <div><InputField label="Company Registration Number" name="companyRegNumber" value={formData.companyRegNumber} onChange={handleInputChange} required placeholder="e.g., RC 123456" /></div>
                                     <div><InputField label="Company Website (Optional)" type="url" name="businessWebsite" value={formData.businessWebsite} onChange={handleInputChange} placeholder="https://example.com" /></div>
-                                    <div><InputField label="Industry / Sector" name="industry" value={formData.industry} onChange={handleInputChange} required placeholder="e.g., Solid Minerals" /></div>
+                                    <div>
+                                        <SelectField
+                                            label="Industry / Sector"
+                                            name="industry"
+                                            value={formData.industry}
+                                            onChange={handleInputChange}
+                                            options={INDUSTRY_OPTIONS}
+                                            required
+                                        />
+                                    </div>
+                                    {formData.industry === 'Other' && (
+                                        <div>
+                                            <InputField label="Specify Industry / Sector" name="otherIndustry" value={formData.otherIndustry} onChange={handleInputChange} required placeholder="Enter industry or sector" />
+                                        </div>
+                                    )}
                                     <div><InputField label="Years in Operation" type="number" name="yearsInOperation" value={formData.yearsInOperation} onChange={handleInputChange} required placeholder="e.g., 5" /></div>
                                 </div>
                             </div>
@@ -342,13 +546,40 @@ export const OnboardingPage: React.FC = () => {
                                     <div className="space-y-8">
                                         <div>
                                             <h3 className="text-sm font-semibold text-text-secondary mb-3">Investment Preferences</h3>
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 border-t border-border pt-4">
-                                                {['Gold', 'Lithium', 'Iron Ore', 'Lead/Zinc', 'Gemstones', 'Coal'].map(mineral => (
-                                                    <label key={mineral} className="flex flex-col items-center justify-center space-y-2 p-4 bg-secondary border border-border rounded-xl has-[:checked]:bg-accent/10 has-[:checked]:border-accent cursor-pointer transition-colors duration-200 hover:border-accent/50">
-                                                        <input type="checkbox" checked={formData.investmentPreferences.includes(mineral)} onChange={() => handleCheckboxChange(mineral)} className="sr-only" />
-                                                        <span className="text-sm font-semibold">{mineral}</span>
-                                                    </label>
-                                                ))}
+                                            <div className="border-t border-border pt-4">
+                                                <select
+                                                    aria-label="Add investment preference"
+                                                    value=""
+                                                    onChange={(e) => handleInvestmentPreferenceAdd(e.target.value)}
+                                                    className="w-full bg-primary p-3.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
+                                                >
+                                                    <option value="">Select minerals or sectors to add</option>
+                                                    {INVESTMENT_OPTIONS.filter(option => !formData.investmentPreferences.includes(option)).map(option => (
+                                                        <option key={option} value={option}>{option}</option>
+                                                    ))}
+                                                </select>
+
+                                                <div className="mt-4 flex flex-wrap gap-2">
+                                                    {formData.investmentPreferences.length > 0 ? (
+                                                        formData.investmentPreferences.map(preference => (
+                                                            <span key={preference} className="inline-flex max-w-full items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3 py-2 text-sm font-semibold text-text-primary">
+                                                                <span className="truncate">{preference}</span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleInvestmentPreferenceRemove(preference)}
+                                                                    className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-text-muted hover:bg-red-500/10 hover:text-red-400"
+                                                                    aria-label={`Remove ${preference}`}
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m6 18 12-12M6 6l12 12" />
+                                                                    </svg>
+                                                                </button>
+                                                            </span>
+                                                        ))
+                                                    ) : (
+                                                        <p className="text-sm text-text-muted">No investment preferences selected yet.</p>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                         <div>
@@ -370,10 +601,21 @@ export const OnboardingPage: React.FC = () => {
                             {currentStep === 4 && (
                             <div className="step-container">
                                 <h1 className="text-4xl font-extrabold mb-4 tracking-tight">Upload documents</h1>
-                                <p className="text-lg text-text-secondary mb-10 leading-relaxed">You can add as much information as you want for each client so that AI could start analyzing it.</p>
+                                <p className="text-lg text-text-secondary mb-10 leading-relaxed">Drag each verification file into its dropzone, or click a dropzone to choose files from your device.</p>
                                 <div className="space-y-6">
-                                    {Object.entries(requiredDocs).map(([key, label]) => (
+                                    {documentEntries.map(([key, label]) => (
                                         <div key={key} className="bg-secondary p-6 rounded-xl border border-border">
+                                            {key.startsWith('additional:') && (
+                                                <div className="mb-4 flex justify-end">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemoveAdditionalDoc(key)}
+                                                        className="text-sm font-semibold text-red-400 hover:text-red-300"
+                                                    >
+                                                        Remove document type
+                                                    </button>
+                                                </div>
+                                            )}
                                             <MultiFileInput
                                                 id={key}
                                                 label={label}
@@ -381,9 +623,36 @@ export const OnboardingPage: React.FC = () => {
                                                 onFilesAdded={(files) => handleFilesAdded(key, files)}
                                                 onFileRemoved={(index) => handleFileRemoved(key, index)}
                                                 error={fileErrors[key]}
+                                                accept="image/png,image/jpeg,application/pdf"
+                                                helperText="Upload a clear PNG, JPG, or PDF. Maximum file size is 10MB."
                                             />
                                         </div>
                                     ))}
+                                    <div className="bg-secondary p-6 rounded-xl border border-border">
+                                        <label className="block text-sm font-semibold text-text-secondary mb-1.5">Additional document type</label>
+                                        <div className="flex flex-col gap-3 sm:flex-row">
+                                            <input
+                                                value={additionalDocName}
+                                                onChange={(e) => setAdditionalDocName(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        handleAddAdditionalDoc();
+                                                    }
+                                                }}
+                                                className="w-full bg-primary p-3.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
+                                                placeholder="e.g., Tax clearance certificate"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleAddAdditionalDoc}
+                                                disabled={!additionalDocName.trim()}
+                                                className="whitespace-nowrap rounded-lg bg-accent px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-yellow-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                Add document
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             )}
@@ -400,8 +669,9 @@ export const OnboardingPage: React.FC = () => {
                                         <ReviewItem label="Phone Number" value={formData.phoneNumber} />
                                         <ReviewItem label="Date of Birth" value={formData.dateOfBirth} />
                                         <ReviewItem label="Address" value={formData.address} />
-                                        <ReviewItem label="Nationality" value={formData.nationality} />
-                                        <ReviewItem label="NIN" value={formData.nin} />
+                                        <ReviewItem label="Nationality" value={resolvedNationality} />
+                                        <ReviewItem label="Identification Type" value={resolvedIdentificationType} />
+                                        <ReviewItem label="Identification Number" value={formData.identificationNumber} />
                                     </ReviewSection>
 
                                     <ReviewSection title="Business Information">
@@ -409,7 +679,7 @@ export const OnboardingPage: React.FC = () => {
                                         <ReviewItem label="Business Address" value={formData.businessAddress} />
                                         <ReviewItem label="CAC Number" value={formData.companyRegNumber} />
                                         <ReviewItem label="Website" value={formData.businessWebsite} />
-                                        <ReviewItem label="Industry" value={formData.industry} />
+                                        <ReviewItem label="Industry" value={resolvedIndustry} />
                                         <ReviewItem label="Years in Operation" value={formData.yearsInOperation} />
                                     </ReviewSection>
 
@@ -428,16 +698,36 @@ export const OnboardingPage: React.FC = () => {
                                     </ReviewSection>
 
                                     <ReviewSection title="Uploaded Documents">
-                                        {Object.keys(requiredDocs).map(key => (
-                                            <ReviewItem
-                                                key={key}
-                                                label={requiredDocs[key as keyof typeof requiredDocs]}
-                                                value={
-                                                    (documents[key] && documents[key].length > 0)
-                                                        ? <ul className="list-disc list-inside">{documents[key].map(f => <li key={f.file.name}>{f.file.name}</li>)}</ul>
-                                                        : <span className="text-red-400 font-medium">No files uploaded</span>
-                                                }
-                                            />
+                                        {documentEntries.map(([key, label]) => (
+                                            <div key={key} className="flex flex-col gap-3 border-b border-border/70 pb-4 last:border-b-0 last:pb-0">
+                                                <dt className="text-sm font-medium text-text-muted">{label}</dt>
+                                                <dd>
+                                                    {(documents[key] && documents[key].length > 0)
+                                                        ? (
+                                                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                                                {documents[key].map((filePreview, index) => (
+                                                                    <div key={`${filePreview.file.name}-${index}`} className="flex min-w-0 items-center gap-3 rounded-lg border border-border bg-primary p-3">
+                                                                        <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-md border border-border bg-secondary">
+                                                                            {filePreview.file.type.startsWith('image/') ? (
+                                                                                <img src={filePreview.previewUrl} alt={filePreview.file.name} className="h-full w-full object-cover" />
+                                                                            ) : (
+                                                                                <div className="flex h-full w-full items-center justify-center text-xs font-bold text-text-muted">
+                                                                                    {getFileTypeLabel(filePreview.file)}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="min-w-0">
+                                                                            <p className="truncate text-sm font-semibold text-text-primary" title={filePreview.file.name}>{filePreview.file.name}</p>
+                                                                            <p className="mt-1 text-xs text-text-muted">{getFileTypeLabel(filePreview.file)}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )
+                                                        : <span className="text-sm font-medium text-red-400">No files uploaded</span>
+                                                    }
+                                                </dd>
+                                            </div>
                                         ))}
                                     </ReviewSection>
                                 </div>

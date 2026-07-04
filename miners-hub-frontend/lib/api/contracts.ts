@@ -14,9 +14,11 @@ export interface BackendContract {
   listingId?: string;
   title: string;
   terms: string;
-  status: 'pending' | 'negotiating' | 'pending_signatures' | 'signed' | 'active' | 'completed' | 'cancelled' | 'rejected';
+  status: 'draft' | 'proposed' | 'under_review' | 'signed' | 'executed' | 'terminated';
   party1SignedAt?: string;
   party2SignedAt?: string;
+  party1Signature?: string;
+  party2Signature?: string;
   party1SignatureData?: string;
   party2SignatureData?: string;
   startDate?: string;
@@ -88,4 +90,19 @@ export async function signContract(id: string, payload: SignContractPayload): Pr
  */
 export async function updateContractStatus(id: string, status: BackendContract['status']): Promise<BackendContract> {
   return apiClient.patch<BackendContract>(`/api/contracts/${id}/status`, { status });
+}
+
+/**
+ * Get the SignNow embedded signing link
+ */
+export async function getSignNowLink(id: string, redirectUri?: string): Promise<{ link: string }> {
+  const query = redirectUri ? `?redirect_uri=${encodeURIComponent(redirectUri)}` : '';
+  return apiClient.get<{ link: string }>(`/api/contracts/${id}/signnow-link${query}`);
+}
+
+/**
+ * Sync the contract signatures from SignNow
+ */
+export async function syncContractSignatures(id: string): Promise<BackendContract> {
+  return apiClient.post<BackendContract>(`/api/contracts/${id}/sync-signnow`, {});
 }

@@ -19,6 +19,7 @@ export interface BackendListing {
   status: string;
   moisturePercentage?: number | null;
   description?: string | null;
+  images?: string[];
   createdAt: string;
   updatedAt: string;
   miner?: {
@@ -40,6 +41,7 @@ export interface CreateListingPayload {
   gradePurity?: string;
   location?: string;
   listingType: 'buy_now' | 'auction';
+  images?: string[];
 }
 
 /**
@@ -133,6 +135,7 @@ export function mapBackendListingToFrontend(b: BackendListing): Listing {
   return {
     id: b.id,
     minerId: b.minerId,
+    minerUserId: b.miner?.user?.id,
     mineral: b.mineralType,
     quantity: Number(b.quantity),
     unit: 'tonne' as Unit, // default for now, could be dynamic
@@ -140,9 +143,9 @@ export function mapBackendListingToFrontend(b: BackendListing): Listing {
     grade: b.gradePurity || 'Standard',
     location: b.location || 'Nigeria',
     description: b.description || 'No description provided.',
-    images: [
-      'https://images.unsplash.com/photo-1516924962500-2b4b3b99ea02?auto=format&fit=crop&q=80&w=2940&ixlib=rb-4.0.3', // Placeholder
-    ],
+    images: b.images?.length
+      ? b.images
+      : ['https://images.unsplash.com/photo-1516924962500-2b4b3b99ea02?auto=format&fit=crop&q=80&w=2940&ixlib=rb-4.0.3'],
     status: b.status as ListingStatus,
     type: b.listingType === 'buy_now' ? 'buy-now' : 'auction',
     datePosted: b.createdAt,
@@ -162,6 +165,7 @@ export function mapBackendListingToAuction(b: BackendListing): Auction {
   return {
     id: b.id,
     minerId: b.minerId,
+    minerUserId: b.miner?.user?.id,
     mineral: b.mineralType,
     quantity: Number(b.quantity),
     unit: 'tonne' as Unit,
@@ -173,9 +177,9 @@ export function mapBackendListingToAuction(b: BackendListing): Auction {
     grade: b.gradePurity || 'Standard',
     location: b.location || 'Nigeria',
     description: b.description || 'No description provided.',
-    images: [
-      'https://images.unsplash.com/photo-1518349619113-03114f06ac3a?auto=format&fit=crop&q=80&w=2940&ixlib=rb-4.0.3', // Placeholder
-    ],
+    images: b.images?.length
+      ? b.images
+      : ['https://images.unsplash.com/photo-1518349619113-03114f06ac3a?auto=format&fit=crop&q=80&w=2940&ixlib=rb-4.0.3'],
     status: 'active' as AuctionStatus,
     datePosted: b.createdAt,
     createdAt: b.createdAt,

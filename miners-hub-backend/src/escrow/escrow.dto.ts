@@ -1,4 +1,9 @@
-import { IsNotEmpty, IsNumberString, IsOptional, IsString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumberString,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class UpsertPayoutAccountDto {
   @IsNotEmpty()

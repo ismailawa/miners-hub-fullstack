@@ -83,6 +83,9 @@ export class User {
   @Column({ nullable: true })
   nin?: string;
 
+  @Column({ name: 'profile_image_url', type: 'text', nullable: true })
+  profileImageUrl?: string | null;
+
   @Column({ name: 'onboarding_complete', default: false })
   onboardingComplete!: boolean;
 

@@ -5,13 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { User } from '../lib/types';
 import { getPayoutAccount, savePayoutAccount, type PayoutAccountPayload } from '../lib/api/users';
 import type { BackendPayoutAccount } from '../lib/api/orders';
-
-const toBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-});
+import { uploadImage } from '../lib/api/media';
 
 type Tab = 'info' | 'payout' | 'security' | 'notifications';
 
@@ -95,8 +89,8 @@ const ProfilePage: React.FC = () => {
             const file = e.target.files[0];
             if (file.size > 2 * 1024 * 1024) { alert('File too large. Max 2MB.'); return; }
             if (!file.type.startsWith('image/')) { alert('Please select an image file.'); return; }
-            const base64 = await toBase64(file);
-            updateUser({ ...currentUser, profileImageUrl: base64 });
+            const uploaded = await uploadImage(file, 'profile');
+            updateUser({ ...currentUser, profileImageUrl: uploaded.secureUrl });
         }
     };
 

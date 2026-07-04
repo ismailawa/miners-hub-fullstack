@@ -2,15 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { User } from '../lib/types';
 import { BackendListing, CreateListingPayload, createListing, updateListing } from '../lib/api/listings';
 import MultiFileInput, { FilePreview } from './MultiFileInput';
+import { uploadImage } from '../lib/api/media';
 
 const COMMON_MINERALS = ['Gold', 'Lithium', 'Copper', 'Cobalt', 'Coltan', 'Zinc', 'Tin', 'Lead', 'Iron Ore'];
-
-const toBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-});
 
 interface CreateListingModalProps {
     isOpen: boolean;
@@ -112,6 +106,9 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({ isOpen, onClose
         setSubmitting(true);
         setError('');
         try {
+            const uploadedImages = await Promise.all(
+                images.map(image => uploadImage(image.file, 'listing')),
+            );
             const payload: CreateListingPayload = {
                 mineralType: finalMineralName,
                 quantity: formData.quantity,
@@ -119,6 +116,7 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({ isOpen, onClose
                 gradePurity: formData.gradePurity || undefined,
                 location: formData.location || undefined,
                 listingType: formData.type,
+                ...(uploadedImages.length > 0 ? { images: uploadedImages.map(image => image.secureUrl) } : {}),
             };
 
             let result: BackendListing;
@@ -230,7 +228,15 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({ isOpen, onClose
                             </div>
 
                             <div>
-                                <MultiFileInput id="listing-images" label="Listing Images" files={images} onFilesAdded={handleFilesAdded} onFileRemoved={handleFileRemoved} />
+                                <MultiFileInput
+                                    id="listing-images"
+                                    label="Listing Images"
+                                    files={images}
+                                    onFilesAdded={handleFilesAdded}
+                                    onFileRemoved={handleFileRemoved}
+                                    accept="image/png,image/jpeg"
+                                    helperText="Upload clear PNG or JPG images. Maximum file size is 10MB."
+                                />
                             </div>
                             
                             {error && (

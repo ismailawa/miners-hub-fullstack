@@ -20,6 +20,10 @@ export interface MarketSummaryResponse {
   generatedAt: string;
 }
 
+export interface ForecastResponse {
+  prices: number[];
+}
+
 /**
  * Send a message to the Jatau AI assistant
  */
@@ -32,4 +36,14 @@ export async function chatWithJatau(payload: JatauChatPayload): Promise<JatauCha
  */
 export async function getMarketSummary(): Promise<MarketSummaryResponse> {
   return apiClient.get<MarketSummaryResponse>('/api/ai/market-summary');
+}
+
+export async function getPriceForecast(
+  mineral: string,
+  historicalPrices: number[],
+): Promise<ForecastResponse> {
+  return apiClient.post<ForecastResponse>('/api/ai/forecast', {
+    mineral,
+    historicalPrices,
+  });
 }

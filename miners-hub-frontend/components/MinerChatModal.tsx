@@ -3,6 +3,14 @@
 import React, { useState, useEffect, useRef, FormEvent, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { sendMessage, getChatMessages, BackendMessage } from '../lib/api/chats';
+import {
+  isChatSocketConnected,
+  joinThread,
+  leaveThread,
+  onChatError,
+  onChatMessage,
+  sendSocketMessage,
+} from '../lib/api/chat-socket';
 
 interface Miner {
   id: string;
@@ -23,11 +31,12 @@ const MinerChatModal: React.FC<MinerChatModalProps> = ({ isOpen, onClose, miner 
   const [isSending, setIsSending] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const optimisticMessageIdRef = useRef<string | null>(null);
 
   // Deterministic thread id matches backend lexicographic sort
   const threadId = React.useMemo(() => {
     if (!currentUser || !miner) return null;
-    return [currentUser.id, miner.id].sort().join('_');
+    return [currentUser.id, miner.id].sort().join('--');
   }, [currentUser, miner]);
 
   // Load message history whenever the modal opens
@@ -48,6 +57,44 @@ const MinerChatModal: React.FC<MinerChatModalProps> = ({ isOpen, onClose, miner 
   useEffect(() => {
     if (isOpen && miner) loadHistory();
   }, [isOpen, miner, loadHistory]);
+
+  const upsertMessage = useCallback((message: BackendMessage) => {
+    setMessages((prev) => {
+      if (prev.some((existing) => existing.id === message.id)) return prev;
+      return [...prev, message];
+    });
+  }, []);
+
+  const replaceOptimisticMessage = useCallback((optimisticId: string, saved: BackendMessage) => {
+    setMessages((prev) => {
+      const withoutSavedDuplicate = prev.filter((message) => message.id !== saved.id);
+      if (withoutSavedDuplicate.some((message) => message.id === optimisticId)) {
+        return withoutSavedDuplicate.map((message) => message.id === optimisticId ? saved : message);
+      }
+      return [...withoutSavedDuplicate, saved];
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen || !threadId) return;
+
+    void joinThread(threadId).catch(() => undefined);
+
+    const offMessage = onChatMessage((message) => {
+      if (message.threadId !== threadId) return;
+      if (message.senderId === currentUser?.id) return;
+      upsertMessage(message);
+    });
+    const offError = onChatError((payload) => {
+      console.warn('Chat socket error:', payload.message);
+    });
+
+    return () => {
+      offMessage();
+      offError();
+      void leaveThread(threadId).catch(() => undefined);
+    };
+  }, [currentUser?.id, isOpen, threadId, upsertMessage]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -72,16 +119,26 @@ const MinerChatModal: React.FC<MinerChatModalProps> = ({ isOpen, onClose, miner 
       sender: { name: currentUser.name },
     };
     setMessages((prev) => [...prev, optimistic]);
+    optimisticMessageIdRef.current = optimistic.id;
 
     try {
-      const saved = await sendMessage(miner.id, text);
-      // Replace optimistic with saved
-      setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? saved : m)));
+      const saved = isChatSocketConnected()
+        ? await sendSocketMessage(miner.id, text)
+        : await sendMessage(miner.id, text);
+      replaceOptimisticMessage(optimistic.id, saved);
     } catch {
-      // Remove optimistic on failure
-      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
-      alert('Failed to send message. Please try again.');
+      try {
+        const saved = await sendMessage(miner.id, text);
+        replaceOptimisticMessage(optimistic.id, saved);
+      } catch {
+        // Remove optimistic on failure
+        setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+        alert('Failed to send message. Please try again.');
+      }
     } finally {
+      if (optimisticMessageIdRef.current === optimistic.id) {
+        optimisticMessageIdRef.current = null;
+      }
       setIsSending(false);
     }
   };
@@ -113,9 +170,9 @@ const MinerChatModal: React.FC<MinerChatModalProps> = ({ isOpen, onClose, miner 
             <MinerAvatar />
             <div>
               <h3 className="font-bold text-text-primary">{miner.name}</h3>
-              <p className="text-xs text-green-400 flex items-center gap-1.5">
-                <span className="w-2 h-2 bg-green-400 rounded-full" />
-                Online
+              <p className="text-xs text-text-muted flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-text-muted rounded-full" />
+                Direct message
               </p>
             </div>
           </div>

@@ -1,12 +1,9 @@
 import { faker } from '@faker-js/faker';
-import {
-  Listing,
-  ListingStatus,
-} from '../../src/entities/listing.entity';
+import { Listing, ListingStatus } from '../../src/entities/listing.entity';
 
 /**
  * Listing Factory
- * 
+ *
  * Generates test data for Listing entities using Faker.js
  */
 
@@ -56,7 +53,7 @@ const LOCATIONS = [
 
 /**
  * Create a Listing entity with fake data
- * 
+ *
  * @param options - Optional overrides for specific fields
  * @returns Partial Listing entity (without relationships)
  */
@@ -65,8 +62,12 @@ export function createListingFactory(
 ): Partial<Listing> {
   const mineralType =
     options.mineralType || faker.helpers.arrayElement(MINERAL_TYPES);
-  const quantity = options.quantity || faker.number.float({ min: 1, max: 1000, fractionDigits: 2 });
-  const pricePerTon = options.price || faker.number.float({ min: 1000, max: 100000, fractionDigits: 2 });
+  const quantity =
+    options.quantity ||
+    faker.number.float({ min: 1, max: 1000, fractionDigits: 2 });
+  const pricePerTon =
+    options.price ||
+    faker.number.float({ min: 1000, max: 100000, fractionDigits: 2 });
 
   return {
     minerId: options.minerId || faker.string.uuid(),
@@ -92,14 +93,17 @@ export function createListingFactory(
             null,
             faker.number.float({ min: 0, max: 15, fractionDigits: 2 }),
           ]),
-    status: options.status || faker.helpers.arrayElement(Object.values(ListingStatus)),
-    listingType: options.listingType || faker.helpers.arrayElement(['buy_now', 'auction']),
+    status:
+      options.status ||
+      faker.helpers.arrayElement(Object.values(ListingStatus)),
+    listingType:
+      options.listingType || faker.helpers.arrayElement(['buy_now', 'auction']),
   };
 }
 
 /**
  * Create multiple Listing entities
- * 
+ *
  * @param count - Number of listings to create
  * @param options - Optional overrides for all listings
  * @returns Array of partial Listing entities
@@ -140,9 +144,7 @@ export function createPublishedAuctionListingFactory(
 /**
  * Create a draft listing
  */
-export function createDraftListingFactory(
-  minerId?: string,
-): Partial<Listing> {
+export function createDraftListingFactory(minerId?: string): Partial<Listing> {
   return createListingFactory({
     minerId,
     status: ListingStatus.DRAFT,
@@ -152,12 +154,9 @@ export function createDraftListingFactory(
 /**
  * Create a sold listing
  */
-export function createSoldListingFactory(
-  minerId?: string,
-): Partial<Listing> {
+export function createSoldListingFactory(minerId?: string): Partial<Listing> {
   return createListingFactory({
     minerId,
     status: ListingStatus.SOLD,
   });
 }
-

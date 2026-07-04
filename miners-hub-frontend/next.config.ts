@@ -1,13 +1,11 @@
 import type { NextConfig } from 'next';
+import path from 'path';
 
 const nextConfig: NextConfig = {
     output: 'standalone',
+    outputFileTracingRoot: path.join(process.cwd()),
     eslint: {
         ignoreDuringBuilds: true,
-    },
-    env: {
-        API_KEY: process.env.GEMINI_API_KEY,
-        GEMINI_API_KEY: process.env.GEMINI_API_KEY,
     },
 };
 

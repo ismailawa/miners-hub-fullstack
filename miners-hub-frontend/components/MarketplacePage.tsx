@@ -2,14 +2,13 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Listing, Auction, Bid, VerificationStatus } from '../lib/types';
+import { Listing, Auction, VerificationStatus } from '../lib/types';
 import {
   getPublishedListings,
   mapBackendListingToFrontend,
-  mapBackendListingToAuction,
   BackendListing,
 } from '../lib/api/listings';
-import { placeBid, getAuction } from '../lib/api/auctions';
+import { placeBid, getAuction, getActiveAuctions, mapBackendAuctionToFrontend } from '../lib/api/auctions';
 import MinerChatModal from './MinerChatModal';
 import CreateListingModal from './CreateListingModal';
 import Pagination from './Pagination';
@@ -232,7 +231,7 @@ const ListingDetailModal: React.FC<{
               {(!currentUser || currentUser.role === 'investor') ? (
                 <div className="mt-6 flex flex-col sm:flex-row gap-2">
                   <button
-                    onClick={() => onStartChat({ id: listing.minerId, name: listing.minerName || 'Miner', imageUrl: listing.minerImageUrl || '' })}
+                    onClick={() => onStartChat({ id: listing.minerUserId || listing.minerId, name: listing.minerName || 'Miner', imageUrl: listing.minerImageUrl || '' })}
                     className="flex-1 bg-border text-text-primary font-semibold py-3 rounded-md hover:bg-border/80 transition-colors"
                   >
                     Chat with Seller
@@ -247,7 +246,7 @@ const ListingDetailModal: React.FC<{
               ) : (
                 <div className="mt-6 p-4 bg-primary rounded-lg border border-border text-center">
                   <p className="text-text-secondary text-sm">
-                    {currentUser.id === listing.minerId ? 'This is your listing.' : 'You must be an investor to perform actions on this listing.'}
+                    {currentUser.id === listing.minerUserId ? 'This is your listing.' : 'You must be an investor to perform actions on this listing.'}
                   </p>
                 </div>
               )}
@@ -292,7 +291,7 @@ const AuctionDetailModal: React.FC<{
     e.preventDefault();
     setError('');
     if (!currentUser) { setPage('login'); onClose(); return; }
-    if (currentUser.id === listing.minerId) { setError('You cannot bid on your own auction.'); return; }
+    if (currentUser.id === listing.minerUserId) { setError('You cannot bid on your own auction.'); return; }
     if (bidAmount <= listing.currentBid) { setError(`Bid must be higher than the current ₦${listing.currentBid.toLocaleString()}.`); return; }
     setIsBidConfirmationOpen(true);
   };
@@ -421,17 +420,18 @@ const MarketplacePage: React.FC = () => {
       const filters: Record<string, string | number> = { limit: listingsPerPage, offset };
       if (mineralTypeFilter !== 'all') filters.mineralType = mineralTypeFilter;
       if (locationFilter !== 'all') filters.location = locationFilter;
-      if (activeTab === 'auction') filters.listingType = 'auction';
-      else filters.listingType = 'buy_now';
+      if (activeTab === 'auction') {
+        const response = await getActiveAuctions({ limit: listingsPerPage, offset });
+        setAuctions(response.data.map(mapBackendAuctionToFrontend));
+        setTotalItems(response.meta.total);
+        return;
+      }
 
+      filters.listingType = 'buy_now';
       const response = await getPublishedListings(filters as any);
       const { data, meta } = response;
 
-      if (activeTab === 'buy-now') {
-        setBuyNowListings(data.map(mapBackendListingToFrontend));
-      } else {
-        setAuctions(data.map(mapBackendListingToAuction));
-      }
+      setBuyNowListings(data.map(mapBackendListingToFrontend));
       setTotalItems(meta.total);
     } catch (err) {
       setApiError('Failed to load listings. Please try again.');
@@ -463,8 +463,8 @@ const MarketplacePage: React.FC = () => {
       await placeBid(auctionId, amount);
       // Refetch to get updated bid info
       await fetchListings();
-      // Update the selected auction with fresh data
-      setSelectedAuction((prev) => prev ? { ...prev, currentBid: amount, highestBidderName: currentUser.name, bidHistory: [{ id: Date.now().toString(), auctionId, bidderId: currentUser.id, amount, date: new Date().toISOString(), createdAt: new Date().toISOString(), bidderName: currentUser.name }, ...prev.bidHistory] } : null);
+      const freshAuction = await getAuction(auctionId);
+      setSelectedAuction(mapBackendAuctionToFrontend(freshAuction));
     } catch {
       alert('Failed to place bid. Please try again.');
     } finally {

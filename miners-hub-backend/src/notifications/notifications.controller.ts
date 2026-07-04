@@ -21,7 +21,7 @@ export class NotificationsController {
     const notifications = await this.notificationsService.findAll(req.user.id);
     // Map notificationType to type for frontend
     return {
-      notifications: notifications.map(n => ({
+      notifications: notifications.map((n) => ({
         ...n,
         type: n.notificationType,
       })),
@@ -56,7 +56,10 @@ export class NotificationsController {
 
   @Patch(':id/read')
   async markAsRead(@Request() req: any, @Param('id') id: string) {
-    const notification = await this.notificationsService.markAsRead(id, req.user.id);
+    const notification = await this.notificationsService.markAsRead(
+      id,
+      req.user.id,
+    );
     return {
       notification: {
         ...notification,

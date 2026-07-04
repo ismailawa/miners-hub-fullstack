@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 
 export interface FilePreview {
     file: File;
@@ -12,51 +12,148 @@ interface MultiFileInputProps {
     onFileRemoved: (index: number) => void;
     error?: string | null;
     id: string;
+    accept?: string;
+    helperText?: string;
 }
 
-const MultiFileInput: React.FC<MultiFileInputProps> = ({ label, files, onFilesAdded, onFileRemoved, error, id }) => {
+const MultiFileInput: React.FC<MultiFileInputProps> = ({
+    label,
+    files,
+    onFilesAdded,
+    onFileRemoved,
+    error,
+    id,
+    accept = 'image/png,image/jpeg,application/pdf',
+    helperText = 'PNG, JPG, or PDF up to 10MB',
+}) => {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const [isDragging, setIsDragging] = useState(false);
+
+    const addFiles = (fileList: FileList | File[]) => {
+        const selectedFiles = Array.from(fileList);
+        if (selectedFiles.length > 0) {
+            onFilesAdded(selectedFiles);
+        }
+    };
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
-            onFilesAdded(Array.from(e.target.files));
+            addFiles(e.target.files);
             e.target.value = '';
         }
     };
 
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        addFiles(e.dataTransfer.files);
+    };
+
+    const openFilePicker = () => inputRef.current?.click();
+    const getFileTypeLabel = (file: File) => {
+        if (file.type === 'application/pdf') return 'PDF';
+        if (file.type.startsWith('image/')) return file.type.replace('image/', '').toUpperCase();
+        return 'FILE';
+    };
+
     return (
         <div>
-            <label className="block text-sm font-medium text-text-secondary">{label}</label>
-            <div className="mt-2 flex justify-center px-6 pt-5 pb-6 border-2 border-border border-dashed rounded-lg bg-primary hover:bg-secondary hover:border-accent transition-colors duration-300">
-                <div className="space-y-1 text-center">
-                    <svg className="mx-auto h-12 w-12 text-text-muted" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
-                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <div className="flex text-sm text-text-secondary justify-center">
-                        <label htmlFor={id} className="relative cursor-pointer rounded-md font-medium text-accent hover:text-accent/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-offset-primary focus-within:ring-accent">
-                            <span>Upload files</span>
-                            <input id={id} name={id} type="file" className="sr-only" multiple onChange={handleFileChange} accept="image/*,.pdf,.doc,.docx" />
-                        </label>
-                        <p className="pl-1">or drag and drop</p>
+            <label htmlFor={id} className="block text-sm font-semibold text-text-secondary">{label}</label>
+            <div
+                role="button"
+                tabIndex={0}
+                aria-label={`Upload ${label}`}
+                onClick={openFilePicker}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openFilePicker();
+                    }
+                }}
+                onDragOver={handleDragOver}
+                onDragEnter={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`mt-2 flex min-h-[180px] cursor-pointer items-center justify-center rounded-xl border-2 border-dashed px-6 py-7 text-center transition-all duration-200 ${
+                    isDragging
+                        ? 'border-accent bg-accent/10 shadow-[0_0_0_4px_rgba(217,119,6,0.12)]'
+                        : 'border-border bg-primary hover:border-accent/70 hover:bg-secondary'
+                }`}
+            >
+                <input
+                    ref={inputRef}
+                    id={id}
+                    name={id}
+                    type="file"
+                    className="sr-only"
+                    multiple
+                    onChange={handleFileChange}
+                    accept={accept}
+                />
+                <div className="max-w-sm">
+                    <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border ${
+                        isDragging ? 'border-accent bg-accent/20 text-accent' : 'border-border bg-secondary text-text-muted'
+                    }`}>
+                        <svg className="h-7 w-7" stroke="currentColor" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 16V4m0 0L7 9m5-5 5 5M5 16v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
                     </div>
-                    <p className="text-xs text-text-muted mt-2">PNG, JPG, PDF up to 10MB</p>
+                    <p className="text-sm font-semibold text-text-primary">
+                        {isDragging ? 'Drop files here' : 'Drop files here or click to browse'}
+                    </p>
+                    <p className="mt-2 text-xs text-text-muted">{helperText}</p>
+                    <p className="mt-3 text-xs text-text-secondary">
+                        {files.length > 0 ? `${files.length} file${files.length === 1 ? '' : 's'} selected` : 'No files selected'}
+                    </p>
                 </div>
             </div>
             {files.length > 0 && (
-                <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {files.map((filePreview, index) => (
-                        <div key={index} className="relative group aspect-square">
-                           {filePreview.file.type.startsWith('image/') ? (
-                                <img src={filePreview.previewUrl} alt="Preview" className="w-full h-full object-cover rounded-md border border-border" />
-                            ) : (
-                                <div className="w-full h-full bg-border rounded-md flex flex-col items-center justify-center p-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                    <span className="text-xs text-text-muted mt-1 text-center break-all truncate">{filePreview.file.name}</span>
-                                </div>
-                            )}
-                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md">
-                                <button type="button" onClick={() => onFileRemoved(index)} className="text-white p-2 bg-red-600/70 rounded-full hover:bg-red-500">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                </button>
+                        <div key={`${filePreview.file.name}-${index}`} className="group flex min-w-0 items-center gap-3 rounded-lg border border-border bg-primary p-3">
+                            <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-md border border-border bg-secondary">
+                                {filePreview.file.type.startsWith('image/') ? (
+                                    <img src={filePreview.previewUrl} alt={filePreview.file.name} className="h-full w-full object-cover" />
+                                ) : (
+                                    <div className="flex h-full w-full flex-col items-center justify-center text-text-muted">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414A1 1 0 0 1 18 9.414V19a2 2 0 0 1-2 2Z" />
+                                        </svg>
+                                        <span className="mt-0.5 text-[10px] font-bold leading-none">{getFileTypeLabel(filePreview.file)}</span>
+                                    </div>
+                                )}
                             </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold text-text-primary" title={filePreview.file.name}>{filePreview.file.name}</p>
+                                <p className="mt-1 text-xs text-text-muted">{getFileTypeLabel(filePreview.file)} · {formatFileSize(filePreview.file.size)}</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onFileRemoved(index);
+                                }}
+                                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-red-500/10 hover:text-red-400"
+                                aria-label={`Remove ${filePreview.file.name}`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m6 18 12-12M6 6l12 12" />
+                                </svg>
+                            </button>
                         </div>
                     ))}
                 </div>
@@ -64,6 +161,12 @@ const MultiFileInput: React.FC<MultiFileInputProps> = ({ label, files, onFilesAd
             {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
         </div>
     );
+};
+
+const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
 export default MultiFileInput;

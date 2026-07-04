@@ -52,10 +52,7 @@ export class ContractsController {
    * Get contract detail — party access only.
    */
   @Get(':id')
-  async findOne(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Request() req: any,
-  ) {
+  async findOne(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
     return this.contractsService.findOne(id, req.user.id);
   }
 
@@ -83,5 +80,35 @@ export class ContractsController {
     @Request() req: any,
   ) {
     return this.contractsService.sign(id, req.user.id, dto);
+  }
+
+  /**
+   * GET /api/contracts/:id/signnow-link
+   * Get the SignNow embedded signing link for the current user.
+   */
+  @Get(':id/signnow-link')
+  async getSignnowLink(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: any,
+    @Query('redirect_uri') redirectUri?: string,
+  ) {
+    const link = await this.contractsService.getSigningLink(
+      id,
+      req.user.id,
+      redirectUri,
+    );
+    return { link };
+  }
+
+  /**
+   * POST /api/contracts/:id/sync-signnow
+   * Sync contract signature status from SignNow
+   */
+  @Post(':id/sync-signnow')
+  async syncSignnow(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: any,
+  ) {
+    return this.contractsService.syncWithSignNow(id, req.user.id);
   }
 }

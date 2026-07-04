@@ -99,6 +99,9 @@ export class Listing {
   @IsString()
   listingType!: 'buy_now' | 'auction';
 
+  @Column({ type: 'text', array: true, default: () => "'{}'" })
+  images!: string[];
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

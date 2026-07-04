@@ -9,10 +9,15 @@ import { Document } from '../entities/document.entity';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { EscrowModule } from '../escrow/escrow.module';
+import { AuditLogModule } from '../common/audit-log/audit-log.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Listing, Event, Order, Document]), EscrowModule],
+  imports: [
+    TypeOrmModule.forFeature([User, Listing, Event, Order, Document]),
+    EscrowModule,
+    AuditLogModule,
+  ],
   controllers: [AdminController],
   providers: [AdminService],
 })
-export class AdminModule { }
+export class AdminModule {}

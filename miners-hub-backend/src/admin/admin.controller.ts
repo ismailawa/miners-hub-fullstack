@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -7,7 +18,10 @@ import { UserRole, VerificationStatus } from '../entities/user.entity';
 import { ListingStatus } from '../entities/listing.entity';
 import { CreateEventDto, UpdateEventDto } from '../events/events.dto';
 import { OrderStatus } from '../entities/order.entity';
-import { DocumentReviewStatus, DocumentType } from '../entities/document.entity';
+import {
+  DocumentReviewStatus,
+  DocumentType,
+} from '../entities/document.entity';
 import { ReviewDocumentDto } from '../documents/documents.dto';
 import { EscrowService } from '../escrow/escrow.service';
 
@@ -21,34 +35,60 @@ export class AdminController {
   ) {}
 
   @Get('users')
-  async getUsers(@Query('status') status?: VerificationStatus) {
-    return this.adminService.getUsers(status);
+  async getUsers(
+    @Query('status') status?: VerificationStatus,
+    @Query('limit') limit?: string,
+    @Query('rawOffset') rawOffset?: string,
+  ) {
+    return this.adminService.getUsers(
+      status,
+      Number(limit) || 100,
+      Number(rawOffset) || 0,
+    );
   }
 
   @Patch('users/:id/verify')
   async verifyUser(
     @Param('id') id: string,
     @Body('status') status: VerificationStatus,
+    @Request() req: any,
   ) {
-    return this.adminService.verifyUser(id, status);
+    return this.adminService.verifyUser(id, status, req.user.id);
   }
 
   @Get('listings')
-  async getListings(@Query('status') status?: ListingStatus) {
-    return this.adminService.getListings(status);
+  async getListings(
+    @Query('status') status?: ListingStatus,
+    @Query('limit') limit?: string,
+    @Query('rawOffset') rawOffset?: string,
+  ) {
+    return this.adminService.getListings(
+      status,
+      Number(limit) || 100,
+      Number(rawOffset) || 0,
+    );
   }
 
   @Patch('listings/:id/status')
   async updateListingStatus(
     @Param('id') id: string,
     @Body('status') status: ListingStatus,
+    @Request() req: any,
   ) {
-    return this.adminService.updateListingStatus(id, status);
+    return this.adminService.updateListingStatus(id, status, req.user.id);
   }
 
   @Get('orders')
-  async getOrders(@Query('status') status?: OrderStatus) {
-    return this.adminService.getOrders(status);
+  async getOrders(
+    @Query('status') status?: OrderStatus,
+    @Query('limit') limit?: string,
+    @Query('rawOffset') rawOffset?: string,
+  ) {
+    return this.adminService.getOrders(
+      status,
+      Number(limit) || 100,
+      Number(rawOffset) || 0,
+    );
   }
 
   @Get('orders/:id')
@@ -70,8 +110,15 @@ export class AdminController {
   async getDocuments(
     @Query('status') status?: DocumentReviewStatus,
     @Query('type') type?: DocumentType,
+    @Query('limit') limit?: string,
+    @Query('rawOffset') rawOffset?: string,
   ) {
-    return this.adminService.getDocuments(status, type);
+    return this.adminService.getDocuments(
+      status,
+      type,
+      Number(limit) || 100,
+      Number(rawOffset) || 0,
+    );
   }
 
   @Patch('documents/:id/review')

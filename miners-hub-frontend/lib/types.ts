@@ -236,6 +236,7 @@ export interface Investor {
 export interface Listing {
   id: string;
   minerId: string;
+  minerUserId?: string;
   mineral: string;
   quantity: number;
   unit: Unit;
@@ -278,6 +279,7 @@ export interface Bid {
 export interface Auction {
   id: string;
   minerId: string;
+  minerUserId?: string;
   mineral: string;
   quantity: number;
   unit: Unit;

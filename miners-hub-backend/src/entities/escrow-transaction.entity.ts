@@ -72,10 +72,20 @@ export class EscrowTransaction {
   @Column({ name: 'gross_amount', type: 'decimal', precision: 12, scale: 2 })
   grossAmount!: number;
 
-  @Column({ name: 'commission_amount', type: 'decimal', precision: 12, scale: 2 })
+  @Column({
+    name: 'commission_amount',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+  })
   commissionAmount!: number;
 
-  @Column({ name: 'seller_net_amount', type: 'decimal', precision: 12, scale: 2 })
+  @Column({
+    name: 'seller_net_amount',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+  })
   sellerNetAmount!: number;
 
   @Column({ default: 'NGN' })
@@ -91,16 +101,28 @@ export class EscrowTransaction {
   @Column({ name: 'flutterwave_tx_ref' })
   flutterwaveTxRef!: string;
 
-  @Column({ name: 'flutterwave_transaction_id', type: 'varchar', nullable: true })
+  @Column({
+    name: 'flutterwave_transaction_id',
+    type: 'varchar',
+    nullable: true,
+  })
   flutterwaveTransactionId: string | null = null;
 
   @Column({ name: 'flutterwave_payment_link', type: 'text', nullable: true })
   flutterwavePaymentLink: string | null = null;
 
-  @Column({ name: 'flutterwave_payment_status', type: 'varchar', nullable: true })
+  @Column({
+    name: 'flutterwave_payment_status',
+    type: 'varchar',
+    nullable: true,
+  })
   flutterwavePaymentStatus: string | null = null;
 
-  @Column({ name: 'seller_transfer_reference', type: 'varchar', nullable: true })
+  @Column({
+    name: 'seller_transfer_reference',
+    type: 'varchar',
+    nullable: true,
+  })
   sellerTransferReference: string | null = null;
 
   @Column({
@@ -112,7 +134,11 @@ export class EscrowTransaction {
   @Column({ name: 'seller_transfer_id', type: 'varchar', nullable: true })
   sellerTransferId: string | null = null;
 
-  @Column({ name: 'platform_commission_transfer_reference', type: 'varchar', nullable: true })
+  @Column({
+    name: 'platform_commission_transfer_reference',
+    type: 'varchar',
+    nullable: true,
+  })
   platformCommissionTransferReference: string | null = null;
 
   @Column({
@@ -121,7 +147,11 @@ export class EscrowTransaction {
   })
   platformCommissionTransferStatus!: EscrowTransferStatus;
 
-  @Column({ name: 'platform_commission_transfer_id', type: 'varchar', nullable: true })
+  @Column({
+    name: 'platform_commission_transfer_id',
+    type: 'varchar',
+    nullable: true,
+  })
   platformCommissionTransferId: string | null = null;
 
   @Column({ name: 'funded_at', type: 'timestamp', nullable: true })

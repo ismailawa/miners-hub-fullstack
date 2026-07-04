@@ -39,6 +39,7 @@ export class ListingsService {
       location: dto.location || null,
       listingType: dto.listingType || 'buy_now',
       moisturePercentage: dto.moisturePercentage || null,
+      images: dto.images || [],
       status: ListingStatus.SUBMITTED, // Needs admin approval
     });
 

@@ -1,6 +1,6 @@
 /**
  * Test Helpers Index
- * 
+ *
  * Central export point for all test helpers
  */
 
@@ -12,4 +12,3 @@ export * from './api.helper';
 
 // Database helpers
 export * from './db.helper';
-

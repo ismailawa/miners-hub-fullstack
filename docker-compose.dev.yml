@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build:
@@ -30,9 +28,38 @@ services:
     networks:
       - miners-hub-network
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
     restart: unless-stopped
     command: sh -c "npm install && npm run start:dev"
+
+  seed:
+    build:
+      context: ./miners-hub-backend
+      dockerfile: Dockerfile
+      target: build
+    container_name: miners-hub-seed-dev
+    environment:
+      - NODE_ENV=development
+      - TYPEORM_SYNC=false
+      - PORT=3001
+      - FRONTEND_URL=http://localhost:3000
+      - DATABASE_URL=postgresql://minershub:minershub_password@postgres:5432/minershub
+      - ALLOW_MOCK_PROVIDERS=true
+    env_file:
+      - ./miners-hub-backend/.env
+    volumes:
+      - ./miners-hub-backend:/app
+      - /app/node_modules
+    networks:
+      - miners-hub-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    command: sh -c "npm install && npm run migration:run && npm run seed:mvp"
 
   frontend:
     build:
@@ -72,6 +99,12 @@ services:
     networks:
       - miners-hub-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U minershub -d minershub"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
 
 networks:
   miners-hub-network:

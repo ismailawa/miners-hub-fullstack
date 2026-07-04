@@ -32,8 +32,9 @@ Variables prefixed with `NEXT_PUBLIC_` are exposed to the browser and should nev
 | `PORT` | Server port | `3001` |
 | `NODE_ENV` | Node environment | `development` or `production` |
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@host:5432/dbname` |
-| `SUPABASE_URL` | Supabase project URL | `https://xxx.supabase.co` |
-| `SUPABASE_SERVICE_KEY` | Supabase service role key (secret) | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` |
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name for file/document uploads | `my-cloud` |
+| `CLOUDINARY_API_KEY` | Cloudinary API key | `1234567890` |
+| `CLOUDINARY_API_SECRET` | Cloudinary API secret | `cloudinary-secret` |
 | `JWT_SECRET` | JWT signing secret | `your-super-secret-jwt-key` |
 | `JWT_REFRESH_SECRET` | JWT refresh token secret | `your-super-secret-refresh-key` |
 | `GEMINI_API_KEY` | Google Gemini API key | `AIzaSy...` |
@@ -64,8 +65,9 @@ NODE_ENV=development
 PORT=3001
 NODE_ENV=development
 DATABASE_URL=postgresql://localhost:5432/minershub_dev
-SUPABASE_URL=https://dev-project.supabase.co
-SUPABASE_SERVICE_KEY=dev-service-key
+CLOUDINARY_CLOUD_NAME=dev-cloud-name
+CLOUDINARY_API_KEY=dev-cloudinary-key
+CLOUDINARY_API_SECRET=dev-cloudinary-secret
 JWT_SECRET=dev-jwt-secret-change-in-production
 JWT_REFRESH_SECRET=dev-refresh-secret-change-in-production
 GEMINI_API_KEY=dev-gemini-key
@@ -86,8 +88,9 @@ NODE_ENV=production
 PORT=3001
 NODE_ENV=production
 DATABASE_URL=postgresql://...staging-db-connection...
-SUPABASE_URL=https://staging-project.supabase.co
-SUPABASE_SERVICE_KEY=staging-service-key
+CLOUDINARY_CLOUD_NAME=staging-cloud-name
+CLOUDINARY_API_KEY=staging-cloudinary-key
+CLOUDINARY_API_SECRET=staging-cloudinary-secret
 JWT_SECRET=staging-jwt-secret
 JWT_REFRESH_SECRET=staging-refresh-secret
 GEMINI_API_KEY=staging-gemini-key
@@ -108,8 +111,9 @@ NODE_ENV=production
 PORT=3001
 NODE_ENV=production
 DATABASE_URL=postgresql://...production-db-connection...
-SUPABASE_URL=https://prod-project.supabase.co
-SUPABASE_SERVICE_KEY=prod-service-key
+CLOUDINARY_CLOUD_NAME=prod-cloud-name
+CLOUDINARY_API_KEY=prod-cloudinary-key
+CLOUDINARY_API_SECRET=prod-cloudinary-secret
 JWT_SECRET=prod-jwt-secret-strong-random
 JWT_REFRESH_SECRET=prod-refresh-secret-strong-random
 GEMINI_API_KEY=prod-gemini-key
@@ -142,14 +146,14 @@ Example:
 postgresql://postgres:yourpassword@db.xxx.supabase.co:5432/postgres
 ```
 
-## Getting Supabase Keys
+## Getting Cloudinary Keys
 
-1. Navigate to your Supabase project dashboard
-2. Go to Settings → API
+1. Navigate to your Cloudinary dashboard
+2. Go to Settings → API Keys
 3. Copy:
-   - **Project URL** → `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL`
-   - **anon/public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY` (frontend only)
-   - **service_role key** → `SUPABASE_SERVICE_KEY` (backend only, keep secret!)
+   - **Cloud name** → `CLOUDINARY_CLOUD_NAME`
+   - **API key** → `CLOUDINARY_API_KEY`
+   - **API secret** → `CLOUDINARY_API_SECRET` (backend only, keep secret!)
 
 ## Getting Gemini API Key
 
@@ -213,4 +217,3 @@ console.log('Database URL:', process.env.DATABASE_URL ? 'Set' : 'Missing');
 ---
 
 _This guide should be kept up-to-date as new environment variables are added._
-

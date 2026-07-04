@@ -43,8 +43,13 @@ const ContractProposalPage: React.FC = () => {
         setIsSubmitting(true);
 
         try {
+            const sellerUserId = listing.minerUserId;
+            if (!sellerUserId) {
+                throw new Error('Seller account could not be resolved for this listing.');
+            }
+
             await proposeContract({
-                party2Id: listing.minerId,
+                party2Id: sellerUserId,
                 listingId: listing.id,
                 title: title,
                 terms: terms,

@@ -19,6 +19,7 @@ import {
 } from '../entities/seller-payout-account.entity';
 import { Order, OrderStatus } from '../entities/order.entity';
 import { User, UserRole } from '../entities/user.entity';
+import { Listing, ListingStatus } from '../entities/listing.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuditLogService } from '../common/audit-log/audit-log.service';
 import { UpsertPayoutAccountDto } from './escrow.dto';
@@ -35,6 +36,8 @@ export class EscrowService {
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Listing)
+    private readonly listingRepository: Repository<Listing>,
     private readonly configService: ConfigService,
     private readonly flutterwaveService: FlutterwaveService,
     private readonly notificationsService: NotificationsService,
@@ -61,7 +64,9 @@ export class EscrowService {
     }
 
     const existing = await this.payoutRepository.findOne({ where: { userId } });
-    const reference = existing?.flutterwaveSubaccountReference || `seller-${userId}-${Date.now()}`;
+    const reference =
+      existing?.flutterwaveSubaccountReference ||
+      `seller-${userId}-${Date.now()}`;
     const account = existing ?? this.payoutRepository.create({ userId });
 
     Object.assign(account, {
@@ -92,7 +97,9 @@ export class EscrowService {
     } catch (error) {
       account.status = SellerPayoutStatus.FAILED;
       account.failureReason =
-        error instanceof Error ? error.message : 'Unable to create Flutterwave subaccount.';
+        error instanceof Error
+          ? error.message
+          : 'Unable to create Flutterwave subaccount.';
       await this.payoutRepository.save(account);
       throw error;
     }
@@ -113,21 +120,32 @@ export class EscrowService {
       relations: ['buyer', 'seller', 'listing', 'escrowTransaction'],
     });
     if (!order) throw new NotFoundException('Order not found.');
-    if (order.buyerId !== buyerId) throw new ForbiddenException('Only the buyer can pay for this order.');
-    if (order.paymentStatus !== 'pending') throw new BadRequestException('Order payment is already processed.');
+    if (order.buyerId !== buyerId)
+      throw new ForbiddenException('Only the buyer can pay for this order.');
+    if (order.paymentStatus !== 'pending')
+      throw new BadRequestException('Order payment is already processed.');
     if (order.status !== OrderStatus.PENDING) {
-      throw new BadRequestException('Only pending orders can be paid into escrow.');
+      throw new BadRequestException(
+        'Only pending orders can be paid into escrow.',
+      );
     }
 
     const payoutAccount = await this.payoutRepository.findOne({
       where: { userId: order.sellerId },
     });
     if (!payoutAccount || payoutAccount.status !== SellerPayoutStatus.ACTIVE) {
-      throw new BadRequestException('Seller must link an active payout bank account before escrow payment.');
+      throw new BadRequestException(
+        'Seller must link an active payout bank account before escrow payment.',
+      );
     }
 
-    const existing = await this.escrowRepository.findOne({ where: { orderId } });
-    if (existing?.flutterwavePaymentLink && existing.status === EscrowStatus.PENDING_PAYMENT) {
+    const existing = await this.escrowRepository.findOne({
+      where: { orderId },
+    });
+    if (
+      existing?.flutterwavePaymentLink &&
+      existing.status === EscrowStatus.PENDING_PAYMENT
+    ) {
       return this.toInitiationResponse(order, existing);
     }
 
@@ -185,7 +203,10 @@ export class EscrowService {
     const data = payload?.data || payload;
     const txRef = data?.tx_ref || data?.txRef;
     const transactionId = data?.id || data?.transaction_id;
-    if (!txRef) throw new BadRequestException('Webhook is missing transaction reference.');
+    if (!txRef)
+      throw new BadRequestException(
+        'Webhook is missing transaction reference.',
+      );
 
     const escrow = await this.escrowRepository.findOne({
       where: { flutterwaveTxRef: txRef },
@@ -201,21 +222,39 @@ export class EscrowService {
       : data;
     const paymentStatus = verified?.status || data?.status;
     const amount = Number(verified?.amount ?? data?.amount ?? 0);
-    const currency = String(verified?.currency ?? data?.currency ?? escrow.currency);
+    const currency = String(
+      verified?.currency ?? data?.currency ?? escrow.currency,
+    );
 
-    if (paymentStatus !== 'successful' || amount < Number(escrow.grossAmount) || currency !== escrow.currency) {
+    if (
+      paymentStatus !== 'successful' ||
+      amount < Number(escrow.grossAmount) ||
+      currency !== escrow.currency
+    ) {
       escrow.flutterwavePaymentStatus = paymentStatus || 'failed';
       escrow.status = EscrowStatus.FAILED;
-      escrow.metadata = { ...(escrow.metadata || {}), lastWebhook: payload, verified };
+      escrow.metadata = {
+        ...(escrow.metadata || {}),
+        lastWebhook: payload,
+        verified,
+      };
       await this.escrowRepository.save(escrow);
-      throw new BadRequestException('Flutterwave payment could not be verified.');
+      throw new BadRequestException(
+        'Flutterwave payment could not be verified.',
+      );
     }
 
     escrow.status = EscrowStatus.FUNDED;
-    escrow.flutterwaveTransactionId = transactionId ? String(transactionId) : null;
+    escrow.flutterwaveTransactionId = transactionId
+      ? String(transactionId)
+      : null;
     escrow.flutterwavePaymentStatus = paymentStatus;
     escrow.fundedAt = new Date();
-    escrow.metadata = { ...(escrow.metadata || {}), fundedWebhook: payload, verified };
+    escrow.metadata = {
+      ...(escrow.metadata || {}),
+      fundedWebhook: payload,
+      verified,
+    };
 
     const order = escrow.order;
     order.paymentStatus = 'paid';
@@ -228,6 +267,7 @@ export class EscrowService {
         notes: 'Payment captured into escrow.',
       },
     ];
+    await this.markListingQuantitySold(order);
 
     await this.orderRepository.save(order);
     await this.escrowRepository.save(escrow);
@@ -238,6 +278,23 @@ export class EscrowService {
     });
 
     return { received: true, status: escrow.status };
+  }
+
+  private async markListingQuantitySold(order: Order) {
+    const listing = await this.listingRepository.findOne({
+      where: { id: order.listingId },
+    });
+    if (!listing) return;
+
+    const remaining = Math.max(
+      0,
+      Number(listing.quantity) - Number(order.quantity),
+    );
+    listing.quantity = remaining;
+    if (remaining === 0) {
+      listing.status = ListingStatus.SOLD;
+    }
+    await this.listingRepository.save(listing);
   }
 
   async markAwaitingRelease(orderId: string) {
@@ -258,15 +315,23 @@ export class EscrowService {
       relations: ['order', 'sellerPayoutAccount'],
     });
     if (!escrow) throw new NotFoundException('Escrow transaction not found.');
-    if (escrow.status === EscrowStatus.RELEASED) throw new BadRequestException('Escrow has already been released.');
+    if (escrow.status === EscrowStatus.RELEASED)
+      throw new BadRequestException('Escrow has already been released.');
     if (escrow.status !== EscrowStatus.AWAITING_RELEASE) {
       throw new BadRequestException('Escrow is not awaiting release.');
     }
-    if (!escrow.sellerPayoutAccount || escrow.sellerPayoutAccount.status !== SellerPayoutStatus.ACTIVE) {
+    if (
+      !escrow.sellerPayoutAccount ||
+      escrow.sellerPayoutAccount.status !== SellerPayoutStatus.ACTIVE
+    ) {
       throw new BadRequestException('Seller payout account is not active.');
     }
-    const platformBankCode = this.requiredConfig('PLATFORM_COMMISSION_BANK_CODE');
-    const platformAccountNumber = this.requiredConfig('PLATFORM_COMMISSION_ACCOUNT_NUMBER');
+    const platformBankCode = this.requiredConfig(
+      'PLATFORM_COMMISSION_BANK_CODE',
+    );
+    const platformAccountNumber = this.requiredConfig(
+      'PLATFORM_COMMISSION_ACCOUNT_NUMBER',
+    );
 
     escrow.status = EscrowStatus.RELEASE_PROCESSING;
     await this.escrowRepository.save(escrow);
@@ -292,20 +357,30 @@ export class EscrowService {
     });
 
     escrow.sellerTransferReference = sellerTransferRef;
-    escrow.sellerTransferId = String(sellerTransfer?.id || sellerTransfer?.reference || sellerTransferRef);
-    escrow.sellerTransferStatus = this.normalizeTransferStatus(sellerTransfer?.status);
+    escrow.sellerTransferId = String(
+      sellerTransfer?.id || sellerTransfer?.reference || sellerTransferRef,
+    );
+    escrow.sellerTransferStatus = this.normalizeTransferStatus(
+      sellerTransfer?.status,
+    );
     escrow.platformCommissionTransferReference = commissionTransferRef;
     escrow.platformCommissionTransferId = String(
-      commissionTransfer?.id || commissionTransfer?.reference || commissionTransferRef,
+      commissionTransfer?.id ||
+        commissionTransfer?.reference ||
+        commissionTransferRef,
     );
-    escrow.platformCommissionTransferStatus = this.normalizeTransferStatus(commissionTransfer?.status);
+    escrow.platformCommissionTransferStatus = this.normalizeTransferStatus(
+      commissionTransfer?.status,
+    );
     if (
       escrow.sellerTransferStatus === EscrowTransferStatus.FAILED ||
       escrow.platformCommissionTransferStatus === EscrowTransferStatus.FAILED
     ) {
       escrow.status = EscrowStatus.FAILED;
       await this.escrowRepository.save(escrow);
-      throw new BadRequestException('One or more Flutterwave transfer requests failed.');
+      throw new BadRequestException(
+        'One or more Flutterwave transfer requests failed.',
+      );
     }
     escrow.status = EscrowStatus.RELEASED;
     escrow.releasedAt = new Date();
@@ -336,7 +411,11 @@ export class EscrowService {
       relations: ['order'],
     });
     if (!escrow) throw new NotFoundException('Escrow transaction not found.');
-    if ([EscrowStatus.RELEASED, EscrowStatus.RELEASE_PROCESSING].includes(escrow.status)) {
+    if (
+      [EscrowStatus.RELEASED, EscrowStatus.RELEASE_PROCESSING].includes(
+        escrow.status,
+      )
+    ) {
       throw new BadRequestException('Released escrow cannot be refunded.');
     }
     if (escrow.status === EscrowStatus.REFUNDED) {
@@ -346,13 +425,12 @@ export class EscrowService {
     escrow.status = EscrowStatus.REFUND_PROCESSING;
     await this.escrowRepository.save(escrow);
 
-    const refund =
-      escrow.flutterwaveTransactionId
-        ? await this.flutterwaveService.refundTransaction(
-            escrow.flutterwaveTransactionId,
-            Number(escrow.grossAmount),
-          )
-        : { status: 'manual_required' };
+    const refund = escrow.flutterwaveTransactionId
+      ? await this.flutterwaveService.refundTransaction(
+          escrow.flutterwaveTransactionId,
+          Number(escrow.grossAmount),
+        )
+      : { status: 'manual_required' };
 
     escrow.status = EscrowStatus.REFUNDED;
     escrow.refundedAt = new Date();
@@ -391,9 +469,12 @@ export class EscrowService {
   }
 
   private calculateAmounts(grossAmount: number) {
-    const percent = Number(this.configService.get<string>('PLATFORM_COMMISSION_PERCENT') || 5);
+    const percent = Number(
+      this.configService.get<string>('PLATFORM_COMMISSION_PERCENT') || 5,
+    );
     const commissionAmount = Math.round(grossAmount * percent) / 100;
-    const sellerNetAmount = Math.round((grossAmount - commissionAmount) * 100) / 100;
+    const sellerNetAmount =
+      Math.round((grossAmount - commissionAmount) * 100) / 100;
     return {
       grossAmount: Math.round(grossAmount * 100) / 100,
       commissionAmount,
@@ -406,7 +487,8 @@ export class EscrowService {
     if (['successful', 'success', 'completed'].includes(normalized)) {
       return EscrowTransferStatus.SUCCESSFUL;
     }
-    if (['failed', 'error'].includes(normalized)) return EscrowTransferStatus.FAILED;
+    if (['failed', 'error'].includes(normalized))
+      return EscrowTransferStatus.FAILED;
     return EscrowTransferStatus.PENDING;
   }
 

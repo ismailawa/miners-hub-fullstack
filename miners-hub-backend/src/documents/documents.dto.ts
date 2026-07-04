@@ -16,6 +16,10 @@ export class UploadDocumentDto {
   @IsOptional()
   @IsUUID()
   listingId?: string;
+
+  @IsOptional()
+  @IsString()
+  uploadCategory?: string;
 }
 
 export class ReviewDocumentDto {

@@ -12,7 +12,11 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OrdersService } from './orders.service';
-import { CreateOrderDto, OrdersQueryDto, UpdateOrderStatusDto } from './orders.dto';
+import {
+  CreateOrderDto,
+  OrdersQueryDto,
+  UpdateOrderStatusDto,
+} from './orders.dto';
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
@@ -33,10 +37,7 @@ export class OrdersController {
    * List orders for the current user as buyer or seller.
    */
   @Get()
-  async findAll(
-    @Request() req: any,
-    @Query() query: OrdersQueryDto,
-  ) {
+  async findAll(@Request() req: any, @Query() query: OrdersQueryDto) {
     return this.ordersService.findAll(
       req.user.id,
       query.role,
@@ -50,10 +51,7 @@ export class OrdersController {
    * Get single order — buyer or seller only.
    */
   @Get(':id')
-  async findOne(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Request() req: any,
-  ) {
+  async findOne(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
     return this.ordersService.findOne(id, req.user.id);
   }
 
@@ -74,10 +72,7 @@ export class OrdersController {
    * Buyer or seller cancels an order before delivery.
    */
   @Post(':id/cancel')
-  async cancel(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Request() req: any,
-  ) {
+  async cancel(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
     return this.ordersService.cancel(id, req.user.id);
   }
 

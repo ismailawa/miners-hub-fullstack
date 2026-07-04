@@ -23,7 +23,10 @@ export class NotificationsService {
     });
   }
 
-  async create(userId: string, data: Partial<Notification>): Promise<Notification> {
+  async create(
+    userId: string,
+    data: Partial<Notification>,
+  ): Promise<Notification> {
     const notification = this.notificationsRepository.create({
       ...data,
       userId,
@@ -37,7 +40,7 @@ export class NotificationsService {
     const notification = await this.notificationsRepository.findOne({
       where: { id, userId },
     });
-    
+
     if (!notification) {
       throw new NotFoundException('Notification not found');
     }

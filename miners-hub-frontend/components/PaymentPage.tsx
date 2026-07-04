@@ -12,6 +12,7 @@ const PaymentPage: React.FC = () => {
   const [paymentState, setPaymentState] = useState<'form' | 'processing' | 'pending' | 'error'>('form');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [shippingAddress, setShippingAddress] = useState(currentUser?.address || '');
+  const [quantity, setQuantity] = useState(1);
 
   useEffect(() => {
     // If there's no listing, redirect to marketplace
@@ -37,7 +38,7 @@ const PaymentPage: React.FC = () => {
       // 1. Create the order
       const newOrder = await createOrder({
         listingId: listing.id,
-        quantity: listing.quantity,
+        quantity,
         deliveryAddress: shippingAddress,
       });
 
@@ -59,7 +60,7 @@ const PaymentPage: React.FC = () => {
     return null; // or a loading spinner
   }
 
-  const totalCost = listing.pricePerUnit * listing.quantity;
+  const totalCost = listing.pricePerUnit * quantity;
 
   return (
     <main className="pt-20 pb-12 md:py-20 bg-primary">
@@ -118,7 +119,7 @@ const PaymentPage: React.FC = () => {
                     <div className="flex justify-between">
                       <span className="text-text-secondary">Quantity</span>
                       <span className="font-medium text-text-primary">
-                        {listing.quantity} {listing.unit}s
+                        {quantity} {listing.unit}s
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -144,6 +145,29 @@ const PaymentPage: React.FC = () => {
                     </div>
                 )}
                 <form onSubmit={handlePayment} className="space-y-4">
+                  <div>
+                    <label htmlFor="quantity" className="block text-sm font-medium text-text-secondary">
+                      Quantity ({listing.unit}s)
+                    </label>
+                    <input
+                      id="quantity"
+                      name="quantity"
+                      type="number"
+                      value={quantity}
+                      min={1}
+                      max={listing.quantity}
+                      step={1}
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        setQuantity(Math.max(1, Math.min(listing.quantity, Number.isFinite(next) ? next : 1)));
+                      }}
+                      required
+                      className="w-full bg-primary p-2 border border-border rounded-md mt-1"
+                    />
+                    <p className="text-xs text-text-muted mt-1">
+                      {listing.quantity} {listing.unit}s available.
+                    </p>
+                  </div>
                   <div>
                     <label htmlFor="shippingAddress" className="block text-sm font-medium text-text-secondary">
                       Shipping Address

@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsString, IsArray, IsOptional, IsIn } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsArray,
+  IsOptional,
+  IsNumber,
+} from 'class-validator';
 
 export class ChatMessageDto {
   @IsNotEmpty()
@@ -8,4 +14,15 @@ export class ChatMessageDto {
   @IsOptional()
   @IsArray()
   history?: { role: 'user' | 'model'; content: string }[];
+}
+
+export class ForecastDto {
+  @IsNotEmpty()
+  @IsString()
+  mineral!: string;
+
+  @IsNotEmpty()
+  @IsArray()
+  @IsNumber({}, { each: true })
+  historicalPrices!: number[];
 }

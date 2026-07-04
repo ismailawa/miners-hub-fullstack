@@ -6,7 +6,7 @@ import { User } from '../../src/entities/user.entity';
 
 /**
  * API Helper
- * 
+ *
  * Utilities for making API requests in tests
  */
 
@@ -19,7 +19,7 @@ export interface ApiRequestOptions {
 
 /**
  * Make a GET request
- * 
+ *
  * @param app - NestJS application instance
  * @param path - API path (without /api prefix)
  * @param options - Request options
@@ -57,7 +57,7 @@ export function getRequest(
 
 /**
  * Make a POST request
- * 
+ *
  * @param app - NestJS application instance
  * @param path - API path (without /api prefix)
  * @param options - Request options
@@ -85,7 +85,7 @@ export function postRequest(
 
 /**
  * Make a PUT request
- * 
+ *
  * @param app - NestJS application instance
  * @param path - API path (without /api prefix)
  * @param options - Request options
@@ -113,7 +113,7 @@ export function putRequest(
 
 /**
  * Make a PATCH request
- * 
+ *
  * @param app - NestJS application instance
  * @param path - API path (without /api prefix)
  * @param options - Request options
@@ -141,7 +141,7 @@ export function patchRequest(
 
 /**
  * Make a DELETE request
- * 
+ *
  * @param app - NestJS application instance
  * @param path - API path (without /api prefix)
  * @param options - Request options
@@ -166,7 +166,10 @@ export function deleteRequest(
 /**
  * Assert successful response (2xx status)
  */
-export function expectSuccessResponse(response: Response, statusCode: number = 200): void {
+export function expectSuccessResponse(
+  response: Response,
+  statusCode: number = 200,
+): void {
   expect(response.status).toBe(statusCode);
   expect(response.body).toBeDefined();
 }
@@ -211,4 +214,3 @@ export function expectForbiddenResponse(response: Response): void {
 export function expectNotFoundResponse(response: Response): void {
   expect(response.status).toBe(404);
 }
-
