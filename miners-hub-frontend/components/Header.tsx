@@ -13,6 +13,95 @@ const NavLink: React.FC<{ href: string; children: React.ReactNode; onClick?: (e:
     </a>
 );
 
+const searchCategories: Array<{ key: SearchResult['category']; label: string }> = [
+    { key: 'pages', label: 'Pages' },
+    { key: 'listings', label: 'Listings' },
+    { key: 'miners', label: 'Miners' },
+    { key: 'news', label: 'News' },
+    { key: 'events', label: 'Events' },
+    { key: 'webinars', label: 'Webinars' },
+];
+
+const quickSearches = ['Gold listings', 'Investor opportunities', 'Registration guide', 'Logistics'];
+
+const SearchResultsPanel: React.FC<{
+    query: string;
+    results: SearchResult[];
+    onSelect: (result: SearchResult) => void;
+    onQuickSearch: (query: string) => void;
+    compact?: boolean;
+}> = ({ query, results, onSelect, onQuickSearch, compact = false }) => {
+    const hasQuery = query.trim().length >= 2;
+
+    if (!hasQuery) {
+        return (
+            <div className="p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-text-muted">Quick searches</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                    {quickSearches.map(item => (
+                        <button
+                            key={item}
+                            type="button"
+                            onClick={() => onQuickSearch(item)}
+                            className="rounded-full border border-border bg-primary px-3 py-1.5 text-xs font-semibold text-text-secondary hover:border-accent hover:text-accent"
+                        >
+                            {item}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    if (results.length === 0) {
+        return (
+            <div className="p-5 text-center">
+                <p className="text-sm font-semibold text-text-primary">No results found</p>
+                <p className="mt-1 text-xs text-text-muted">Try a mineral, service, compliance topic, or marketplace keyword.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className={compact ? 'max-h-[45vh] overflow-y-auto' : 'max-h-[70vh] overflow-y-auto'}>
+            {searchCategories.map(category => {
+                const categoryResults = results.filter(result => result.category === category.key).slice(0, compact ? 3 : 5);
+                if (categoryResults.length === 0) return null;
+
+                return (
+                    <div key={category.key} className="border-b border-border last:border-none">
+                        <div className="sticky top-0 bg-secondary px-4 py-2 text-xs font-bold uppercase tracking-wider text-text-muted">
+                            {category.label}
+                        </div>
+                        {categoryResults.map(result => (
+                            <button
+                                key={`${result.category}-${result.id}`}
+                                type="button"
+                                onClick={() => onSelect(result)}
+                                className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-border/50"
+                            >
+                                {result.imageUrl ? (
+                                    <img src={result.imageUrl} alt="" className="h-10 w-10 flex-shrink-0 rounded-md object-cover" />
+                                ) : (
+                                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-border bg-primary text-accent">
+                                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 4.5L21 12l-7.5 7.5M3 12h18" />
+                                        </svg>
+                                    </span>
+                                )}
+                                <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-sm font-semibold text-text-primary">{result.title}</span>
+                                    <span className="mt-0.5 block truncate text-xs text-text-muted">{result.description}</span>
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
 const ThemeToggle: React.FC = () => {
     const [isDark, setIsDark] = useState(false);
 
@@ -184,10 +273,19 @@ const MobileMenu: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen
     const { currentUser, logout, setPage } = useAuth();
     const [isServicesExpanded, setIsServicesExpanded] = useState(false);
     const [isResourcesExpanded, setIsResourcesExpanded] = useState(false);
+    const [mobileSearchQuery, setMobileSearchQuery] = useState('');
+    const [isMobileSearchFocused, setIsMobileSearchFocused] = useState(false);
+    const mobileSearchResults = useGlobalSearch(mobileSearchQuery);
 
     const handleNavClick = (page: string) => {
         setPage(page);
         onClose();
+    };
+
+    const handleMobileSearchSelect = (result: SearchResult) => {
+        handleNavClick(result.page || result.link.replace(/^\//, '').split('/')[0] || 'home');
+        setMobileSearchQuery('');
+        setIsMobileSearchFocused(false);
     };
 
     return (
@@ -214,16 +312,31 @@ const MobileMenu: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen
                 <div className="relative mb-6">
                     <input
                         type="search"
-                        placeholder="Search..."
+                        placeholder="Search Miners Hub"
+                        value={mobileSearchQuery}
+                        onChange={(event) => setMobileSearchQuery(event.target.value)}
+                        onFocus={() => setIsMobileSearchFocused(true)}
                         className="w-full bg-primary text-text-primary placeholder-text-muted border border-border rounded-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-accent"
                     />
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <svg className="w-5 h-5 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     </div>
+                    {isMobileSearchFocused && (
+                        <div className="absolute top-full z-50 mt-2 w-full overflow-hidden rounded-lg border border-border bg-secondary shadow-xl">
+                            <SearchResultsPanel
+                                query={mobileSearchQuery}
+                                results={mobileSearchResults}
+                                onSelect={handleMobileSearchSelect}
+                                onQuickSearch={setMobileSearchQuery}
+                                compact
+                            />
+                        </div>
+                    )}
                 </div>
 
                 <nav className="flex flex-col space-y-4">
                     <button onClick={() => handleNavClick('marketplace')} className="text-lg text-left text-text-secondary hover:text-accent transition-colors">Marketplace</button>
+                    <button onClick={() => handleNavClick('investment-opportunities')} className="text-lg text-left text-text-secondary hover:text-accent transition-colors">Investor Opportunities</button>
 
                     <div>
                         <button onClick={() => setIsServicesExpanded(!isServicesExpanded)} className="w-full flex justify-between items-center text-lg text-left text-text-secondary hover:text-accent transition-colors">
@@ -358,22 +471,7 @@ const Header: React.FC = () => {
     const handleSearchSelect = (result: SearchResult) => {
         setIsSearchFocused(false);
         setSearchQuery('');
-        // Handle navigation based on result type
-        // For simplicity, we'll just set the page if it aligns with existing routing logic, 
-        // or assumes the routing is handled via Next.js Links mostly, but here we update 'page' state for internal routing mock.
-        // In a real Next.js app, we'd use router.push(result.link).
-
-        // Mapping links to 'pages' where applicable for the current simplified routing
-        if (result.category === 'miners') {
-            // In a real app: router.push(`/miners/${result.id}`);
-            // Navigation handled by setPage
-        } else if (result.category === 'listings') {
-            setPage('marketplace');
-        } else if (result.category === 'news') {
-            setPage('news');
-        } else if (result.category === 'events') {
-            // setPage('events'); // usage
-        }
+        setPage(result.page || result.link.replace(/^\//, '').split('/')[0] || 'home');
     };
 
     useEffect(() => {
@@ -432,6 +530,7 @@ const Header: React.FC = () => {
                         {/* Desktop Navigation */}
                         <nav className="hidden lg:flex items-center space-x-8">
                             <button onClick={() => setPage('marketplace')} className="text-text-secondary hover:text-accent transition-colors duration-300">Marketplace</button>
+                            <button onClick={() => setPage('investment-opportunities')} className="text-text-secondary hover:text-accent transition-colors duration-300">Investor Opportunities</button>
 
                             <div className="relative" onMouseEnter={handleServicesMouseEnter} onMouseLeave={handleServicesMouseLeave}>
                                 <button className="flex items-center space-x-1 text-text-secondary hover:text-accent transition-colors duration-300">
@@ -501,56 +600,25 @@ const Header: React.FC = () => {
                             <div className="relative" ref={searchRef}>
                                 <input
                                     type="search"
-                                    placeholder="Search..."
+                                    placeholder="Search Miners Hub"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     onFocus={() => setIsSearchFocused(true)}
-                                    className="bg-primary text-text-primary placeholder-text-muted border border-border rounded-full py-2 pl-10 pr-4 w-64 focus:outline-none focus:ring-2 focus:ring-accent"
+                                    className="bg-primary text-text-primary placeholder-text-muted border border-border rounded-full py-2 pl-10 pr-4 w-72 focus:outline-none focus:ring-2 focus:ring-accent"
                                 />
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <svg className="w-5 h-5 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                                 </div>
 
                                 {/* Search Results Dropdown */}
-                                {isSearchFocused && searchQuery.length >= 2 && (
-                                    <div className="absolute top-full mt-2 w-96 bg-secondary rounded-lg shadow-xl border border-border z-50 overflow-hidden max-h-[80vh] overflow-y-auto">
-                                        {searchResults.length > 0 ? (
-                                            <div>
-                                                {(['miners', 'listings', 'news', 'events', 'webinars'] as const).map(category => {
-                                                    const categoryResults = searchResults.filter(r => r.category === category);
-                                                    if (categoryResults.length === 0) return null;
-
-                                                    return (
-                                                        <div key={category} className="border-b border-border last:border-none">
-                                                            <div className="bg-secondary/50 px-4 py-2 text-xs font-bold text-text-secondary uppercase tracking-wider sticky top-0">
-                                                                {category}
-                                                            </div>
-                                                            {categoryResults.map(result => (
-                                                                <button
-                                                                    key={result.id}
-                                                                    onClick={() => handleSearchSelect(result)}
-                                                                    className="w-full text-left px-4 py-3 hover:bg-border/50 transition-colors flex items-start space-x-3"
-                                                                >
-                                                                    {result.imageUrl && (
-                                                                        <img src={result.imageUrl} alt="" className="w-10 h-10 object-cover rounded-md flex-shrink-0" />
-                                                                    )}
-                                                                    <div className="flex-1 min-w-0">
-                                                                        <p className="text-sm font-medium text-text-primary truncate">{result.title}</p>
-                                                                        {result.description && (
-                                                                            <p className="text-xs text-text-muted truncate">{result.description}</p>
-                                                                        )}
-                                                                    </div>
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        ) : (
-                                            <div className="p-4 text-center text-text-muted">
-                                                No results found for "{searchQuery}"
-                                            </div>
-                                        )}
+                                {isSearchFocused && (
+                                    <div className="absolute right-0 top-full mt-2 w-[28rem] overflow-hidden rounded-lg border border-border bg-secondary shadow-xl z-50">
+                                        <SearchResultsPanel
+                                            query={searchQuery}
+                                            results={searchResults}
+                                            onSelect={handleSearchSelect}
+                                            onQuickSearch={setSearchQuery}
+                                        />
                                     </div>
                                 )}
                             </div>

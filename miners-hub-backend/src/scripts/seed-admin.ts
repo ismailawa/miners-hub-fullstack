@@ -24,6 +24,11 @@ import {
   EscrowStatus,
   EscrowTransaction,
 } from '../entities/escrow-transaction.entity';
+import {
+  LogisticsProvider,
+  LogisticsProviderCategory,
+  LogisticsProviderStatus,
+} from '../entities/logistics-provider.entity';
 
 const defaultPassword = 'password123';
 
@@ -53,6 +58,9 @@ async function bootstrap() {
   );
   const escrowRepository = app.get<Repository<EscrowTransaction>>(
     getRepositoryToken(EscrowTransaction),
+  );
+  const logisticsProviderRepository = app.get<Repository<LogisticsProvider>>(
+    getRepositoryToken(LogisticsProvider),
   );
 
   const passwordHash = await bcrypt.hash(
@@ -86,6 +94,17 @@ async function bootstrap() {
     name: 'System Admin',
     email: 'admin@minershub.com',
     role: UserRole.ADMIN,
+    verificationStatus: VerificationStatus.VERIFIED,
+    onboardingComplete: true,
+  });
+
+  const government = await upsertUser({
+    name: 'Plateau Mining Regulator',
+    email: 'government@minershub.com',
+    role: UserRole.GOVERNMENT,
+    phoneNumber: '+2348010003001',
+    address: 'Mining Cadastre Office, Jos, Plateau State',
+    nationality: 'Nigerian',
     verificationStatus: VerificationStatus.VERIFIED,
     onboardingComplete: true,
   });
@@ -388,8 +407,47 @@ async function bootstrap() {
     fundedAt: new Date(),
   });
 
+  await upsertLogisticsProvider(logisticsProviderRepository, {
+    companyName: 'Maersk',
+    category: LogisticsProviderCategory.INTERNATIONAL_CARRIER,
+    serviceAreas: ['Nigeria export corridors', 'Ocean freight', 'Intermodal carrier haulage'],
+    capabilities: ['ocean_freight', 'intermodal', 'carrier_haulage', 'customs_handoff', 'tracking_handoff', 'invoice_api_candidate'],
+    status: LogisticsProviderStatus.ACTIVE,
+    contactEmail: 'integrations@maersk.com',
+    integrationMetadata: {
+      provider: 'maersk',
+      trackingApi: true,
+      invoicingApi: true,
+      apiAccessRequired: true,
+      sandboxEnabled: false,
+      notes: 'Credentials and customer-scoped access are required before live Track & Trace or invoice summary sync.',
+    },
+  });
+
+  await upsertLogisticsProvider(logisticsProviderRepository, {
+    companyName: 'North Central Haulage Cooperative',
+    category: LogisticsProviderCategory.LOCAL_HAULAGE,
+    serviceAreas: ['Plateau', 'Nasarawa', 'Kogi', 'FCT'],
+    capabilities: ['mine_pickup', 'bulk_haulage', 'warehouse_delivery', 'port_transfer'],
+    status: LogisticsProviderStatus.ACTIVE,
+    contactEmail: 'dispatch@northcentralhaulage.example',
+    contactPhone: '+2348012345678',
+    fleetProfiles: [
+      {
+        plateNumber: 'ABC-123-XA',
+        vehicleType: '30-ton tipper',
+        capacityTons: 30,
+        driverName: 'Dispatch Desk',
+        driverPhone: '+2348012345678',
+        insuranceStatus: 'active',
+        availability: 'available',
+      },
+    ],
+  });
+
   console.log('MVP seed data is ready.');
   console.log(`Admin: admin@minershub.com / ${defaultPassword}`);
+  console.log(`Government: ${government.email} / ${defaultPassword}`);
   console.log(`Investor: ${investor.email} / ${defaultPassword}`);
   console.log(`Miner: ${miners[0].email} / ${defaultPassword}`);
 
@@ -558,6 +616,28 @@ async function upsertEscrow(
     currency: data.currency || payout.currency || 'NGN',
   });
   return repository.save(escrow);
+}
+
+async function upsertLogisticsProvider(
+  repository: Repository<LogisticsProvider>,
+  data: Partial<LogisticsProvider> & { companyName: string },
+) {
+  const existing = await repository.findOne({
+    where: { companyName: data.companyName },
+  });
+  const provider = existing || repository.create({ companyName: data.companyName });
+  Object.assign(provider, {
+    category: data.category || LogisticsProviderCategory.LOCAL_HAULAGE,
+    serviceAreas: data.serviceAreas || [],
+    capabilities: data.capabilities || [],
+    status: data.status || LogisticsProviderStatus.PENDING,
+    contactEmail: data.contactEmail || null,
+    contactPhone: data.contactPhone || null,
+    fleetProfiles: data.fleetProfiles || [],
+    integrationMetadata: data.integrationMetadata || null,
+    userId: data.userId || null,
+  });
+  return repository.save(provider);
 }
 
 bootstrap();

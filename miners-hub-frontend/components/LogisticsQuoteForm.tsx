@@ -12,6 +12,10 @@ const LogisticsQuoteForm: React.FC = () => {
         containerType: '20ST',
         contactName: currentUser?.name || '',
         contactEmail: currentUser?.email || '',
+        pickupWindow: '',
+        requiredVehicleType: '',
+        loadingConstraints: '',
+        safetyNotes: '',
     });
     const [submissionState, setSubmissionState] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
 
@@ -27,6 +31,10 @@ const LogisticsQuoteForm: React.FC = () => {
             await createLogisticsQuoteRequest({
                 ...formData,
                 weight: Number(formData.weight),
+                pickupWindow: formData.pickupWindow || null,
+                requiredVehicleType: formData.requiredVehicleType || null,
+                loadingConstraints: formData.loadingConstraints || null,
+                safetyNotes: formData.safetyNotes || null,
             });
             setSubmissionState('success');
         } catch {
@@ -79,6 +87,29 @@ const LogisticsQuoteForm: React.FC = () => {
                         <option value="20RF">20' Reefer</option>
                         <option value="40RF">40' Reefer</option>
                     </select>
+                </div>
+            </div>
+            <div>
+                <h4 className="text-lg font-semibold text-text-primary border-t border-border pt-6 mt-6">Local Vehicle Requirements</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <div>
+                        <label htmlFor="pickupWindow" className="block text-sm font-medium text-text-secondary">Pickup Window</label>
+                        <input type="text" name="pickupWindow" id="pickupWindow" value={formData.pickupWindow} onChange={handleInputChange} placeholder="e.g., Tomorrow, 8am - 12pm" className="mt-1 w-full bg-primary p-2 border border-border rounded-md" />
+                    </div>
+                    <div>
+                        <label htmlFor="requiredVehicleType" className="block text-sm font-medium text-text-secondary">Required Vehicle Type</label>
+                        <input type="text" name="requiredVehicleType" id="requiredVehicleType" value={formData.requiredVehicleType} onChange={handleInputChange} placeholder="e.g., 30-ton tipper, flatbed truck" className="mt-1 w-full bg-primary p-2 border border-border rounded-md" />
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <div>
+                        <label htmlFor="loadingConstraints" className="block text-sm font-medium text-text-secondary">Loading Constraints</label>
+                        <input type="text" name="loadingConstraints" id="loadingConstraints" value={formData.loadingConstraints} onChange={handleInputChange} placeholder="e.g., rough access road, loader required" className="mt-1 w-full bg-primary p-2 border border-border rounded-md" />
+                    </div>
+                    <div>
+                        <label htmlFor="safetyNotes" className="block text-sm font-medium text-text-secondary">Safety / Compliance Notes</label>
+                        <input type="text" name="safetyNotes" id="safetyNotes" value={formData.safetyNotes} onChange={handleInputChange} placeholder="e.g., tarpaulin required, escort required" className="mt-1 w-full bg-primary p-2 border border-border rounded-md" />
+                    </div>
                 </div>
             </div>
              <div>

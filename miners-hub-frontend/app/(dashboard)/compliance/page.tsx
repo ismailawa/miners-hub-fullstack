@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
+import FormModal from '../../../components/FormModal';
 import {
   ComplianceCase,
   ComplianceCaseSeverity,
@@ -90,6 +91,8 @@ export default function CompliancePage() {
   const [severityFilter, setSeverityFilter] = useState('all');
   const [licenseForm, setLicenseForm] = useState(emptyLicenseForm);
   const [caseForm, setCaseForm] = useState(emptyCaseForm);
+  const [isLicenseFormOpen, setIsLicenseFormOpen] = useState(false);
+  const [isCaseFormOpen, setIsCaseFormOpen] = useState(false);
   const [reviewNotes, setReviewNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -148,6 +151,7 @@ export default function CompliancePage() {
       });
       setSelectedLicense(license);
       setLicenseForm(emptyLicenseForm);
+      setIsLicenseFormOpen(false);
       await loadCompliance();
     } catch (err: any) {
       setError(err?.message || 'Failed to submit license');
@@ -176,6 +180,7 @@ export default function CompliancePage() {
       });
       setSelectedCase(complianceCase);
       setCaseForm(emptyCaseForm);
+      setIsCaseFormOpen(false);
       await loadCompliance();
     } catch (err: any) {
       setError(err?.message || 'Failed to create compliance case');
@@ -219,9 +224,17 @@ export default function CompliancePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-text-primary">Licensing & Compliance</h1>
-        <p className="mt-1 text-sm text-text-secondary">Manage license submissions, expiry risk, inspection schedules, findings, corrective actions, and approvals.</p>
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">Licensing & Compliance</h1>
+          <p className="mt-1 text-sm text-text-secondary">Manage license submissions, expiry risk, inspection schedules, findings, corrective actions, and approvals.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setIsLicenseFormOpen(true)} className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400">Submit License</button>
+          {isReviewer && (
+            <button type="button" onClick={() => setIsCaseFormOpen(true)} className="rounded-md border border-border px-4 py-2 text-sm font-bold text-text-primary hover:border-accent hover:text-accent">Open Case</button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -247,7 +260,61 @@ export default function CompliancePage() {
 
       {error && <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>}
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+      <FormModal
+        isOpen={isLicenseFormOpen}
+        title="Submit License"
+        description="Add a license record with issuing authority, validity dates, and supporting document references."
+        onClose={() => setIsLicenseFormOpen(false)}
+      >
+        <form onSubmit={submitLicense} className="space-y-3">
+          {isReviewer && <input value={licenseForm.holderUserId} onChange={(event) => setLicenseForm({ ...licenseForm, holderUserId: event.target.value })} placeholder="Holder user ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />}
+          <input value={licenseForm.siteId} onChange={(event) => setLicenseForm({ ...licenseForm, siteId: event.target.value })} placeholder="Mine site ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          <input required value={licenseForm.licenseNumber} onChange={(event) => setLicenseForm({ ...licenseForm, licenseNumber: event.target.value })} placeholder="License number" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          <input required value={licenseForm.licenseType} onChange={(event) => setLicenseForm({ ...licenseForm, licenseType: event.target.value })} placeholder="License type" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          <input required value={licenseForm.issuingAuthority} onChange={(event) => setLicenseForm({ ...licenseForm, issuingAuthority: event.target.value })} placeholder="Issuing authority" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          <div className="grid grid-cols-2 gap-3">
+            <input required type="date" value={licenseForm.issueDate} onChange={(event) => setLicenseForm({ ...licenseForm, issueDate: event.target.value })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent" />
+            <input required type="date" value={licenseForm.expiryDate} onChange={(event) => setLicenseForm({ ...licenseForm, expiryDate: event.target.value })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent" />
+          </div>
+          <textarea value={licenseForm.documentIds} onChange={(event) => setLicenseForm({ ...licenseForm, documentIds: event.target.value })} placeholder="Supporting document IDs" rows={2} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setIsLicenseFormOpen(false)} className="rounded-md border border-border px-4 py-2 text-sm font-semibold text-text-secondary hover:border-accent hover:text-accent">Cancel</button>
+            <button disabled={saving} className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400 disabled:opacity-70">{saving ? 'Saving...' : 'Submit License'}</button>
+          </div>
+        </form>
+      </FormModal>
+
+      {isReviewer && (
+        <FormModal
+          isOpen={isCaseFormOpen}
+          title="Open Compliance Case"
+          description="Create a compliance case with inspection findings, corrective actions, and review dates."
+          onClose={() => setIsCaseFormOpen(false)}
+        >
+          <form onSubmit={submitCase} className="space-y-3">
+            <input required value={caseForm.siteId} onChange={(event) => setCaseForm({ ...caseForm, siteId: event.target.value })} placeholder="Mine site ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+            <input value={caseForm.subjectUserId} onChange={(event) => setCaseForm({ ...caseForm, subjectUserId: event.target.value })} placeholder="Subject user ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+            <input required value={caseForm.caseType} onChange={(event) => setCaseForm({ ...caseForm, caseType: event.target.value })} placeholder="Case type" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+            <select value={caseForm.severity} onChange={(event) => setCaseForm({ ...caseForm, severity: event.target.value as ComplianceCaseSeverity })} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent">
+              {severities.filter((severity) => severity !== 'all').map((severity) => <option key={severity} value={severity}>{severity}</option>)}
+            </select>
+            <textarea required value={caseForm.findings} onChange={(event) => setCaseForm({ ...caseForm, findings: event.target.value })} placeholder="Inspection findings" rows={3} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+            <textarea value={caseForm.requiredActions} onChange={(event) => setCaseForm({ ...caseForm, requiredActions: event.target.value })} placeholder="Required actions, comma-separated" rows={2} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+            <div className="grid grid-cols-2 gap-3">
+              <input type="date" value={caseForm.dueDate} onChange={(event) => setCaseForm({ ...caseForm, dueDate: event.target.value })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent" />
+              <input type="datetime-local" value={caseForm.inspectionScheduledAt} onChange={(event) => setCaseForm({ ...caseForm, inspectionScheduledAt: event.target.value })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent" />
+            </div>
+            <input value={caseForm.inspectorName} onChange={(event) => setCaseForm({ ...caseForm, inspectorName: event.target.value })} placeholder="Inspector name" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+            <textarea value={caseForm.inspectionNotes} onChange={(event) => setCaseForm({ ...caseForm, inspectionNotes: event.target.value })} placeholder="Inspection notes" rows={2} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setIsCaseFormOpen(false)} className="rounded-md border border-border px-4 py-2 text-sm font-semibold text-text-secondary hover:border-accent hover:text-accent">Cancel</button>
+              <button disabled={saving} className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400 disabled:opacity-70">{saving ? 'Saving...' : 'Create Case'}</button>
+            </div>
+          </form>
+        </FormModal>
+      )}
+
+      <div className="grid gap-6">
         <section className="space-y-6">
           <div className="overflow-x-auto rounded-lg border border-border bg-secondary">
             <table className="w-full min-w-[920px] border-collapse text-left">
@@ -305,47 +372,6 @@ export default function CompliancePage() {
           </div>
         </section>
 
-        <aside className="space-y-6">
-          <form onSubmit={submitLicense} className="rounded-lg border border-border bg-secondary p-4">
-            <h2 className="font-bold text-text-primary">Submit License</h2>
-            <div className="mt-4 space-y-3">
-              {isReviewer && <input value={licenseForm.holderUserId} onChange={(event) => setLicenseForm({ ...licenseForm, holderUserId: event.target.value })} placeholder="Holder user ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />}
-              <input value={licenseForm.siteId} onChange={(event) => setLicenseForm({ ...licenseForm, siteId: event.target.value })} placeholder="Mine site ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              <input required value={licenseForm.licenseNumber} onChange={(event) => setLicenseForm({ ...licenseForm, licenseNumber: event.target.value })} placeholder="License number" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              <input required value={licenseForm.licenseType} onChange={(event) => setLicenseForm({ ...licenseForm, licenseType: event.target.value })} placeholder="License type" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              <input required value={licenseForm.issuingAuthority} onChange={(event) => setLicenseForm({ ...licenseForm, issuingAuthority: event.target.value })} placeholder="Issuing authority" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              <div className="grid grid-cols-2 gap-3">
-                <input required type="date" value={licenseForm.issueDate} onChange={(event) => setLicenseForm({ ...licenseForm, issueDate: event.target.value })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent" />
-                <input required type="date" value={licenseForm.expiryDate} onChange={(event) => setLicenseForm({ ...licenseForm, expiryDate: event.target.value })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent" />
-              </div>
-              <textarea value={licenseForm.documentIds} onChange={(event) => setLicenseForm({ ...licenseForm, documentIds: event.target.value })} placeholder="Supporting document IDs" rows={2} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              <button disabled={saving} className="w-full rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400 disabled:opacity-70">{saving ? 'Saving...' : 'Submit License'}</button>
-            </div>
-          </form>
-
-          {isReviewer && (
-            <form onSubmit={submitCase} className="rounded-lg border border-border bg-secondary p-4">
-              <h2 className="font-bold text-text-primary">Open Compliance Case</h2>
-              <div className="mt-4 space-y-3">
-                <input required value={caseForm.siteId} onChange={(event) => setCaseForm({ ...caseForm, siteId: event.target.value })} placeholder="Mine site ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-                <input value={caseForm.subjectUserId} onChange={(event) => setCaseForm({ ...caseForm, subjectUserId: event.target.value })} placeholder="Subject user ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-                <input required value={caseForm.caseType} onChange={(event) => setCaseForm({ ...caseForm, caseType: event.target.value })} placeholder="Case type" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-                <select value={caseForm.severity} onChange={(event) => setCaseForm({ ...caseForm, severity: event.target.value as ComplianceCaseSeverity })} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent">
-                  {severities.filter((severity) => severity !== 'all').map((severity) => <option key={severity} value={severity}>{severity}</option>)}
-                </select>
-                <textarea required value={caseForm.findings} onChange={(event) => setCaseForm({ ...caseForm, findings: event.target.value })} placeholder="Inspection findings" rows={3} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-                <textarea value={caseForm.requiredActions} onChange={(event) => setCaseForm({ ...caseForm, requiredActions: event.target.value })} placeholder="Required actions, comma-separated" rows={2} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="date" value={caseForm.dueDate} onChange={(event) => setCaseForm({ ...caseForm, dueDate: event.target.value })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent" />
-                  <input type="datetime-local" value={caseForm.inspectionScheduledAt} onChange={(event) => setCaseForm({ ...caseForm, inspectionScheduledAt: event.target.value })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent" />
-                </div>
-                <input value={caseForm.inspectorName} onChange={(event) => setCaseForm({ ...caseForm, inspectorName: event.target.value })} placeholder="Inspector name" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-                <textarea value={caseForm.inspectionNotes} onChange={(event) => setCaseForm({ ...caseForm, inspectionNotes: event.target.value })} placeholder="Inspection notes" rows={2} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-                <button disabled={saving} className="w-full rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400 disabled:opacity-70">{saving ? 'Saving...' : 'Create Case'}</button>
-              </div>
-            </form>
-          )}
-        </aside>
       </div>
 
       {(selectedLicense || selectedCase) && (

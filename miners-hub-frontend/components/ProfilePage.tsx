@@ -6,13 +6,15 @@ import { User } from '../lib/types';
 import { getPayoutAccount, savePayoutAccount, type PayoutAccountPayload } from '../lib/api/users';
 import type { BackendPayoutAccount } from '../lib/api/orders';
 import { uploadImage } from '../lib/api/media';
+import FormModal from './FormModal';
 
 type Tab = 'info' | 'payout' | 'security' | 'notifications';
 
 const ProfilePage: React.FC = () => {
     const { currentUser, updateUser } = useAuth();
     const [activeTab, setActiveTab] = useState<Tab>('info');
-    const [isEditing, setIsEditing] = useState(false);
+    const [isProfileFormOpen, setIsProfileFormOpen] = useState(false);
+    const [isPayoutFormOpen, setIsPayoutFormOpen] = useState(false);
     const [formData, setFormData] = useState<Partial<User>>(currentUser || {});
     const [saveMsg, setSaveMsg] = useState('');
     const [payoutAccount, setPayoutAccount] = useState<BackendPayoutAccount | null>(null);
@@ -25,6 +27,8 @@ const ProfilePage: React.FC = () => {
     });
     const [payoutMsg, setPayoutMsg] = useState('');
     const [payoutLoading, setPayoutLoading] = useState(false);
+    const [isUploadingProfileImage, setIsUploadingProfileImage] = useState(false);
+    const [profileImageError, setProfileImageError] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -62,7 +66,7 @@ const ProfilePage: React.FC = () => {
 
     const handleSave = () => {
         updateUser({ ...currentUser, ...formData });
-        setIsEditing(false);
+        setIsProfileFormOpen(false);
         setSaveMsg('Changes saved!');
         setTimeout(() => setSaveMsg(''), 2500);
     };
@@ -75,6 +79,7 @@ const ProfilePage: React.FC = () => {
             const saved = await savePayoutAccount(payoutForm);
             setPayoutAccount(saved);
             setPayoutForm((prev) => ({ ...prev, accountNumber: '' }));
+            setIsPayoutFormOpen(false);
             setPayoutMsg(saved.status === 'active' ? 'Payout account linked.' : 'Payout account submitted.');
         } catch (error: any) {
             setPayoutMsg(error?.message || 'Unable to link payout account.');
@@ -85,12 +90,34 @@ const ProfilePage: React.FC = () => {
     };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files?.[0] && currentUser) {
-            const file = e.target.files[0];
-            if (file.size > 2 * 1024 * 1024) { alert('File too large. Max 2MB.'); return; }
-            if (!file.type.startsWith('image/')) { alert('Please select an image file.'); return; }
+        const file = e.target.files?.[0];
+        if (!file || !currentUser) return;
+
+        setProfileImageError('');
+
+        if (file.size > 2 * 1024 * 1024) {
+            setProfileImageError('File too large. Max 2MB.');
+            e.target.value = '';
+            return;
+        }
+
+        if (!file.type.startsWith('image/')) {
+            setProfileImageError('Please select an image file.');
+            e.target.value = '';
+            return;
+        }
+
+        setIsUploadingProfileImage(true);
+        try {
             const uploaded = await uploadImage(file, 'profile');
-            updateUser({ ...currentUser, profileImageUrl: uploaded.secureUrl });
+            await updateUser({ ...currentUser, profileImageUrl: uploaded.secureUrl });
+            setSaveMsg('Profile image updated!');
+            setTimeout(() => setSaveMsg(''), 2500);
+        } catch (error: any) {
+            setProfileImageError(error?.message || 'Unable to upload profile image.');
+        } finally {
+            setIsUploadingProfileImage(false);
+            e.target.value = '';
         }
     };
 
@@ -133,16 +160,121 @@ const ProfilePage: React.FC = () => {
 
     return (
         <div>
+            <FormModal
+                isOpen={isProfileFormOpen}
+                title="Edit Profile"
+                description="Update personal and business profile details."
+                onClose={() => {
+                    setIsProfileFormOpen(false);
+                    setFormData(currentUser);
+                }}
+            >
+                <div className="space-y-6">
+                    <div>
+                        <h3 className="font-semibold text-text-primary mb-4 text-base border-b border-border pb-2">Personal</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <EditableField label="Full Name" name="name" value={formData.name} />
+                            <EditableField label="Phone Number" name="phoneNumber" value={formData.phoneNumber} />
+                            <InfoField label="Email Address" value={currentUser.email} />
+                            <InfoField label="Role" value={currentUser.role} />
+                        </div>
+                    </div>
+                    <div>
+                        <h3 className="font-semibold text-text-primary mb-4 text-base border-b border-border pb-2">Business</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <EditableField label="Business Name" name="businessName" value={formData.businessName} />
+                            <EditableField label="Website" name="businessWebsite" value={formData.businessWebsite} />
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setIsProfileFormOpen(false);
+                                setFormData(currentUser);
+                            }}
+                            className="px-4 py-2 text-sm rounded-md bg-border hover:bg-border/80 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button onClick={handleSave} className="px-4 py-2 text-sm rounded-md bg-accent text-accent-content hover:bg-yellow-400 transition-colors">Save Changes</button>
+                    </div>
+                </div>
+            </FormModal>
+
+            {currentUser.role === 'miner' && (
+                <FormModal
+                    isOpen={isPayoutFormOpen}
+                    title={payoutAccount ? 'Edit Payout Account' : 'Add Payout Account'}
+                    description="Add or update the bank account used for escrow payout releases."
+                    onClose={() => setIsPayoutFormOpen(false)}
+                >
+                    <form onSubmit={handlePayoutSave} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-text-muted">Bank Name</label>
+                            <input
+                                value={payoutForm.bankName}
+                                onChange={(e) => setPayoutForm((prev) => ({ ...prev, bankName: e.target.value }))}
+                                required
+                                className="mt-1 block w-full bg-primary p-2.5 border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-accent"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-text-muted">Bank Code</label>
+                            <input
+                                value={payoutForm.bankCode}
+                                onChange={(e) => setPayoutForm((prev) => ({ ...prev, bankCode: e.target.value }))}
+                                required
+                                className="mt-1 block w-full bg-primary p-2.5 border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-accent"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-text-muted">Account Number</label>
+                            <input
+                                value={payoutForm.accountNumber}
+                                onChange={(e) => setPayoutForm((prev) => ({ ...prev, accountNumber: e.target.value.replace(/\D/g, '') }))}
+                                required
+                                inputMode="numeric"
+                                placeholder={payoutAccount ? 'Enter again to update' : ''}
+                                className="mt-1 block w-full bg-primary p-2.5 border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-accent"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-text-muted">Account Name</label>
+                            <input
+                                value={payoutForm.accountName}
+                                onChange={(e) => setPayoutForm((prev) => ({ ...prev, accountName: e.target.value }))}
+                                required
+                                className="mt-1 block w-full bg-primary p-2.5 border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-accent"
+                            />
+                        </div>
+                        <div className="md:col-span-2 flex justify-end gap-2">
+                            <button type="button" onClick={() => setIsPayoutFormOpen(false)} className="px-4 py-2 text-sm rounded-md bg-border hover:bg-border/80 transition-colors">Cancel</button>
+                            <button
+                                type="submit"
+                                disabled={payoutLoading}
+                                className="px-6 py-2 text-sm rounded-lg bg-accent text-accent-content hover:bg-yellow-400 disabled:bg-border disabled:cursor-not-allowed transition-colors"
+                            >
+                                {payoutLoading ? 'Saving...' : 'Save Payout Account'}
+                            </button>
+                        </div>
+                    </form>
+                </FormModal>
+            )}
+
             <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-6 mb-8 gap-4">
                 {/* Avatar */}
                 <div className="relative group self-start">
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/png, image/jpeg" />
                     <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="w-20 h-20 rounded-full bg-primary flex items-center justify-center text-accent text-3xl font-bold border-2 border-border overflow-hidden cursor-pointer"
+                        disabled={isUploadingProfileImage}
+                        className="w-20 h-20 rounded-full bg-primary flex items-center justify-center text-accent text-3xl font-bold border-2 border-border overflow-hidden cursor-pointer disabled:cursor-wait disabled:opacity-70"
                         aria-label="Change profile picture"
                     >
-                        {currentUser.profileImageUrl
+                        {isUploadingProfileImage
+                            ? <span className="h-6 w-6 rounded-full border-2 border-accent border-t-transparent animate-spin" aria-hidden="true" />
+                            : currentUser.profileImageUrl
                             ? <img src={currentUser.profileImageUrl} alt="Profile" className="w-full h-full object-cover" />
                             : currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase()
                         }
@@ -153,6 +285,11 @@ const ProfilePage: React.FC = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                     </div>
+                    {profileImageError && (
+                        <p className="absolute left-0 top-full mt-2 w-56 text-xs font-medium text-red-400">
+                            {profileImageError}
+                        </p>
+                    )}
                 </div>
 
                 <div className="flex-1">
@@ -176,7 +313,7 @@ const ProfilePage: React.FC = () => {
                 {TABS.map(tab => (
                     <button
                         key={tab.id}
-                        onClick={() => { setActiveTab(tab.id); setIsEditing(false); }}
+                        onClick={() => setActiveTab(tab.id)}
                         className={`flex-1 sm:flex-none px-4 py-2 text-sm font-semibold rounded-md transition-colors whitespace-nowrap ${activeTab === tab.id ? 'bg-accent text-accent-content' : 'text-text-secondary hover:bg-border'}`}
                     >
                         {tab.label}
@@ -190,21 +327,14 @@ const ProfilePage: React.FC = () => {
                     <div>
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-xl font-bold text-text-primary">Personal & Business Information</h2>
-                            {isEditing ? (
-                                <div className="space-x-2">
-                                    <button onClick={() => { setIsEditing(false); setFormData(currentUser); }} className="px-4 py-1.5 text-sm rounded-md bg-border hover:bg-border/80 transition-colors">Cancel</button>
-                                    <button onClick={handleSave} className="px-4 py-1.5 text-sm rounded-md bg-accent text-accent-content hover:bg-yellow-400 transition-colors">Save Changes</button>
-                                </div>
-                            ) : (
-                                <button onClick={() => setIsEditing(true)} className="px-4 py-1.5 text-sm rounded-md border border-border hover:bg-border transition-colors">Edit</button>
-                            )}
+                            <button onClick={() => setIsProfileFormOpen(true)} className="px-4 py-1.5 text-sm rounded-md border border-border hover:bg-border transition-colors">Edit</button>
                         </div>
                         <div className="space-y-8">
                             <div>
                                 <h3 className="font-semibold text-text-primary mb-4 text-base border-b border-border pb-2">Personal</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {isEditing ? <EditableField label="Full Name" name="name" value={formData.name} /> : <InfoField label="Full Name" value={currentUser.name} />}
-                                    {isEditing ? <EditableField label="Phone Number" name="phoneNumber" value={formData.phoneNumber} /> : <InfoField label="Phone Number" value={currentUser.phoneNumber} />}
+                                    <InfoField label="Full Name" value={currentUser.name} />
+                                    <InfoField label="Phone Number" value={currentUser.phoneNumber} />
                                     <InfoField label="Email Address" value={currentUser.email} />
                                     <InfoField label="Role" value={currentUser.role} />
                                 </div>
@@ -212,8 +342,8 @@ const ProfilePage: React.FC = () => {
                             <div>
                                 <h3 className="font-semibold text-text-primary mb-4 text-base border-b border-border pb-2">Business</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {isEditing ? <EditableField label="Business Name" name="businessName" value={formData.businessName} /> : <InfoField label="Business Name" value={currentUser.businessName} />}
-                                    {isEditing ? <EditableField label="Website" name="businessWebsite" value={formData.businessWebsite} /> : <InfoField label="Website" value={currentUser.businessWebsite} />}
+                                    <InfoField label="Business Name" value={currentUser.businessName} />
+                                    <InfoField label="Website" value={currentUser.businessWebsite} />
                                 </div>
                             </div>
                         </div>
@@ -258,17 +388,22 @@ const ProfilePage: React.FC = () => {
                                 <h2 className="text-xl font-bold text-text-primary">Payout Bank Account</h2>
                                 <p className="text-sm text-text-muted mt-1">Escrow releases are sent to your linked Flutterwave payout account.</p>
                             </div>
-                            {payoutAccount && (
-                                <span className={`self-start text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
-                                    payoutAccount.status === 'active'
-                                        ? 'bg-green-500/20 text-green-400'
-                                        : payoutAccount.status === 'failed'
-                                            ? 'bg-red-500/20 text-red-400'
-                                            : 'bg-yellow-500/20 text-yellow-400'
-                                }`}>
-                                    {payoutAccount.status}
-                                </span>
-                            )}
+                            <div className="flex flex-wrap gap-2">
+                                {payoutAccount && (
+                                    <span className={`self-start text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
+                                        payoutAccount.status === 'active'
+                                            ? 'bg-green-500/20 text-green-400'
+                                            : payoutAccount.status === 'failed'
+                                                ? 'bg-red-500/20 text-red-400'
+                                                : 'bg-yellow-500/20 text-yellow-400'
+                                    }`}>
+                                        {payoutAccount.status}
+                                    </span>
+                                )}
+                                <button type="button" onClick={() => setIsPayoutFormOpen(true)} className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-text-primary hover:border-accent hover:text-accent">
+                                    {payoutAccount ? 'Edit Account' : 'Add Account'}
+                                </button>
+                            </div>
                         </div>
 
                         {payoutAccount && (
@@ -285,55 +420,6 @@ const ProfilePage: React.FC = () => {
                             </div>
                         )}
 
-                        <form onSubmit={handlePayoutSave} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-text-muted">Bank Name</label>
-                                <input
-                                    value={payoutForm.bankName}
-                                    onChange={(e) => setPayoutForm((prev) => ({ ...prev, bankName: e.target.value }))}
-                                    required
-                                    className="mt-1 block w-full bg-primary p-2.5 border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-accent"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-text-muted">Bank Code</label>
-                                <input
-                                    value={payoutForm.bankCode}
-                                    onChange={(e) => setPayoutForm((prev) => ({ ...prev, bankCode: e.target.value }))}
-                                    required
-                                    className="mt-1 block w-full bg-primary p-2.5 border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-accent"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-text-muted">Account Number</label>
-                                <input
-                                    value={payoutForm.accountNumber}
-                                    onChange={(e) => setPayoutForm((prev) => ({ ...prev, accountNumber: e.target.value.replace(/\D/g, '') }))}
-                                    required
-                                    inputMode="numeric"
-                                    placeholder={payoutAccount ? 'Enter again to update' : ''}
-                                    className="mt-1 block w-full bg-primary p-2.5 border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-accent"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-text-muted">Account Name</label>
-                                <input
-                                    value={payoutForm.accountName}
-                                    onChange={(e) => setPayoutForm((prev) => ({ ...prev, accountName: e.target.value }))}
-                                    required
-                                    className="mt-1 block w-full bg-primary p-2.5 border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-accent"
-                                />
-                            </div>
-                            <div className="md:col-span-2 text-right">
-                                <button
-                                    type="submit"
-                                    disabled={payoutLoading}
-                                    className="px-6 py-2 text-sm rounded-lg bg-accent text-accent-content hover:bg-yellow-400 disabled:bg-border disabled:cursor-not-allowed transition-colors"
-                                >
-                                    {payoutLoading ? 'Saving...' : 'Save Payout Account'}
-                                </button>
-                            </div>
-                        </form>
                     </div>
                 )}
 

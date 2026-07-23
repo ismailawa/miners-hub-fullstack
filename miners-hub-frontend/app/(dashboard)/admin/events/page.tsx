@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../../contexts/AuthContext';
+import FormModal from '../../../../components/FormModal';
+import MultiFileInput, { FilePreview } from '../../../../components/MultiFileInput';
 import {
   createEvent,
   deleteEvent,
@@ -35,6 +37,7 @@ export default function AdminEventsPage() {
   const [error, setError] = useState<string | null>(null);
   const [eventImageFile, setEventImageFile] = useState<File | null>(null);
   const [eventImagePreview, setEventImagePreview] = useState<string>('');
+  const [isEventFormOpen, setIsEventFormOpen] = useState(false);
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -86,8 +89,8 @@ export default function AdminEventsPage() {
     }));
   };
 
-  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleImageFilesAdded = (files: File[]) => {
+    const file = files[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
@@ -102,6 +105,14 @@ export default function AdminEventsPage() {
     setEventImagePreview(URL.createObjectURL(file));
   };
 
+  const handleImageRemoved = () => {
+    if (eventImagePreview.startsWith('blob:')) {
+      URL.revokeObjectURL(eventImagePreview);
+    }
+    setEventImageFile(null);
+    setEventImagePreview('');
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setSaving(true);
@@ -111,6 +122,11 @@ export default function AdminEventsPage() {
       if (eventImageFile) {
         const uploaded = await uploadImage(eventImageFile, 'event');
         imageUrl = uploaded.secureUrl;
+      }
+      if (!imageUrl) {
+        setError('Please upload an event image or provide an image URL.');
+        setSaving(false);
+        return;
       }
 
       const payload: EventPayload = {
@@ -128,6 +144,7 @@ export default function AdminEventsPage() {
         setEvents((current) => [created, ...current]);
       }
       resetForm();
+      setIsEventFormOpen(false);
     } catch (err: any) {
       setError(err?.message || 'Failed to save event');
     } finally {
@@ -149,6 +166,7 @@ export default function AdminEventsPage() {
     });
     setEventImageFile(null);
     setEventImagePreview(event.imageUrl);
+    setIsEventFormOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -168,9 +186,21 @@ export default function AdminEventsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-text-primary">Events</h1>
-        <p className="text-text-secondary">Create and manage homepage featured and upcoming events.</p>
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">Events</h1>
+          <p className="text-text-secondary">Create and manage homepage featured and upcoming events.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            resetForm();
+            setIsEventFormOpen(true);
+          }}
+          className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-content hover:bg-yellow-400"
+        >
+          Add Event
+        </button>
       </div>
 
       {error && (
@@ -179,122 +209,138 @@ export default function AdminEventsPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-secondary rounded-xl border border-border p-5 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <label className="block">
-            <span className="text-sm font-medium text-text-secondary">Title</span>
-            <input
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              required
-              className="mt-1 w-full bg-primary border border-border rounded-lg p-3 outline-none focus:ring-2 focus:ring-accent"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-text-secondary">Date</span>
-            <input
-              type="date"
-              name="date"
-              value={formData.date}
-              onChange={handleChange}
-              required
-              className="mt-1 w-full bg-primary border border-border rounded-lg p-3 outline-none focus:ring-2 focus:ring-accent"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-text-secondary">Location</span>
-            <input
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-              required
-              className="mt-1 w-full bg-primary border border-border rounded-lg p-3 outline-none focus:ring-2 focus:ring-accent"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-text-secondary">Status</span>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleChange}
-              className="mt-1 w-full bg-primary border border-border rounded-lg p-3 outline-none focus:ring-2 focus:ring-accent"
-            >
-              <option value="published">Published</option>
-              <option value="draft">Draft</option>
-              <option value="archived">Archived</option>
-            </select>
-          </label>
-          <label className="block md:col-span-2">
-            <span className="text-sm font-medium text-text-secondary">Event Image</span>
-            <input
-              type="file"
-              accept="image/png,image/jpeg"
-              onChange={handleImageChange}
-              required={!formData.imageUrl}
-              className="mt-1 w-full bg-primary border border-border rounded-lg p-3 outline-none focus:ring-2 focus:ring-accent"
-            />
-            {(eventImagePreview || formData.imageUrl) && (
-              <img
-                src={eventImagePreview || formData.imageUrl}
-                alt="Event preview"
-                className="mt-3 h-36 w-full rounded-lg border border-border object-cover"
+      <FormModal
+        isOpen={isEventFormOpen}
+        title={editingId ? 'Edit Event' : 'Add Event'}
+        description="Manage homepage event details, image, registration link, and publication status."
+        onClose={() => {
+          setIsEventFormOpen(false);
+          resetForm();
+        }}
+        maxWidthClass="max-w-4xl"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label className="block">
+              <span className="text-sm font-medium text-text-secondary">Title</span>
+              <input
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                required
+                className="mt-1 w-full bg-primary border border-border rounded-lg p-3 outline-none focus:ring-2 focus:ring-accent"
               />
-            )}
-          </label>
-          <label className="block md:col-span-2">
-            <span className="text-sm font-medium text-text-secondary">Registration URL</span>
-            <input
-              name="registrationUrl"
-              value={formData.registrationUrl}
-              onChange={handleChange}
-              placeholder="https://..."
-              className="mt-1 w-full bg-primary border border-border rounded-lg p-3 outline-none focus:ring-2 focus:ring-accent"
-            />
-          </label>
-          <label className="block md:col-span-2">
-            <span className="text-sm font-medium text-text-secondary">Description</span>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              rows={3}
-              className="mt-1 w-full bg-primary border border-border rounded-lg p-3 outline-none focus:ring-2 focus:ring-accent"
-            />
-          </label>
-        </div>
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-text-secondary">Date</span>
+              <input
+                type="date"
+                name="date"
+                value={formData.date}
+                onChange={handleChange}
+                required
+                className="mt-1 w-full bg-primary border border-border rounded-lg p-3 outline-none focus:ring-2 focus:ring-accent"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-text-secondary">Location</span>
+              <input
+                name="location"
+                value={formData.location}
+                onChange={handleChange}
+                required
+                className="mt-1 w-full bg-primary border border-border rounded-lg p-3 outline-none focus:ring-2 focus:ring-accent"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-text-secondary">Status</span>
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className="mt-1 w-full bg-primary border border-border rounded-lg p-3 outline-none focus:ring-2 focus:ring-accent"
+              >
+                <option value="published">Published</option>
+                <option value="draft">Draft</option>
+                <option value="archived">Archived</option>
+              </select>
+            </label>
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-text-secondary">Event Image</span>
+              <MultiFileInput
+                id="event-image"
+                label="Upload event image"
+                files={eventImageFile && eventImagePreview ? [{ file: eventImageFile, previewUrl: eventImagePreview } as FilePreview] : []}
+                onFilesAdded={handleImageFilesAdded}
+                onFileRemoved={handleImageRemoved}
+                accept="image/png,image/jpeg"
+                helperText="Drop a JPG or PNG image here. The file is stored in Cloudinary when you save."
+                multiple={false}
+                maxFiles={1}
+              />
+              {(eventImagePreview || formData.imageUrl) && (
+                <img
+                  src={eventImagePreview || formData.imageUrl}
+                  alt="Event preview"
+                  className="mt-3 h-36 w-full rounded-lg border border-border object-cover"
+                />
+              )}
+            </label>
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-text-secondary">Registration URL</span>
+              <input
+                name="registrationUrl"
+                value={formData.registrationUrl}
+                onChange={handleChange}
+                placeholder="https://..."
+                className="mt-1 w-full bg-primary border border-border rounded-lg p-3 outline-none focus:ring-2 focus:ring-accent"
+              />
+            </label>
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-text-secondary">Description</span>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                rows={3}
+                className="mt-1 w-full bg-primary border border-border rounded-lg p-3 outline-none focus:ring-2 focus:ring-accent"
+              />
+            </label>
+          </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <label className="inline-flex items-center gap-2 text-sm text-text-secondary">
-            <input
-              type="checkbox"
-              name="featured"
-              checked={Boolean(formData.featured)}
-              onChange={handleChange}
-              className="h-4 w-4 accent-accent"
-            />
-            Feature this event first
-          </label>
-          <div className="flex gap-2">
-            {editingId && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <label className="inline-flex items-center gap-2 text-sm text-text-secondary">
+              <input
+                type="checkbox"
+                name="featured"
+                checked={Boolean(formData.featured)}
+                onChange={handleChange}
+                className="h-4 w-4 accent-accent"
+              />
+              Feature this event first
+            </label>
+            <div className="flex gap-2">
               <button
                 type="button"
-                onClick={resetForm}
+                onClick={() => {
+                  setIsEventFormOpen(false);
+                  resetForm();
+                }}
                 className="px-4 py-2 rounded-md bg-border hover:bg-border/80 transition-colors"
               >
                 Cancel
               </button>
-            )}
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-5 py-2 rounded-md bg-accent text-accent-content font-semibold hover:bg-yellow-400 disabled:opacity-60 transition-colors"
-            >
-              {saving ? 'Saving...' : editingId ? 'Update Event' : 'Add Event'}
-            </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-5 py-2 rounded-md bg-accent text-accent-content font-semibold hover:bg-yellow-400 disabled:opacity-60 transition-colors"
+              >
+                {saving ? 'Saving...' : editingId ? 'Update Event' : 'Add Event'}
+              </button>
+            </div>
           </div>
-        </div>
-      </form>
+        </form>
+      </FormModal>
 
       <div className="bg-secondary rounded-xl border border-border overflow-hidden">
         <table className="w-full text-left border-collapse">

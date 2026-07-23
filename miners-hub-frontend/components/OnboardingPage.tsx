@@ -272,6 +272,7 @@ export const OnboardingPage: React.FC = () => {
     const { currentUser, updateUser, setPage } = useAuth();
     const [currentStep, setCurrentStep] = useState(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isExiting, setIsExiting] = useState(false);
     const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [kycStatus, setKycStatus] = useState<KycStatus | null>(null);
     const [isKycLoading, setIsKycLoading] = useState(false);
@@ -352,15 +353,6 @@ export const OnboardingPage: React.FC = () => {
         lastSavedDraftRef.current = draft ? JSON.stringify(draft) : '';
         hasHydratedDraftRef.current = true;
     }, [currentUser]);
-
-    useEffect(() => {
-        if (!currentUser || !hasHydratedDraftRef.current || (currentUser.status === VerificationStatus.VERIFIED && currentUser.onboardingComplete)) return;
-        const timer = window.setTimeout(() => {
-            void saveOnboardingDraft(currentStep, formData);
-        }, 800);
-
-        return () => window.clearTimeout(timer);
-    }, [currentStep, currentUser, formData, saveOnboardingDraft]);
 
     useEffect(() => {
       if(currentUser && !formData.name) {
@@ -511,7 +503,7 @@ export const OnboardingPage: React.FC = () => {
         }
     };
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!canLeaveKycStep) {
             setKycError('Please start the MetaMap identity verification before continuing.');
             return;
@@ -520,7 +512,7 @@ export const OnboardingPage: React.FC = () => {
         if (form && form.reportValidity()) {
             document.getElementById('main-scroll-area')?.scrollTo({ top: 0, behavior: 'smooth' });
             const nextStep = Math.min(currentStep + 1, STEPS.length - 1);
-            void saveOnboardingDraft(nextStep, formData);
+            await saveOnboardingDraft(nextStep, formData);
             setCurrentStep(nextStep);
         }
     };
@@ -528,8 +520,18 @@ export const OnboardingPage: React.FC = () => {
     const handleBack = () => {
         document.getElementById('main-scroll-area')?.scrollTo({ top: 0, behavior: 'smooth' });
         const previousStep = Math.max(currentStep - 1, 0);
-        void saveOnboardingDraft(previousStep, formData);
         setCurrentStep(previousStep);
+    };
+
+    const handleExit = async () => {
+        if (!currentUser) return;
+        setIsExiting(true);
+        try {
+            await saveOnboardingDraft(currentStep, formData);
+            setPage('dashboard');
+        } finally {
+            setIsExiting(false);
+        }
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -721,7 +723,7 @@ export const OnboardingPage: React.FC = () => {
                                 <span className={`text-xs font-medium block ${
                                     draftStatus === 'error' ? 'text-red-400' : 'text-text-muted'
                                 }`}>
-                                    {draftStatus === 'saving' ? 'Saving draft...' : draftStatus === 'saved' ? 'Draft saved' : 'Draft save failed'}
+                                    {draftStatus === 'saving' ? 'Saving progress...' : draftStatus === 'saved' ? 'Progress saved' : 'Progress save failed'}
                                 </span>
                             )}
                         </div>
@@ -1110,10 +1112,10 @@ export const OnboardingPage: React.FC = () => {
                         </form>
 
                         {/* Navigation Buttons */}
-                        <div className="mt-12 pt-6 flex justify-between items-center w-full">
+                        <div className="mt-12 pt-6 flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between w-full">
                             <button
                                 onClick={handleBack}
-                                disabled={currentStep === 0 || isSubmitting}
+                                disabled={currentStep === 0 || isSubmitting || isExiting}
                                 className={`flex items-center text-sm font-bold text-text-secondary hover:text-text-primary transition-colors ${currentStep === 0 ? 'invisible' : ''}`}
                             >
                                 <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1122,20 +1124,28 @@ export const OnboardingPage: React.FC = () => {
                                 Back
                             </button>
                             
-                            <div className="flex space-x-4">
+                            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:space-x-4 sm:gap-0">
+                                <button
+                                    type="button"
+                                    onClick={handleExit}
+                                    disabled={isSubmitting || isExiting}
+                                    className="px-6 py-3 text-sm font-bold text-text-secondary border border-border rounded-full hover:border-accent hover:text-accent transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {isExiting ? 'Saving...' : 'Exit'}
+                                </button>
                                 {currentStep < STEPS.length - 1 ? (
                                     <button
                                         type="button"
                                         onClick={handleNext}
-                                        disabled={(!formData.role && currentStep === 0) || !canLeaveKycStep}
+                                        disabled={(!formData.role && currentStep === 0) || !canLeaveKycStep || isExiting || draftStatus === 'saving'}
                                         className="px-8 py-3 text-sm font-bold text-white bg-accent rounded-full hover:bg-yellow-500 shadow-lg shadow-accent/20 transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
                                     >
-                                        Continue
+                                        {draftStatus === 'saving' ? 'Saving...' : 'Save and Continue'}
                                     </button>
                                 ) : (
                                     <button
                                         onClick={handleSubmit}
-                                        disabled={isSubmitting}
+                                        disabled={isSubmitting || isExiting}
                                         className="px-8 py-3 text-sm font-bold text-white bg-green-500 rounded-full hover:bg-green-600 shadow-lg shadow-green-500/20 transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
                                     >
                                         {isSubmitting ? 'Submitting...' : 'Submit'}

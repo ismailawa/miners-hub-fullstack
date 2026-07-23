@@ -35,6 +35,7 @@ import { MineralPassportsModule } from './mineral-passports/mineral-passports.mo
 import { EnvironmentalRecordsModule } from './environmental-records/environmental-records.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { InvestorOpportunitiesModule } from './investor-opportunities/investor-opportunities.module';
+import { TrustedPartnersModule } from './trusted-partners/trusted-partners.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -80,6 +81,7 @@ import { InvestorOpportunitiesModule } from './investor-opportunities/investor-o
     EnvironmentalRecordsModule,
     AnalyticsModule,
     InvestorOpportunitiesModule,
+    TrustedPartnersModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

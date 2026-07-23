@@ -3,7 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getOrders, updateOrderStatus, initiateEscrowPayment, cancelOrder, mapBackendOrderToOrder, BackendOrder } from '../../lib/api/orders';
+import { createLogisticsQuoteRequest } from '../../lib/api/logistics';
 import OrderTrackingModal from '../OrderTrackingModal';
+import FormModal from '../FormModal';
 import { Order } from '../../lib/types';
 import { formatCurrency } from '../../lib/currency';
 
@@ -37,8 +39,9 @@ const OrderCard: React.FC<{
   onUpdateStatus: (id: string, status: BackendOrder['status']) => void;
   onPayNow: (id: string) => void;
   onCancel: (id: string) => void;
+  onRequestLogistics: (order: BackendOrder) => void;
   isUpdating: string | null;
-}> = ({ order, isSeller, onView, onUpdateStatus, onPayNow, onCancel, isUpdating }) => {
+}> = ({ order, isSeller, onView, onUpdateStatus, onPayNow, onCancel, onRequestLogistics, isUpdating }) => {
   const mineral = order.listing?.mineralType ?? 'Mineral';
   const counterParty = isSeller
     ? (order.buyer?.name ?? 'Buyer')
@@ -112,6 +115,15 @@ const OrderCard: React.FC<{
             Cancel
           </button>
         )}
+        {order.paymentStatus === 'paid' && ['confirmed', 'processing', 'shipped'].includes(order.status) && (
+          <button
+            onClick={() => onRequestLogistics(order)}
+            disabled={isUpdating === order.id}
+            className="px-3 py-1.5 text-sm rounded-md border border-border text-text-secondary hover:border-accent hover:text-accent disabled:opacity-60 transition-colors"
+          >
+            Logistics
+          </button>
+        )}
         <button
           onClick={() => onView(order)}
           className="px-3 py-1.5 text-sm rounded-md bg-border hover:bg-border/80 transition-colors"
@@ -132,6 +144,19 @@ const OrdersContent: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<BackendOrder | null>(null);
   const [isTrackingOpen, setIsTrackingOpen] = useState(false);
+  const [isLogisticsOpen, setIsLogisticsOpen] = useState(false);
+  const [logisticsOrder, setLogisticsOrder] = useState<BackendOrder | null>(null);
+  const [logisticsForm, setLogisticsForm] = useState({
+    origin: '',
+    destination: '',
+    commodity: '',
+    weight: '',
+    containerType: 'local_bulk',
+    pickupWindow: '',
+    requiredVehicleType: '',
+    loadingConstraints: '',
+    safetyNotes: '',
+  });
 
   const fetchOrders = useCallback(async () => {
     setIsLoading(true);
@@ -187,6 +212,51 @@ const OrdersContent: React.FC = () => {
     }
   };
 
+  const openLogisticsRequest = (order: BackendOrder) => {
+    setLogisticsOrder(order);
+    setLogisticsForm({
+      origin: order.listing?.location || '',
+      destination: order.deliveryAddress || '',
+      commodity: order.listing?.mineralType || 'Mineral',
+      weight: String(Number(order.quantity || 0) * 1000),
+      containerType: 'local_bulk',
+      pickupWindow: '',
+      requiredVehicleType: '',
+      loadingConstraints: '',
+      safetyNotes: '',
+    });
+    setIsLogisticsOpen(true);
+  };
+
+  const submitLogisticsRequest = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!logisticsOrder || !currentUser) return;
+    setIsUpdating(logisticsOrder.id);
+    try {
+      await createLogisticsQuoteRequest({
+        orderId: logisticsOrder.id,
+        origin: logisticsForm.origin,
+        destination: logisticsForm.destination,
+        commodity: logisticsForm.commodity,
+        weight: Number(logisticsForm.weight),
+        containerType: logisticsForm.containerType,
+        contactName: currentUser.name,
+        contactEmail: currentUser.email,
+        pickupWindow: logisticsForm.pickupWindow || null,
+        requiredVehicleType: logisticsForm.requiredVehicleType || null,
+        loadingConstraints: logisticsForm.loadingConstraints || null,
+        safetyNotes: logisticsForm.safetyNotes || null,
+      });
+      setIsLogisticsOpen(false);
+      setLogisticsOrder(null);
+      alert('Logistics quote request submitted.');
+    } catch (error: any) {
+      alert(error?.message || 'Failed to request logistics quote.');
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
   if (!currentUser) return null;
 
   return (
@@ -218,6 +288,7 @@ const OrdersContent: React.FC = () => {
               onUpdateStatus={handleUpdateStatus}
               onPayNow={handlePayNow}
               onCancel={handleCancel}
+              onRequestLogistics={openLogisticsRequest}
               isUpdating={isUpdating}
             />
           ))}
@@ -235,6 +306,31 @@ const OrdersContent: React.FC = () => {
         onClose={() => setIsTrackingOpen(false)}
         order={selectedOrder ? mapBackendOrderToOrder(selectedOrder) as unknown as Order : null}
       />
+      <FormModal
+        isOpen={isLogisticsOpen}
+        title="Request Logistics Quote"
+        description="Create an order-linked logistics request with route, cargo, and vehicle requirements."
+        onClose={() => setIsLogisticsOpen(false)}
+      >
+        <form onSubmit={submitLogisticsRequest} className="space-y-3">
+          <input required value={logisticsForm.origin} onChange={(event) => setLogisticsForm((prev) => ({ ...prev, origin: event.target.value }))} placeholder="Pickup origin" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none" />
+          <input required value={logisticsForm.destination} onChange={(event) => setLogisticsForm((prev) => ({ ...prev, destination: event.target.value }))} placeholder="Delivery destination" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <input required value={logisticsForm.commodity} onChange={(event) => setLogisticsForm((prev) => ({ ...prev, commodity: event.target.value }))} placeholder="Commodity" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none" />
+            <input required type="number" min="0" value={logisticsForm.weight} onChange={(event) => setLogisticsForm((prev) => ({ ...prev, weight: event.target.value }))} placeholder="Weight in kg" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none" />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <input value={logisticsForm.pickupWindow} onChange={(event) => setLogisticsForm((prev) => ({ ...prev, pickupWindow: event.target.value }))} placeholder="Pickup window" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none" />
+            <input value={logisticsForm.requiredVehicleType} onChange={(event) => setLogisticsForm((prev) => ({ ...prev, requiredVehicleType: event.target.value }))} placeholder="Required vehicle type" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none" />
+          </div>
+          <textarea value={logisticsForm.loadingConstraints} onChange={(event) => setLogisticsForm((prev) => ({ ...prev, loadingConstraints: event.target.value }))} placeholder="Loading constraints" rows={3} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none" />
+          <textarea value={logisticsForm.safetyNotes} onChange={(event) => setLogisticsForm((prev) => ({ ...prev, safetyNotes: event.target.value }))} placeholder="Safety or compliance notes" rows={3} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none" />
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setIsLogisticsOpen(false)} className="rounded-md border border-border px-4 py-2 text-sm font-semibold text-text-secondary hover:border-accent hover:text-accent">Cancel</button>
+            <button disabled={!logisticsOrder || isUpdating === logisticsOrder.id} className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400 disabled:opacity-60">Submit Request</button>
+          </div>
+        </form>
+      </FormModal>
     </div>
   );
 };

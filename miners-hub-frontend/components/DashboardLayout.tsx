@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { getChatThreads } from '../lib/api/chats';
 import { onChatMessage, onChatThreadUpdate } from '../lib/api/chat-socket';
+import { filterAllowedNavItems } from '../lib/permissions';
 import BrandLogo from './BrandLogo';
 
 // ── SVG Icon Components ───────────────────────────────────────────────────────
@@ -72,6 +73,11 @@ const Icons = {
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
         </svg>
     ),
+    Chevron: () => (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 9.75L12 13.5l3.75-3.75" />
+        </svg>
+    ),
     Bell: () => (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
@@ -97,6 +103,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const pathname = usePathname();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [unreadMessages, setUnreadMessages] = useState(0);
+    const [openSectionLabel, setOpenSectionLabel] = useState<string | null>(null);
 
     const loadUnreadMessages = useCallback(async () => {
         if (!currentUser) {
@@ -136,13 +143,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         };
     }, [loadUnreadMessages]);
 
-    const mainNavItems: NavItem[] = [
+    const mainNavItems: NavItem[] = filterAllowedNavItems(currentUser, [
         { name: 'Overview', href: '/dashboard', icon: Icons.Overview },
         { name: 'Messages', href: '/messages', icon: Icons.Messages },
         { name: 'Profile Settings', href: '/profile', icon: Icons.Profile },
-    ];
+    ]);
 
-    const financeNavItems: NavItem[] = [
+    const financeNavItems: NavItem[] = currentUser?.role === 'miner' || currentUser?.role === 'investor' ? filterAllowedNavItems(currentUser, [
         { name: 'Contracts', href: '/contracts', icon: Icons.Contracts },
         { name: 'My Orders', href: '/orders', icon: Icons.Orders },
         { name: 'Logistics', href: '/logistics-management', icon: Icons.MineSites },
@@ -150,23 +157,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { name: 'Mineral Passports', href: '/mineral-passports', icon: Icons.Tasks },
         { name: 'Revenue Analytics', href: '/revenue-analytics', icon: Icons.Transactions },
         { name: 'Transactions', href: '/transactions', icon: Icons.Transactions },
-    ];
+    ]) : [];
 
-    const minerNavItems: NavItem[] = currentUser?.role === 'miner' ? [
+    const minerNavItems: NavItem[] = currentUser?.role === 'miner' ? filterAllowedNavItems(currentUser, [
         { name: 'Mine Sites', href: '/mine-sites', icon: Icons.MineSites },
         { name: 'Production Reports', href: '/production-reports', icon: Icons.Tasks },
         { name: 'Compliance', href: '/compliance', icon: Icons.Contracts },
         { name: 'Environmental Records', href: '/environmental-records', icon: Icons.MineSites },
         { name: 'My Listings', href: '/listings', icon: Icons.Listings },
         { name: 'Task Management', href: '/tasks', icon: Icons.Tasks },
-    ] : [];
+    ]) : [];
 
-    const exploreNavItems: NavItem[] = [
+    const exploreNavItems: NavItem[] = filterAllowedNavItems(currentUser, [
         { name: 'Marketplace', href: '/marketplace', icon: Icons.Marketplace },
         { name: 'Investor Opportunities', href: '/investor-opportunities', icon: Icons.Transactions },
-    ];
+    ]);
 
-    const adminNavItems: NavItem[] = currentUser?.role === 'admin' ? [
+    const adminNavItems: NavItem[] = currentUser?.role === 'admin' ? filterAllowedNavItems(currentUser, [
         { name: 'Miner Registry', href: '/admin/miner-registry', icon: Icons.Profile },
         { name: 'Mine Sites', href: '/mine-sites', icon: Icons.MineSites },
         { name: 'Production Reports', href: '/production-reports', icon: Icons.Tasks },
@@ -174,29 +181,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { name: 'Environmental Records', href: '/environmental-records', icon: Icons.MineSites },
         { name: 'Revenue Analytics', href: '/revenue-analytics', icon: Icons.Transactions },
         { name: 'Logistics', href: '/logistics-management', icon: Icons.MineSites },
+        { name: 'Laboratory Results', href: '/lab-results', icon: Icons.Contracts },
+        { name: 'Mineral Passports', href: '/mineral-passports', icon: Icons.Tasks },
         { name: 'User Management', href: '/admin/users', icon: Icons.Profile },
         { name: 'Listing Approvals', href: '/admin/listings', icon: Icons.Listings },
         { name: 'Orders', href: '/admin/orders', icon: Icons.Orders },
         { name: 'KYC Documents', href: '/admin/documents', icon: Icons.Contracts },
         { name: 'Events', href: '/admin/events', icon: Icons.Tasks },
-    ] : [];
+        { name: 'Trusted Partners', href: '/admin/trusted-partners', icon: Icons.Profile },
+    ]) : [];
 
-    const regulatorNavItems: NavItem[] = currentUser?.role === 'government' ? [
+    const regulatorNavItems: NavItem[] = currentUser?.role === 'government' ? filterAllowedNavItems(currentUser, [
         { name: 'Mine Sites', href: '/mine-sites', icon: Icons.MineSites },
         { name: 'Production Reports', href: '/production-reports', icon: Icons.Tasks },
         { name: 'Compliance', href: '/compliance', icon: Icons.Contracts },
         { name: 'Environmental Records', href: '/environmental-records', icon: Icons.MineSites },
         { name: 'Revenue Analytics', href: '/revenue-analytics', icon: Icons.Transactions },
-    ] : [];
+        { name: 'Logistics', href: '/logistics-management', icon: Icons.MineSites },
+        { name: 'Laboratory Results', href: '/lab-results', icon: Icons.Contracts },
+        { name: 'Mineral Passports', href: '/mineral-passports', icon: Icons.Tasks },
+    ]) : [];
 
     const navSections = [
         { label: 'Main', items: mainNavItems },
-        ...(adminNavItems.length > 0 ? [{ label: 'Adminstration', items: adminNavItems }] : []),
+        ...(adminNavItems.length > 0 ? [{ label: 'Administration', items: adminNavItems }] : []),
         ...(regulatorNavItems.length > 0 ? [{ label: 'Regulator', items: regulatorNavItems }] : []),
-        { label: 'Finance', items: financeNavItems },
+        ...(financeNavItems.length > 0 ? [{ label: 'Finance', items: financeNavItems }] : []),
         ...(minerNavItems.length > 0 ? [{ label: 'Operations', items: minerNavItems }] : []),
         { label: 'Explore', items: exploreNavItems },
     ];
+
+    useEffect(() => {
+        const activeSection = navSections.find(section => section.items.some(item => item.href === pathname));
+        if (!activeSection) return;
+        setOpenSectionLabel(activeSection.label);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pathname, currentUser?.role]);
 
     const pageTitles: Record<string, string> = {
         '/dashboard': 'Overview',
@@ -223,11 +243,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         '/admin/orders': 'Orders',
         '/admin/documents': 'KYC Documents',
         '/admin/events': 'Events',
+        '/admin/trusted-partners': 'Trusted Partners',
     };
     const pageTitle = pageTitles[pathname || ''] || (pathname?.split('/').pop()?.replace(/-/g, ' ') || 'Dashboard');
 
     const toggleMobileMenu = () => {
         setIsMobileMenuOpen(!isMobileMenuOpen);
+    };
+
+    const toggleSection = (label: string) => {
+        setOpenSectionLabel(label);
     };
 
     const NavLink = ({ item }: { item: NavItem }) => {
@@ -281,19 +306,36 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
 
                 {/* Navigation */}
-                <div className="flex-1 py-5 px-3 overflow-y-auto space-y-6">
-                    {navSections.map(section => (
-                        <div key={section.label}>
-                            <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-2 px-3">
-                                {section.label}
-                            </p>
-                            <div className="space-y-0.5">
-                                {section.items.map(item => (
-                                    <NavLink key={item.name} item={item} />
-                                ))}
-                            </div>
+                <div className="flex-1 py-5 px-3 overflow-y-auto space-y-2">
+                    {navSections.map(section => {
+                        const isOpen = openSectionLabel === section.label;
+                        const hasActiveItem = section.items.some(item => item.href === pathname);
+
+                        return (
+                        <div key={section.label} className="rounded-lg">
+                            <button
+                                type="button"
+                                onClick={() => toggleSection(section.label)}
+                                aria-expanded={isOpen}
+                                className={`mb-1 flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                                    hasActiveItem ? 'text-accent' : 'text-text-muted hover:bg-primary hover:text-text-secondary'
+                                }`}
+                            >
+                                <span>{section.label}</span>
+                                <span className={`transition-transform duration-200 ${isOpen ? 'rotate-0' : '-rotate-90'}`}>
+                                    <Icons.Chevron />
+                                </span>
+                            </button>
+                            {isOpen && (
+                                <div className="space-y-0.5 pb-2">
+                                    {section.items.map(item => (
+                                        <NavLink key={item.name} item={item} />
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 {/* User Footer */}

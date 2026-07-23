@@ -24,6 +24,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { AuditLogService } from '../common/audit-log/audit-log.service';
 import { UpsertPayoutAccountDto } from './escrow.dto';
 import { FlutterwaveService } from './flutterwave.service';
+import { PaymentGatewayRegistry } from './payment-gateway.registry';
 
 @Injectable()
 export class EscrowService {
@@ -40,6 +41,7 @@ export class EscrowService {
     private readonly listingRepository: Repository<Listing>,
     private readonly configService: ConfigService,
     private readonly flutterwaveService: FlutterwaveService,
+    private readonly paymentGatewayRegistry: PaymentGatewayRegistry,
     private readonly notificationsService: NotificationsService,
     private readonly auditLogService: AuditLogService,
   ) {}
@@ -64,6 +66,7 @@ export class EscrowService {
     }
 
     const existing = await this.payoutRepository.findOne({ where: { userId } });
+    const gateway = this.paymentGatewayRegistry.getActiveGateway();
     const reference =
       existing?.flutterwaveSubaccountReference ||
       `seller-${userId}-${Date.now()}`;
@@ -76,12 +79,14 @@ export class EscrowService {
       accountName: dto.accountName,
       currency: dto.currency || 'NGN',
       status: SellerPayoutStatus.PENDING,
+      paymentGateway: gateway.name,
       flutterwaveSubaccountReference: reference,
+      gatewaySubaccountReference: reference,
       failureReason: null,
     });
 
     try {
-      const subaccount = await this.flutterwaveService.createSubaccount({
+      const subaccount = await gateway.createSubaccount({
         bankCode: dto.bankCode,
         accountNumber: dto.accountNumber,
         accountName: dto.accountName,
@@ -92,8 +97,13 @@ export class EscrowService {
       account.flutterwaveSubaccountId = String(
         subaccount?.subaccount_id || subaccount?.id || reference,
       );
+      account.gatewaySubaccountId = account.flutterwaveSubaccountId;
       account.status = SellerPayoutStatus.ACTIVE;
-      account.metadata = { flutterwave: subaccount?.raw || subaccount };
+      account.metadata = {
+        paymentGateway: gateway.name,
+        gatewaySubaccount: subaccount?.raw || subaccount,
+        flutterwave: gateway.name === 'flutterwave' ? subaccount?.raw || subaccount : undefined,
+      };
     } catch (error) {
       account.status = SellerPayoutStatus.FAILED;
       account.failureReason =
@@ -150,6 +160,7 @@ export class EscrowService {
     }
 
     const amounts = this.calculateAmounts(Number(order.totalAmount));
+    const gateway = this.paymentGatewayRegistry.getActiveGateway();
     const txRef = `MH-ESCROW-${order.id.slice(0, 8)}-${Date.now()}`;
     const redirectUrl = `${this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000'}/orders`;
     const escrow = this.escrowRepository.create({
@@ -161,11 +172,13 @@ export class EscrowService {
       commissionAmount: amounts.commissionAmount,
       sellerNetAmount: amounts.sellerNetAmount,
       currency: payoutAccount.currency || 'NGN',
+      paymentGateway: gateway.name,
       status: EscrowStatus.PENDING_PAYMENT,
       flutterwaveTxRef: txRef,
+      gatewayTxRef: txRef,
     });
 
-    const payment = await this.flutterwaveService.initializePayment({
+    const payment = await gateway.initializePayment({
       txRef,
       amount: amounts.grossAmount,
       currency: escrow.currency,
@@ -183,7 +196,12 @@ export class EscrowService {
     });
 
     escrow.flutterwavePaymentLink = payment.link || null;
-    escrow.metadata = { paymentInitialization: payment.raw };
+    escrow.gatewayPaymentLink = payment.link || null;
+    escrow.metadata = {
+      paymentGateway: gateway.name,
+      gatewayTxRef: txRef,
+      paymentInitialization: payment.raw,
+    };
     const saved = await this.escrowRepository.save(escrow);
 
     this.auditLogService.log({
@@ -255,6 +273,8 @@ export class EscrowService {
       fundedWebhook: payload,
       verified,
     };
+    escrow.gatewayTransactionId = escrow.flutterwaveTransactionId;
+    escrow.gatewayPaymentStatus = escrow.flutterwavePaymentStatus;
 
     const order = escrow.order;
     order.paymentStatus = 'paid';
@@ -309,6 +329,25 @@ export class EscrowService {
     return this.escrowRepository.save(escrow);
   }
 
+  async holdForLogisticsDispute(orderId: string, reason: string) {
+    const escrow = await this.escrowRepository.findOne({ where: { orderId } });
+    if (
+      !escrow ||
+      ![EscrowStatus.FUNDED, EscrowStatus.AWAITING_RELEASE].includes(escrow.status)
+    ) {
+      return null;
+    }
+
+    escrow.status = EscrowStatus.FUNDED;
+    escrow.metadata = {
+      ...(escrow.metadata || {}),
+      logisticsHold: true,
+      logisticsHoldReason: reason,
+      logisticsHoldAt: new Date().toISOString(),
+    };
+    return this.escrowRepository.save(escrow);
+  }
+
   async releaseEscrow(orderId: string, adminId: string) {
     const escrow = await this.escrowRepository.findOne({
       where: { orderId },
@@ -337,7 +376,8 @@ export class EscrowService {
     await this.escrowRepository.save(escrow);
 
     const sellerTransferRef = `MH-SELLER-${escrow.id.slice(0, 8)}-${Date.now()}`;
-    const sellerTransfer = await this.flutterwaveService.createTransfer({
+    const gateway = this.paymentGatewayRegistry.getActiveGateway();
+    const sellerTransfer = await gateway.createTransfer({
       amount: Number(escrow.sellerNetAmount),
       currency: escrow.currency,
       accountBank: escrow.sellerPayoutAccount.bankCode,
@@ -347,7 +387,7 @@ export class EscrowService {
     });
 
     const commissionTransferRef = `MH-COMM-${escrow.id.slice(0, 8)}-${Date.now()}`;
-    const commissionTransfer = await this.flutterwaveService.createTransfer({
+    const commissionTransfer = await gateway.createTransfer({
       amount: Number(escrow.commissionAmount),
       currency: escrow.currency,
       accountBank: platformBankCode,
@@ -372,6 +412,12 @@ export class EscrowService {
     escrow.platformCommissionTransferStatus = this.normalizeTransferStatus(
       commissionTransfer?.status,
     );
+    escrow.metadata = {
+      ...(escrow.metadata || {}),
+      releaseGateway: gateway.name,
+      sellerTransfer,
+      commissionTransfer,
+    };
     if (
       escrow.sellerTransferStatus === EscrowTransferStatus.FAILED ||
       escrow.platformCommissionTransferStatus === EscrowTransferStatus.FAILED
@@ -379,7 +425,7 @@ export class EscrowService {
       escrow.status = EscrowStatus.FAILED;
       await this.escrowRepository.save(escrow);
       throw new BadRequestException(
-        'One or more Flutterwave transfer requests failed.',
+        `One or more ${gateway.name} transfer requests failed.`,
       );
     }
     escrow.status = EscrowStatus.RELEASED;
@@ -425,8 +471,9 @@ export class EscrowService {
     escrow.status = EscrowStatus.REFUND_PROCESSING;
     await this.escrowRepository.save(escrow);
 
+    const gateway = this.paymentGatewayRegistry.getActiveGateway();
     const refund = escrow.flutterwaveTransactionId
-      ? await this.flutterwaveService.refundTransaction(
+      ? await gateway.refundTransaction(
           escrow.flutterwaveTransactionId,
           Number(escrow.grossAmount),
         )
@@ -495,7 +542,7 @@ export class EscrowService {
   private requiredConfig(key: string) {
     const value = this.configService.get<string>(key);
     if (value) return value;
-    if (!this.flutterwaveService.configured) return '000';
+    if (!this.paymentGatewayRegistry.getActiveGateway().configured) return '000';
     throw new BadRequestException(`${key} is required before escrow release.`);
   }
 

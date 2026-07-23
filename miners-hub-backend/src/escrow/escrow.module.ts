@@ -9,6 +9,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { EscrowController } from './escrow.controller';
 import { EscrowService } from './escrow.service';
 import { FlutterwaveService } from './flutterwave.service';
+import { PaymentGatewayRegistry } from './payment-gateway.registry';
 
 @Module({
   imports: [
@@ -22,7 +23,7 @@ import { FlutterwaveService } from './flutterwave.service';
     NotificationsModule,
   ],
   controllers: [EscrowController],
-  providers: [EscrowService, FlutterwaveService],
+  providers: [EscrowService, FlutterwaveService, PaymentGatewayRegistry],
   exports: [EscrowService],
 })
 export class EscrowModule {}

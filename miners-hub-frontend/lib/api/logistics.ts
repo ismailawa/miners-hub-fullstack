@@ -1,6 +1,7 @@
 import apiClient from './client';
 
 export type LogisticsProviderStatus = 'pending' | 'active' | 'suspended';
+export type LogisticsProviderCategory = 'international_carrier' | 'local_haulage' | 'warehousing' | 'customs_clearing' | 'last_mile';
 export type LogisticsQuoteStatus = 'requested' | 'quoted' | 'accepted' | 'declined';
 export type ShipmentStatus = 'quote_requested' | 'scheduled' | 'picked_up' | 'in_transit' | 'at_checkpoint' | 'delivered' | 'disputed' | 'cancelled';
 
@@ -8,11 +9,14 @@ export interface LogisticsProvider {
   id: string;
   userId?: string | null;
   companyName: string;
+  category: LogisticsProviderCategory;
   serviceAreas: string[];
   capabilities: string[];
   status: LogisticsProviderStatus;
   contactEmail?: string | null;
   contactPhone?: string | null;
+  fleetProfiles: Array<Record<string, any>>;
+  integrationMetadata?: Record<string, any> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -21,6 +25,7 @@ export interface LogisticsQuoteRequest {
   id: string;
   requesterUserId?: string | null;
   orderId?: string | null;
+  providerId?: string | null;
   origin: string;
   destination: string;
   commodity: string;
@@ -31,6 +36,16 @@ export interface LogisticsQuoteRequest {
   status: LogisticsQuoteStatus;
   quotedAmount?: number | null;
   quoteNotes?: string | null;
+  eta?: string | null;
+  routeNotes?: string | null;
+  costBreakdown?: Record<string, any> | null;
+  currency: string;
+  validUntil?: string | null;
+  acceptedByUserId?: string | null;
+  acceptedAt?: string | null;
+  shipmentId?: string | null;
+  requestMetadata?: Record<string, any> | null;
+  invoiceMetadata?: Record<string, any> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -42,6 +57,8 @@ export interface Shipment {
   providerId?: string | null;
   mineralPassportId?: string | null;
   quoteAmount?: number | null;
+  quoteRequestId?: string | null;
+  currency: string;
   pickupLocation: string;
   deliveryLocation: string;
   status: ShipmentStatus;
@@ -53,6 +70,9 @@ export interface Shipment {
     occurredAt: string;
   }>;
   handoffEvidence?: Record<string, any> | null;
+  trackingReferences?: Record<string, any> | null;
+  internationalDetails?: Record<string, any> | null;
+  invoiceMetadata?: Record<string, any> | null;
   deliveredAt?: string | null;
   provider?: { id: string; companyName: string; status: string; contactEmail?: string | null } | null;
   order?: { id: string; buyerId: string; sellerId: string; listingId: string; status: string } | null;
@@ -70,6 +90,7 @@ interface Paginated<T> {
 
 export interface QuoteRequestPayload {
   orderId?: string | null;
+  providerId?: string | null;
   origin: string;
   destination: string;
   commodity: string;
@@ -77,6 +98,11 @@ export interface QuoteRequestPayload {
   containerType: string;
   contactName: string;
   contactEmail: string;
+  pickupWindow?: string | null;
+  requiredVehicleType?: string | null;
+  loadingConstraints?: string | null;
+  safetyNotes?: string | null;
+  requestMetadata?: Record<string, any> | null;
 }
 
 export async function createLogisticsQuoteRequest(payload: QuoteRequestPayload) {
@@ -91,7 +117,10 @@ export async function getLogisticsQuoteRequests(filters: Record<string, string> 
   return apiClient.get<Paginated<LogisticsQuoteRequest>>(`/api/logistics/quote-requests?${params.toString()}`);
 }
 
-export async function updateLogisticsQuoteRequest(id: string, payload: Partial<Pick<LogisticsQuoteRequest, 'status' | 'quotedAmount' | 'quoteNotes'>>) {
+export async function updateLogisticsQuoteRequest(
+  id: string,
+  payload: Partial<Pick<LogisticsQuoteRequest, 'status' | 'quotedAmount' | 'quoteNotes' | 'providerId' | 'eta' | 'routeNotes' | 'costBreakdown' | 'currency' | 'validUntil' | 'invoiceMetadata'>>,
+) {
   return apiClient.patch<LogisticsQuoteRequest>(`/api/logistics/quote-requests/${id}`, payload);
 }
 
@@ -116,8 +145,13 @@ export async function createShipment(payload: {
   providerId?: string | null;
   mineralPassportId?: string | null;
   quoteAmount?: number | null;
+  quoteRequestId?: string | null;
+  currency?: string;
   pickupLocation: string;
   deliveryLocation: string;
+  trackingReferences?: Record<string, any> | null;
+  internationalDetails?: Record<string, any> | null;
+  invoiceMetadata?: Record<string, any> | null;
 }) {
   return apiClient.post<Shipment>('/api/logistics/shipments', payload);
 }

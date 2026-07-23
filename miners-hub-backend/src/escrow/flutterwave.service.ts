@@ -1,5 +1,11 @@
 import { BadGatewayException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import {
+  CreateSubaccountInput,
+  CreateTransferInput,
+  InitializePaymentInput,
+  PaymentGateway,
+} from './payment-gateway.interface';
 
 interface FlutterwaveRequestOptions {
   method?: 'GET' | 'POST';
@@ -7,7 +13,9 @@ interface FlutterwaveRequestOptions {
 }
 
 @Injectable()
-export class FlutterwaveService {
+export class FlutterwaveService implements PaymentGateway {
+  readonly name = 'flutterwave' as const;
+
   private readonly baseUrl = 'https://api.flutterwave.com/v3';
 
   constructor(private readonly configService: ConfigService) {}
@@ -23,14 +31,7 @@ export class FlutterwaveService {
     );
   }
 
-  async createSubaccount(input: {
-    bankCode: string;
-    accountNumber: string;
-    accountName: string;
-    businessName: string;
-    currency: string;
-    reference: string;
-  }) {
+  async createSubaccount(input: CreateSubaccountInput) {
     if (!this.configured && this.mockMode) {
       return {
         id: `mock-subaccount-${input.reference}`,
@@ -60,14 +61,7 @@ export class FlutterwaveService {
     return response.data;
   }
 
-  async initializePayment(input: {
-    txRef: string;
-    amount: number;
-    currency: string;
-    redirectUrl: string;
-    customer: { email: string; name?: string };
-    meta: Record<string, unknown>;
-  }) {
+  async initializePayment(input: InitializePaymentInput) {
     if (!this.configured && this.mockMode) {
       return {
         link: `${input.redirectUrl}${input.redirectUrl.includes('?') ? '&' : '?'}tx_ref=${input.txRef}&status=pending`,
@@ -111,14 +105,7 @@ export class FlutterwaveService {
     return response.data;
   }
 
-  async createTransfer(input: {
-    amount: number;
-    currency: string;
-    accountBank: string;
-    accountNumber: string;
-    narration: string;
-    reference: string;
-  }) {
+  async createTransfer(input: CreateTransferInput) {
     if (!this.configured && this.mockMode) {
       return {
         id: `mock-transfer-${input.reference}`,

@@ -64,6 +64,15 @@ export class Shipment {
   @Min(0)
   quoteAmount?: number | null;
 
+  @Column({ name: 'quote_request_id', type: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  quoteRequestId?: string | null;
+
+  @Column({ name: 'currency', default: 'NGN' })
+  @IsString()
+  currency!: string;
+
   @Column({ name: 'pickup_location', type: 'text' })
   @IsNotEmpty()
   @IsString()
@@ -97,6 +106,15 @@ export class Shipment {
 
   @Column({ name: 'handoff_evidence', type: 'jsonb', nullable: true })
   handoffEvidence?: Record<string, any> | null;
+
+  @Column({ name: 'tracking_references', type: 'jsonb', nullable: true })
+  trackingReferences?: Record<string, any> | null;
+
+  @Column({ name: 'international_details', type: 'jsonb', nullable: true })
+  internationalDetails?: Record<string, any> | null;
+
+  @Column({ name: 'invoice_metadata', type: 'jsonb', nullable: true })
+  invoiceMetadata?: Record<string, any> | null;
 
   @Column({ name: 'delivered_at', type: 'timestamp', nullable: true })
   deliveredAt?: Date | null;

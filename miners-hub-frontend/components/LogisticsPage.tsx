@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { SHIPMENT_DATA } from '../lib/constants/data';
-import { Shipment, ShipmentStatus } from '../lib/types';
+import { trackShipment, Shipment as ApiShipment } from '../lib/api/logistics';
 import LogisticsQuoteForm from './LogisticsQuoteForm';
 
 const ServiceCard: React.FC<{ icon: React.ReactNode; title: string; description: string }> = ({ icon, title, description }) => (
@@ -23,20 +22,20 @@ const ProcessStep: React.FC<{ number: string; title: string; description: string
     </div>
 );
 
-const TrackingResult: React.FC<{ shipment: Shipment }> = ({ shipment }) => {
-    const statuses = ['pending', 'in-transit', 'at-port', 'customs', 'delivered'];
-    const currentStatusIndex = statuses.indexOf(shipment.currentStatus);
+const TrackingResult: React.FC<{ shipment: ApiShipment }> = ({ shipment }) => {
+    const statuses = ['quote_requested', 'scheduled', 'picked_up', 'in_transit', 'at_checkpoint', 'delivered'];
+    const currentStatusIndex = statuses.indexOf(shipment.status);
 
     return (
         <div className="bg-primary mt-6 p-6 rounded-lg border border-border animate-fade-in-up">
             <div className="flex flex-col md:flex-row justify-between mb-6">
                 <div>
                     <h3 className="text-xl font-bold text-text-primary">Tracking ID: {shipment.trackingId}</h3>
-                    <p className="text-text-secondary">{shipment.origin} &rarr; {shipment.destination}</p>
+                    <p className="text-text-secondary">{shipment.pickupLocation} &rarr; {shipment.deliveryLocation}</p>
                 </div>
                 <div className="text-left md:text-right mt-4 md:mt-0">
-                    <p className="text-text-secondary">Estimated Delivery</p>
-                    <p className="font-bold text-accent">{new Date(shipment.estimatedDelivery).toLocaleDateString()}</p>
+                    <p className="text-text-secondary">Current Status</p>
+                    <p className="font-bold capitalize text-accent">{shipment.status.replace(/_/g, ' ')}</p>
                 </div>
             </div>
 
@@ -47,7 +46,7 @@ const TrackingResult: React.FC<{ shipment: Shipment }> = ({ shipment }) => {
                         <div className={`w-6 h-6 rounded-full mx-auto flex items-center justify-center ${index <= currentStatusIndex ? 'bg-accent' : 'bg-border'}`}>
                              {index < currentStatusIndex && <svg className="w-4 h-4 text-accent-content" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
                         </div>
-                        <p className={`text-xs mt-2 ${index <= currentStatusIndex ? 'text-text-primary' : 'text-text-muted'}`}>{status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
+                        <p className={`text-xs mt-2 ${index <= currentStatusIndex ? 'text-text-primary' : 'text-text-muted'}`}>{status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
                     </div>
                 ))}
             </div>
@@ -56,15 +55,15 @@ const TrackingResult: React.FC<{ shipment: Shipment }> = ({ shipment }) => {
             <div>
                 <h4 className="font-bold text-text-primary mb-4">Shipment History</h4>
                 <div className="space-y-4 max-h-48 overflow-y-auto pr-2">
-                    {shipment.history.map((item, index) => (
-                        <div key={index} className="relative pl-6">
-                             {index !== shipment.history.length - 1 && <div className="absolute left-2.5 top-5 h-full w-px bg-border"></div>}
+                    {shipment.milestones.map((item, index) => (
+                        <div key={`${item.status}-${item.occurredAt}-${index}`} className="relative pl-6">
+                             {index !== shipment.milestones.length - 1 && <div className="absolute left-2.5 top-5 h-full w-px bg-border"></div>}
                              <div className="absolute left-0 top-2 w-5 h-5 bg-secondary border-2 border-border rounded-full flex items-center justify-center">
                                 <div className={`w-2 h-2 rounded-full ${index === 0 ? 'bg-accent' : 'bg-border'}`}></div>
                             </div>
                             <div className="flex justify-between items-baseline">
-                                <p className={`font-semibold capitalize ${index === 0 ? 'text-accent' : 'text-text-primary'}`}>{item.status.replace('-', ' ')}</p>
-                                <p className="text-xs text-text-muted">{new Date(item.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</p>
+                                <p className={`font-semibold capitalize ${index === 0 ? 'text-accent' : 'text-text-primary'}`}>{item.status.replace(/_/g, ' ')}</p>
+                                <p className="text-xs text-text-muted">{new Date(item.occurredAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</p>
                             </div>
                             <p className="text-sm text-text-secondary mt-1">{item.location}</p>
                             {item.notes && <p className="text-xs text-text-muted mt-1 italic">"{item.notes}"</p>}
@@ -80,18 +79,22 @@ const TrackingResult: React.FC<{ shipment: Shipment }> = ({ shipment }) => {
 const LogisticsPage: React.FC = () => {
     const { setPage } = useAuth();
     const [trackingId, setTrackingId] = useState('');
-    const [shipment, setShipment] = useState<Shipment | null>(null);
+    const [shipment, setShipment] = useState<ApiShipment | null>(null);
     const [error, setError] = useState('');
+    const [isTracking, setIsTracking] = useState(false);
 
-    const handleTrackShipment = (e: React.FormEvent) => {
+    const handleTrackShipment = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setShipment(null);
-        const result = SHIPMENT_DATA[trackingId.toUpperCase()];
-        if (result) {
+        setIsTracking(true);
+        try {
+            const result = await trackShipment(trackingId.trim().toUpperCase());
             setShipment(result);
-        } else {
-            setError('Invalid tracking ID. Please check the number and try again.');
+        } catch {
+            setError('We could not find that shipment. Please check the tracking ID and try again.');
+        } finally {
+            setIsTracking(false);
         }
     };
 
@@ -166,7 +169,7 @@ const LogisticsPage: React.FC = () => {
                                         type="submit"
                                         className="bg-accent text-accent-content hover:bg-yellow-400 font-semibold px-6 py-3 rounded-md sm:rounded-l-none mt-2 sm:mt-0 transition-colors"
                                     >
-                                        Track
+                                        {isTracking ? 'Tracking...' : 'Track'}
                                     </button>
                                 </div>
                                  {error && <p className="text-red-400 text-sm mt-2">{error}</p>}

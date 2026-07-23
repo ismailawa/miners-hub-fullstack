@@ -7,7 +7,7 @@ import {
     WEBINARS_DATA
 } from '../lib/constants/data';
 
-export type SearchCategory = 'miners' | 'listings' | 'news' | 'events' | 'webinars';
+export type SearchCategory = 'pages' | 'miners' | 'listings' | 'news' | 'events' | 'webinars';
 
 export interface SearchResult {
     id: string;
@@ -15,8 +15,71 @@ export interface SearchResult {
     description: string;
     category: SearchCategory;
     link: string;
+    page?: string;
     imageUrl?: string;
+    keywords?: string[];
 }
+
+const PAGE_RESULTS: SearchResult[] = [
+    {
+        id: 'marketplace',
+        title: 'Marketplace',
+        description: 'Search verified minerals, sellers, prices, quantities, and auctions.',
+        category: 'pages',
+        link: '/marketplace',
+        page: 'marketplace',
+        keywords: ['buy minerals', 'sell minerals', 'listings', 'auction', 'gold', 'lithium', 'market'],
+    },
+    {
+        id: 'investor-opportunities',
+        title: 'Investor Opportunities',
+        description: 'Review investment-ready mine opportunities, diligence packs, and inquiries.',
+        category: 'pages',
+        link: '/investment-opportunities',
+        page: 'investment-opportunities',
+        keywords: ['investment', 'investor', 'opportunity', 'due diligence', 'finance'],
+    },
+    {
+        id: 'logistics',
+        title: 'Logistics',
+        description: 'Request haulage, warehousing, transport quotes, and delivery support.',
+        category: 'pages',
+        link: '/logistics',
+        page: 'logistics',
+        keywords: ['transport', 'shipment', 'haulage', 'delivery', 'warehouse'],
+    },
+    {
+        id: 'registration-guide',
+        title: 'Registration Guide',
+        description: 'Learn mining registration, licensing, and compliance steps.',
+        category: 'pages',
+        link: '/registration-guide',
+        page: 'registration-guide',
+        keywords: ['register', 'license', 'compliance', 'cadastre', 'guide'],
+    },
+    {
+        id: 'knowledge-base',
+        title: 'Knowledge Base',
+        description: 'Find practical mining, trade, compliance, and onboarding answers.',
+        category: 'pages',
+        link: '/knowledge-base',
+        page: 'knowledge-base',
+        keywords: ['help', 'support', 'learn', 'faq', 'documents'],
+    },
+    {
+        id: 'data-analytics',
+        title: 'Data & Analytics',
+        description: 'Explore market trends, production analytics, and price forecasts.',
+        category: 'pages',
+        link: '/data-analytics',
+        page: 'data-analytics',
+        keywords: ['analytics', 'prices', 'market summary', 'forecast', 'data'],
+    },
+];
+
+const matches = (query: string, values: Array<string | undefined>) => (
+    values.some(value => value?.toLowerCase().includes(query))
+);
 
 export const useGlobalSearch = (query: string) => {
     const results = useMemo(() => {
@@ -24,6 +87,12 @@ export const useGlobalSearch = (query: string) => {
 
         const lowerQuery = query.toLowerCase();
         const allResults: SearchResult[] = [];
+
+        PAGE_RESULTS.forEach(page => {
+            if (matches(lowerQuery, [page.title, page.description, ...(page.keywords || [])])) {
+                allResults.push(page);
+            }
+        });
 
         // Search Miners
         MINERS_DATA.forEach(miner => {

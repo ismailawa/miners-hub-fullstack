@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -33,11 +34,18 @@ export class AuthService {
     const salt = await bcrypt.genSalt();
     const passwordHash = await bcrypt.hash(registerDto.password, salt);
 
+    const role = (registerDto.role as UserRole) || UserRole.MINER;
+    if (![UserRole.MINER, UserRole.INVESTOR].includes(role)) {
+      throw new BadRequestException(
+        'Only miner and investor accounts can be created through public registration.',
+      );
+    }
+
     const user = await this.usersService.create({
       name: registerDto.name,
       email: registerDto.email,
       passwordHash,
-      role: (registerDto.role as UserRole) || UserRole.MINER,
+      role,
     });
 
     const tokens = this.generateTokens(user);

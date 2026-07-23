@@ -44,11 +44,16 @@ section[id] {
   scroll-margin-top: 5rem; /* Offset for sticky header */
 }
 
+select:not([multiple]):not([size]) {
+  padding-right: 2.75rem !important;
+  background-position: right 0.875rem center;
+}
+
 /* Hero Animations */
 @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-.animate-fade-in-down { animation: fadeInDown 0.8s ease-out forwards; }
-.animate-fade-in-up { animation: fadeInUp 0.8s ease-out forwards; }
+.animate-fade-in-down { animation: fadeInDown 0.8s ease-out both; }
+.animate-fade-in-up { animation: fadeInUp 0.8s ease-out both; }
 
 /* Roadmap Animations */
 .roadmap-step { transition: opacity 0.6s ease-out, transform 0.6s ease-out; }

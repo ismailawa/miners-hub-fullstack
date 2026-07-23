@@ -60,7 +60,17 @@ export interface AdminDocument {
 
 export interface AdminMinerRegistryItem {
   id: string;
-  userId: string;
+  registryType?: 'miner' | 'investor' | 'laboratory' | 'logistics';
+  registryLabel?: string;
+  detailAvailable?: boolean;
+  status?: 'pending' | 'verified' | 'rejected' | 'active' | 'suspended';
+  primaryFocus?: string[];
+  contact?: {
+    name?: string | null;
+    email?: string | null;
+    phoneNumber?: string | null;
+  };
+  userId: string | null;
   companyName: string;
   location: string;
   miningLicence?: string | null;
@@ -100,7 +110,7 @@ export interface AdminMinerRegistryItem {
     submitted: number;
     minerals: string[];
   };
-  licenseStatus: 'pending' | 'approved' | 'rejected' | 'missing';
+  licenseStatus: 'pending' | 'approved' | 'rejected' | 'missing' | 'active' | 'suspended';
   latestDocumentAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -114,7 +124,7 @@ export interface AdminMinerRegistryDetail extends AdminMinerRegistryItem {
     kycVerifiedAt?: string | null;
     kycRejectedAt?: string | null;
     metamapVerificationId?: string | null;
-    licenseStatus: 'pending' | 'approved' | 'rejected' | 'missing';
+    licenseStatus: 'pending' | 'approved' | 'rejected' | 'missing' | 'active' | 'suspended';
   };
   documents: Array<{
     id: string;
@@ -143,6 +153,7 @@ export interface AdminMinerRegistryDetail extends AdminMinerRegistryItem {
 }
 
 export interface MinerRegistryFilters {
+  role?: string;
   status?: string;
   documentStatus?: string;
   location?: string;
@@ -156,6 +167,7 @@ export async function getUsers(status?: string): Promise<AdminUser[]> {
 
 export async function getMinerRegistry(filters: MinerRegistryFilters = {}): Promise<AdminMinerRegistryItem[]> {
   const params = new URLSearchParams();
+  if (filters.role && filters.role !== 'all') params.set('role', filters.role);
   if (filters.status && filters.status !== 'all') params.set('status', filters.status);
   if (filters.documentStatus && filters.documentStatus !== 'all') params.set('documentStatus', filters.documentStatus);
   if (filters.location) params.set('location', filters.location);

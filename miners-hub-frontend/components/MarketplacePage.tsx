@@ -531,6 +531,7 @@ const MarketplacePage: React.FC = () => {
   const [maxQuantityFilter, setMaxQuantityFilter] = useState('');
   const [listingTypeFilter, setListingTypeFilter] = useState<'all' | 'buy_now' | 'auction'>('all');
   const [sellerVerificationFilter, setSellerVerificationFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const listingsPerPage = 12;
@@ -595,6 +596,21 @@ const MarketplacePage: React.FC = () => {
     setSellerVerificationFilter('all');
     setCurrentPage(1);
   };
+
+  const activeFilters = useMemo(() => {
+    const filters: Array<{ key: string; label: string; clear: () => void }> = [];
+    if (searchTerm.trim()) filters.push({ key: 'search', label: `Search: ${searchTerm.trim()}`, clear: () => setSearchTerm('') });
+    if (mineralTypeFilter.trim()) filters.push({ key: 'mineral', label: `Mineral: ${mineralTypeFilter.trim()}`, clear: () => setMineralTypeFilter('') });
+    if (locationFilter.trim()) filters.push({ key: 'location', label: `Location: ${locationFilter.trim()}`, clear: () => setLocationFilter('') });
+    if (gradeFilter.trim()) filters.push({ key: 'grade', label: `Grade: ${gradeFilter.trim()}`, clear: () => setGradeFilter('') });
+    if (minPriceFilter) filters.push({ key: 'minPrice', label: `Min: ${minPriceFilter}`, clear: () => setMinPriceFilter('') });
+    if (maxPriceFilter) filters.push({ key: 'maxPrice', label: `Max: ${maxPriceFilter}`, clear: () => setMaxPriceFilter('') });
+    if (minQuantityFilter) filters.push({ key: 'minQuantity', label: `Min qty: ${minQuantityFilter}`, clear: () => setMinQuantityFilter('') });
+    if (maxQuantityFilter) filters.push({ key: 'maxQuantity', label: `Max qty: ${maxQuantityFilter}`, clear: () => setMaxQuantityFilter('') });
+    if (listingTypeFilter !== 'all') filters.push({ key: 'listingType', label: listingTypeFilter === 'auction' ? 'Auction listings' : 'Buy now', clear: () => setListingTypeFilter('all') });
+    if (sellerVerificationFilter !== 'all') filters.push({ key: 'sellerVerification', label: `Seller: ${sellerVerificationFilter}`, clear: () => setSellerVerificationFilter('all') });
+    return filters;
+  }, [searchTerm, mineralTypeFilter, locationFilter, gradeFilter, minPriceFilter, maxPriceFilter, minQuantityFilter, maxQuantityFilter, listingTypeFilter, sellerVerificationFilter]);
 
   // ── Bidding ─────────────────────────────────────────────────────────────────
   const handlePlaceBid = async (auctionId: string, amount: number) => {
@@ -669,90 +685,187 @@ const MarketplacePage: React.FC = () => {
           >+ Create Listing</button>
         </div>
 
-        {/* Filters */}
-        <div className="bg-secondary p-4 rounded-lg border border-border mb-12 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 items-center">
-          <div className="relative">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by mineral..."
-              className="w-full bg-primary text-text-primary placeholder-text-muted border border-border rounded-md py-2.5 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-accent"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="w-5 h-5 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        {/* Search and Filters */}
+        <div className="mb-12 rounded-lg border border-border bg-secondary p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                placeholder="Search minerals, descriptions, or opportunities"
+                className="w-full rounded-md border border-border bg-primary py-3 pl-11 pr-4 text-sm text-text-primary outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent"
+              />
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <svg className="h-5 w-5 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setIsFilterPanelOpen((open) => !open)}
+                aria-expanded={isFilterPanelOpen}
+                className={`inline-flex items-center gap-2 rounded-md border px-4 py-3 text-sm font-semibold transition-colors ${
+                  isFilterPanelOpen || activeFilters.length > 0
+                    ? 'border-accent bg-accent/10 text-accent'
+                    : 'border-border text-text-secondary hover:border-accent hover:text-accent'
+                }`}
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h18M6 12h12M10 19h4" />
+                </svg>
+                Filters
+                {activeFilters.length > 0 ? (
+                  <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-bold text-accent-content">{activeFilters.length}</span>
+                ) : null}
+              </button>
+              {activeFilters.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="rounded-md border border-border px-4 py-3 text-sm font-semibold text-text-secondary hover:border-accent hover:text-accent"
+                >
+                  Reset
+                </button>
+              ) : null}
             </div>
           </div>
-          <input
-            value={mineralTypeFilter}
-            onChange={(e) => { setMineralTypeFilter(e.target.value); setCurrentPage(1); }}
-            placeholder="Mineral type"
-            className="w-full bg-primary text-text-primary border border-border rounded-md py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-accent"
-          />
-          <input
-            value={locationFilter}
-            onChange={(e) => { setLocationFilter(e.target.value); setCurrentPage(1); }}
-            placeholder="Location"
-            className="w-full bg-primary text-text-primary border border-border rounded-md py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-accent"
-          />
-          <input
-            value={gradeFilter}
-            onChange={(e) => { setGradeFilter(e.target.value); setCurrentPage(1); }}
-            placeholder="Grade / purity"
-            className="w-full bg-primary text-text-primary border border-border rounded-md py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-accent"
-          />
-          <select
-            value={sellerVerificationFilter}
-            onChange={(e) => { setSellerVerificationFilter(e.target.value as typeof sellerVerificationFilter); setCurrentPage(1); }}
-            className="w-full bg-primary text-text-primary border border-border rounded-md py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-accent"
-          >
-            <option value="all">All seller verification</option>
-            <option value="verified">Verified sellers</option>
-            <option value="pending">Pending sellers</option>
-            <option value="rejected">Rejected sellers</option>
-          </select>
-          <input
-            value={minPriceFilter}
-            onChange={(e) => { setMinPriceFilter(formatCurrencyInput(e.target.value)); setCurrentPage(1); }}
-            placeholder="Min price"
-            className="w-full bg-primary text-text-primary border border-border rounded-md py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-accent"
-          />
-          <input
-            value={maxPriceFilter}
-            onChange={(e) => { setMaxPriceFilter(formatCurrencyInput(e.target.value)); setCurrentPage(1); }}
-            placeholder="Max price"
-            className="w-full bg-primary text-text-primary border border-border rounded-md py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-accent"
-          />
-          <input
-            type="number"
-            min="0"
-            value={minQuantityFilter}
-            onChange={(e) => { setMinQuantityFilter(e.target.value); setCurrentPage(1); }}
-            placeholder="Min quantity"
-            className="w-full bg-primary text-text-primary border border-border rounded-md py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-accent"
-          />
-          <input
-            type="number"
-            min="0"
-            value={maxQuantityFilter}
-            onChange={(e) => { setMaxQuantityFilter(e.target.value); setCurrentPage(1); }}
-            placeholder="Max quantity"
-            className="w-full bg-primary text-text-primary border border-border rounded-md py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-accent"
-          />
-          <div className="flex gap-2">
-            <select
-              value={listingTypeFilter}
-              onChange={(e) => { setListingTypeFilter(e.target.value as typeof listingTypeFilter); setCurrentPage(1); }}
-              className="min-w-0 flex-1 bg-primary text-text-primary border border-border rounded-md py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-accent"
-            >
-              <option value="all">Buy now listings</option>
-              <option value="buy_now">Buy now</option>
-              <option value="auction">Auction listings</option>
-            </select>
-            <button onClick={resetFilters} className="rounded-md border border-border px-3 py-2 text-sm font-semibold text-text-secondary hover:border-accent hover:text-accent">
-              Reset
-            </button>
-          </div>
+
+          {activeFilters.length > 0 ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {activeFilters.map((filter) => (
+                <button
+                  key={filter.key}
+                  type="button"
+                  onClick={() => { filter.clear(); setCurrentPage(1); }}
+                  className="inline-flex max-w-full items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent hover:border-accent"
+                  title={`Remove ${filter.label}`}
+                >
+                  <span className="truncate">{filter.label}</span>
+                  <svg className="h-3.5 w-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {isFilterPanelOpen ? (
+            <div className="mt-5 border-t border-border pt-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <label className="text-sm text-text-secondary">
+                  <span className="mb-1.5 block font-semibold">Mineral type</span>
+                  <input
+                    value={mineralTypeFilter}
+                    onChange={(e) => { setMineralTypeFilter(e.target.value); setCurrentPage(1); }}
+                    placeholder="Gold, lithium, tin"
+                    className="w-full rounded-md border border-border bg-primary px-3 py-2.5 text-text-primary outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </label>
+                <label className="text-sm text-text-secondary">
+                  <span className="mb-1.5 block font-semibold">Location</span>
+                  <input
+                    value={locationFilter}
+                    onChange={(e) => { setLocationFilter(e.target.value); setCurrentPage(1); }}
+                    placeholder="State, LGA, community"
+                    className="w-full rounded-md border border-border bg-primary px-3 py-2.5 text-text-primary outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </label>
+                <label className="text-sm text-text-secondary">
+                  <span className="mb-1.5 block font-semibold">Grade / purity</span>
+                  <input
+                    value={gradeFilter}
+                    onChange={(e) => { setGradeFilter(e.target.value); setCurrentPage(1); }}
+                    placeholder="Grade or assay note"
+                    className="w-full rounded-md border border-border bg-primary px-3 py-2.5 text-text-primary outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </label>
+                <label className="text-sm text-text-secondary">
+                  <span className="mb-1.5 block font-semibold">Seller verification</span>
+                  <select
+                    value={sellerVerificationFilter}
+                    onChange={(e) => { setSellerVerificationFilter(e.target.value as typeof sellerVerificationFilter); setCurrentPage(1); }}
+                    className="w-full rounded-md border border-border bg-primary px-3 py-2.5 text-text-primary outline-none focus:ring-2 focus:ring-accent"
+                  >
+                    <option value="all">All sellers</option>
+                    <option value="verified">Verified sellers</option>
+                    <option value="pending">Pending sellers</option>
+                    <option value="rejected">Rejected sellers</option>
+                  </select>
+                </label>
+                <label className="text-sm text-text-secondary">
+                  <span className="mb-1.5 block font-semibold">Minimum price</span>
+                  <input
+                    value={minPriceFilter}
+                    onChange={(e) => { setMinPriceFilter(formatCurrencyInput(e.target.value)); setCurrentPage(1); }}
+                    placeholder="NGN"
+                    className="w-full rounded-md border border-border bg-primary px-3 py-2.5 text-text-primary outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </label>
+                <label className="text-sm text-text-secondary">
+                  <span className="mb-1.5 block font-semibold">Maximum price</span>
+                  <input
+                    value={maxPriceFilter}
+                    onChange={(e) => { setMaxPriceFilter(formatCurrencyInput(e.target.value)); setCurrentPage(1); }}
+                    placeholder="NGN"
+                    className="w-full rounded-md border border-border bg-primary px-3 py-2.5 text-text-primary outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </label>
+                <label className="text-sm text-text-secondary">
+                  <span className="mb-1.5 block font-semibold">Minimum quantity</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={minQuantityFilter}
+                    onChange={(e) => { setMinQuantityFilter(e.target.value); setCurrentPage(1); }}
+                    placeholder="Tonnes"
+                    className="w-full rounded-md border border-border bg-primary px-3 py-2.5 text-text-primary outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </label>
+                <label className="text-sm text-text-secondary">
+                  <span className="mb-1.5 block font-semibold">Maximum quantity</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={maxQuantityFilter}
+                    onChange={(e) => { setMaxQuantityFilter(e.target.value); setCurrentPage(1); }}
+                    placeholder="Tonnes"
+                    className="w-full rounded-md border border-border bg-primary px-3 py-2.5 text-text-primary outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </label>
+                <label className="text-sm text-text-secondary xl:col-span-2">
+                  <span className="mb-1.5 block font-semibold">Listing type</span>
+                  <select
+                    value={listingTypeFilter}
+                    onChange={(e) => { setListingTypeFilter(e.target.value as typeof listingTypeFilter); setCurrentPage(1); }}
+                    className="w-full rounded-md border border-border bg-primary px-3 py-2.5 text-text-primary outline-none focus:ring-2 focus:ring-accent"
+                  >
+                    <option value="all">Current marketplace tab</option>
+                    <option value="buy_now">Buy now</option>
+                    <option value="auction">Auction listings</option>
+                  </select>
+                </label>
+              </div>
+              <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="rounded-md border border-border px-4 py-2.5 text-sm font-semibold text-text-secondary hover:border-accent hover:text-accent"
+                >
+                  Clear all
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setIsFilterPanelOpen(false); void fetchListings(); }}
+                  className="rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-content hover:bg-yellow-400"
+                >
+                  Apply filters
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {/* Error */}

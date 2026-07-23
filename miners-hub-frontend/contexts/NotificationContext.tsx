@@ -11,6 +11,8 @@ import React, {
 import { Notification } from '../lib/types';
 import NotificationToast from '../components/NotificationToast';
 import * as notificationsApi from '../lib/api/notifications';
+import { getUserFriendlyMessage } from '../lib/api/errors';
+import { getAccessToken } from '../lib/api/token';
 import { useAuth } from './AuthContext';
 
 interface NotificationContextType {
@@ -51,6 +53,12 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({
       return;
     }
 
+    if (!getAccessToken()) {
+      setNotifications([]);
+      setError(null);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -58,11 +66,8 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({
       const fetchedNotifications = await notificationsApi.getNotifications();
       setNotifications(fetchedNotifications);
     } catch (err) {
-      const apiError = err as notificationsApi.ApiError;
-      setError(
-        apiError.message || 'Failed to fetch notifications. Please try again.',
-      );
-      console.error('Failed to fetch notifications:', err);
+      setNotifications([]);
+      setError(getUserFriendlyMessage(err));
     } finally {
       setIsLoading(false);
     }

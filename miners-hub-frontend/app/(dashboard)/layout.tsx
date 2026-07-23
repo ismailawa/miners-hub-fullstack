@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import DashboardLayout from '../../components/DashboardLayout';
+import { canAccessDashboardPath } from '../../lib/permissions';
 
 export default function DashboardGroup({ children }: { children: React.ReactNode }) {
     const { isLoading, currentUser } = useAuth();
@@ -24,6 +25,18 @@ export default function DashboardGroup({ children }: { children: React.ReactNode
         }
     }, [currentUser, isLoading, mounted, pathname, router]);
 
+    useEffect(() => {
+        if (
+            !isLoading &&
+            mounted &&
+            currentUser &&
+            !canAccessDashboardPath(currentUser, pathname) &&
+            pathname !== '/dashboard'
+        ) {
+            router.replace('/dashboard');
+        }
+    }, [currentUser, isLoading, mounted, pathname, router]);
+
     // Show loading state while checking auth
     if (isLoading || !mounted) {
         return (
@@ -41,6 +54,14 @@ export default function DashboardGroup({ children }: { children: React.ReactNode
         return (
             <div className="bg-primary text-text-secondary min-h-screen flex items-center justify-center">
                 <p className="text-lg font-semibold">Redirecting to login...</p>
+            </div>
+        );
+    }
+
+    if (!canAccessDashboardPath(currentUser, pathname) && pathname !== '/dashboard') {
+        return (
+            <div className="bg-primary text-text-secondary min-h-screen flex items-center justify-center">
+                <p className="text-lg font-semibold">Redirecting to your dashboard...</p>
             </div>
         );
     }

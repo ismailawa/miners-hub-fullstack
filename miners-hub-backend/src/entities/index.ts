@@ -22,6 +22,7 @@ export {
 } from './production-report.entity';
 export {
   LogisticsProvider,
+  LogisticsProviderCategory,
   LogisticsProviderStatus,
 } from './logistics-provider.entity';
 export {
@@ -78,6 +79,11 @@ export {
 } from './document.entity';
 export { AuditLog } from './audit-log.entity';
 export { RevokedRefreshToken } from './revoked-refresh-token.entity';
+export { PasswordResetOtp } from './password-reset-otp.entity';
 export { Event, EventStatus } from './event.entity';
+export {
+  TrustedPartner,
+  TrustedPartnerStatus,
+} from './trusted-partner.entity';
 export { ForumPost } from './forum-post.entity';
 export { ForumReply } from './forum-reply.entity';

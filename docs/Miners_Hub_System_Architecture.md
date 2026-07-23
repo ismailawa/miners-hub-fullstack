@@ -9,7 +9,7 @@ The existing implementation is organized as:
 - Frontend: `miners-hub-frontend`, built with Next.js, React, TypeScript, and Tailwind CSS.
 - Backend: `miners-hub-backend`, built with NestJS, TypeScript, TypeORM, PostgreSQL, Socket.IO, JWT authentication, throttling, and modular domain services.
 - Infrastructure: Docker Compose files for local/dev orchestration.
-- Integrations: MetaMap-oriented KYC fields/endpoints, Flutterwave escrow/payment flows, SignNow contract workflows, Cloudinary/media upload support, and AI endpoints.
+- Integrations: MetaMap-oriented KYC fields/endpoints, payment-gateway-backed escrow flows with Flutterwave as the active provider, SignNow contract workflows, Cloudinary/media upload support, and AI endpoints.
 
 ## 2. Logical System Diagram
 
@@ -110,7 +110,7 @@ Key endpoints:
 
 ### Escrow Module
 
-Responsible for Flutterwave-backed escrow initiation, webhook processing, admin release, refunds, and payout lifecycle support.
+Responsible for payment-gateway-backed escrow initiation, webhook processing, admin release, refunds, and payout lifecycle support. Flutterwave is the active supported gateway today; `PaymentGatewayRegistry` and `PaymentGateway` interfaces isolate checkout, subaccount, transfer, verification, and refund operations so Paystack, Stripe, or other future providers can be registered without rewriting the escrow workflow.
 
 Key endpoints:
 

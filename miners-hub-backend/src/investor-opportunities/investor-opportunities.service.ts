@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository } from 'typeorm';
+import { Brackets, Repository, SelectQueryBuilder } from 'typeorm';
 import {
   InvestorOpportunity,
   InvestorOpportunityInquiry,
@@ -79,25 +79,25 @@ export class InvestorOpportunitiesService {
       );
     }
 
-    if (filters.mineral) {
-      query.andWhere(':mineral = ANY(opportunity.mineralFocus)', {
-        mineral: filters.mineral,
-      });
-    }
-    if (filters.location) {
-      query.andWhere(
-        new Brackets((qb) => {
-          qb.where('site.state ILIKE :location', { location: `%${filters.location}%` })
-            .orWhere('site.lga ILIKE :location', { location: `%${filters.location}%` })
-            .orWhere('site.community ILIKE :location', { location: `%${filters.location}%` });
-        }),
-      );
-    }
-    if (filters.riskRating) query.andWhere('opportunity.riskRating = :riskRating', { riskRating: filters.riskRating });
-    if (filters.stage) query.andWhere('opportunity.stage = :stage', { stage: filters.stage });
-    if (filters.licenseStatus) query.andWhere('opportunity.licenseStatus ILIKE :licenseStatus', { licenseStatus: `%${filters.licenseStatus}%` });
-    if (filters.minCapital !== undefined) query.andWhere('opportunity.capitalRequired >= :minCapital', { minCapital: filters.minCapital });
-    if (filters.maxCapital !== undefined) query.andWhere('opportunity.capitalRequired <= :maxCapital', { maxCapital: filters.maxCapital });
+    this.applyFilters(query, filters);
+
+    const [data, total] = await query.skip(filters.offset).take(filters.limit).getManyAndCount();
+    return paginate(data.map((opportunity) => this.toResponse(opportunity)), total, filters);
+  }
+
+  async findPublished(filters: InvestorOpportunityFilterDto) {
+    const query = this.opportunityRepository
+      .createQueryBuilder('opportunity')
+      .leftJoinAndSelect('opportunity.site', 'site')
+      .leftJoinAndSelect('opportunity.sponsor', 'sponsor')
+      .loadRelationCountAndMap('opportunity.inquiryCount', 'opportunity.inquiries')
+      .where('opportunity.status = :published', {
+        published: InvestorOpportunityStatus.PUBLISHED,
+      })
+      .orderBy('opportunity.publishedAt', 'DESC', 'NULLS LAST')
+      .addOrderBy('opportunity.createdAt', 'DESC');
+
+    this.applyFilters(query, filters);
 
     const [data, total] = await query.skip(filters.offset).take(filters.limit).getManyAndCount();
     return paginate(data.map((opportunity) => this.toResponse(opportunity)), total, filters);
@@ -196,6 +196,28 @@ export class InvestorOpportunitiesService {
 
   private isManager(actor: Actor) {
     return actor.role === UserRole.ADMIN || actor.role === UserRole.GOVERNMENT;
+  }
+
+  private applyFilters(query: SelectQueryBuilder<InvestorOpportunity>, filters: InvestorOpportunityFilterDto) {
+    if (filters.mineral) {
+      query.andWhere(':mineral = ANY(opportunity.mineralFocus)', {
+        mineral: filters.mineral,
+      });
+    }
+    if (filters.location) {
+      query.andWhere(
+        new Brackets((qb) => {
+          qb.where('site.state ILIKE :location', { location: `%${filters.location}%` })
+            .orWhere('site.lga ILIKE :location', { location: `%${filters.location}%` })
+            .orWhere('site.community ILIKE :location', { location: `%${filters.location}%` });
+        }),
+      );
+    }
+    if (filters.riskRating) query.andWhere('opportunity.riskRating = :riskRating', { riskRating: filters.riskRating });
+    if (filters.stage) query.andWhere('opportunity.stage = :stage', { stage: filters.stage });
+    if (filters.licenseStatus) query.andWhere('opportunity.licenseStatus ILIKE :licenseStatus', { licenseStatus: `%${filters.licenseStatus}%` });
+    if (filters.minCapital !== undefined) query.andWhere('opportunity.capitalRequired >= :minCapital', { minCapital: filters.minCapital });
+    if (filters.maxCapital !== undefined) query.andWhere('opportunity.capitalRequired <= :maxCapital', { maxCapital: filters.maxCapital });
   }
 
   private toResponse(opportunity: InvestorOpportunity, includeInquiries = false) {

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserRole, VerificationStatus } from '../entities/user.entity';
@@ -99,6 +99,10 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
+  async updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
+    await this.usersRepository.update(userId, { passwordHash });
+  }
+
   async updateProfile(userId: string, updateData: any): Promise<User> {
     const user = await this.usersRepository.findOne({
       where: { id: userId },
@@ -131,6 +135,11 @@ export class UsersService {
         : user.profileImageUrl;
 
     if (updateData.role) {
+      if (![UserRole.MINER, UserRole.INVESTOR].includes(updateData.role)) {
+        throw new BadRequestException(
+          'Only miner and investor roles can be selected during self-service onboarding.',
+        );
+      }
       user.role = updateData.role;
     }
 

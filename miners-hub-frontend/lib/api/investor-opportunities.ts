@@ -80,6 +80,12 @@ export async function getInvestorOpportunities(filters: Record<string, string> =
   return apiClient.get<Paginated<InvestorOpportunity>>(`/api/investor-opportunities?${buildQuery(filters)}`);
 }
 
+export async function getPublicInvestorOpportunities(filters: Record<string, string> = {}) {
+  return apiClient.get<Paginated<InvestorOpportunity>>(`/api/investor-opportunities/public?${buildQuery(filters)}`, {
+    skipAuth: true,
+  });
+}
+
 export async function getInvestorOpportunity(id: string) {
   return apiClient.get<InvestorOpportunity>(`/api/investor-opportunities/${id}`);
 }

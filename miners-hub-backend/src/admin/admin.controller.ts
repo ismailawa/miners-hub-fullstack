@@ -22,6 +22,8 @@ import {
   DocumentReviewStatus,
   DocumentType,
 } from '../entities/document.entity';
+import { LaboratoryPartnerStatus } from '../entities/laboratory-partner.entity';
+import { LogisticsProviderStatus } from '../entities/logistics-provider.entity';
 import { ReviewDocumentDto } from '../documents/documents.dto';
 import { EscrowService } from '../escrow/escrow.service';
 
@@ -58,7 +60,13 @@ export class AdminController {
 
   @Get('miner-registry')
   async getMinerRegistry(
-    @Query('status') status?: VerificationStatus,
+    @Query('role')
+    role?: 'all' | 'miner' | 'investor' | 'laboratory' | 'logistics',
+    @Query('status')
+    status?:
+      | VerificationStatus
+      | LaboratoryPartnerStatus
+      | LogisticsProviderStatus,
     @Query('documentStatus') documentStatus?: DocumentReviewStatus,
     @Query('location') location?: string,
     @Query('mineralType') mineralType?: string,
@@ -66,6 +74,7 @@ export class AdminController {
     @Query('rawOffset') rawOffset?: string,
   ) {
     return this.adminService.getMinerRegistry({
+      role,
       status,
       documentStatus,
       location,

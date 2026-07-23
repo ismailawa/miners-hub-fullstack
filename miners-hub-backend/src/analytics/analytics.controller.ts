@@ -1,10 +1,14 @@
 import { Controller, Get, Header, Query, Request, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { UserRole } from '../entities/user.entity';
 import { AnalyticsService } from './analytics.service';
 import { RevenueAnalyticsFilterDto } from './revenue-analytics.dto';
 
 @Controller('analytics')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMIN, UserRole.GOVERNMENT, UserRole.MINER)
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 

@@ -11,15 +11,18 @@ import {
 } from '../../../../lib/api/admin';
 import { useAuth } from '../../../../contexts/AuthContext';
 
-const statusOptions = ['all', 'pending', 'verified', 'rejected'];
+const roleOptions = ['all', 'miner', 'investor', 'laboratory', 'logistics'];
+const statusOptions = ['all', 'pending', 'verified', 'active', 'rejected', 'suspended'];
 const documentStatusOptions = ['all', 'pending', 'approved', 'rejected'];
 
 function statusChip(status: string) {
   const classes: Record<string, string> = {
     verified: 'bg-green-500/15 text-green-300 border-green-500/30',
+    active: 'bg-green-500/15 text-green-300 border-green-500/30',
     approved: 'bg-green-500/15 text-green-300 border-green-500/30',
     pending: 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30',
     rejected: 'bg-red-500/15 text-red-300 border-red-500/30',
+    suspended: 'bg-red-500/15 text-red-300 border-red-500/30',
     missing: 'bg-border text-text-muted border-border',
   };
 
@@ -48,6 +51,7 @@ export default function MinerRegistryPage() {
   const router = useRouter();
   const [miners, setMiners] = useState<AdminMinerRegistryItem[]>([]);
   const [filters, setFilters] = useState<MinerRegistryFilters>({
+    role: 'all',
     status: 'all',
     documentStatus: 'all',
     location: '',
@@ -85,7 +89,7 @@ export default function MinerRegistryPage() {
 
   const summary = useMemo(() => ({
     total: miners.length,
-    verified: miners.filter((miner) => miner.user?.verificationStatus === 'verified').length,
+    verified: miners.filter((miner) => ['verified', 'active'].includes(miner.status || miner.user?.verificationStatus || '')).length,
     pendingDocs: miners.reduce((sum, miner) => sum + miner.documentSummary.pending, 0),
     publishedListings: miners.reduce((sum, miner) => sum + miner.listingSummary.published, 0),
   }), [miners]);
@@ -93,7 +97,7 @@ export default function MinerRegistryPage() {
   const updateFilter = (key: keyof MinerRegistryFilters, value: string) => {
     const nextFilters = { ...filters, [key]: value };
     setFilters(nextFilters);
-    if (key === 'status' || key === 'documentStatus') {
+    if (key === 'role' || key === 'status' || key === 'documentStatus') {
       void loadRegistry(nextFilters);
     }
   };
@@ -120,18 +124,27 @@ export default function MinerRegistryPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-text-primary">Miner Registry</h1>
-        <p className="mt-1 text-sm text-text-secondary">Review miner identity, KYC state, documents, licenses, and marketplace activity.</p>
+        <h1 className="text-2xl font-bold text-text-primary">Stakeholder Registry</h1>
+        <p className="mt-1 text-sm text-text-secondary">Review miners, investors, laboratories, and logistics providers from one operational registry.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatBlock label="Registry records" value={summary.total} />
-        <StatBlock label="Verified miners" value={summary.verified} />
+        <StatBlock label="Active or verified" value={summary.verified} />
         <StatBlock label="Pending documents" value={summary.pendingDocs} />
         <StatBlock label="Published listings" value={summary.publishedListings} />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-secondary p-4 md:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-secondary p-4 md:grid-cols-6">
+        <select
+          value={filters.role}
+          onChange={(event) => updateFilter('role', event.target.value)}
+          className="rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:ring-2 focus:ring-accent"
+        >
+          {roleOptions.map((role) => (
+            <option key={role} value={role}>Role: {role}</option>
+          ))}
+        </select>
         <select
           value={filters.status}
           onChange={(event) => updateFilter('status', event.target.value)}
@@ -159,7 +172,7 @@ export default function MinerRegistryPage() {
         <input
           value={filters.mineralType}
           onChange={(event) => updateFilter('mineralType', event.target.value)}
-          placeholder="Mineral focus"
+          placeholder="Mineral or capability"
           className="rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent"
         />
         <button
@@ -180,13 +193,14 @@ export default function MinerRegistryPage() {
         <table className="w-full min-w-[1120px] border-collapse text-left">
           <thead>
             <tr className="bg-primary/50 text-sm text-text-secondary">
-              <th className="border-b border-border p-4 font-semibold">Miner</th>
+              <th className="border-b border-border p-4 font-semibold">Stakeholder</th>
+              <th className="border-b border-border p-4 font-semibold">Role</th>
               <th className="border-b border-border p-4 font-semibold">Location</th>
-              <th className="border-b border-border p-4 font-semibold">KYC</th>
+              <th className="border-b border-border p-4 font-semibold">Status</th>
               <th className="border-b border-border p-4 font-semibold">License</th>
               <th className="border-b border-border p-4 font-semibold">Documents</th>
               <th className="border-b border-border p-4 font-semibold">Listings</th>
-              <th className="border-b border-border p-4 font-semibold">Minerals</th>
+              <th className="border-b border-border p-4 font-semibold">Focus</th>
               <th className="border-b border-border p-4 font-semibold">Latest Document</th>
               <th className="border-b border-border p-4 font-semibold">Action</th>
             </tr>
@@ -194,24 +208,29 @@ export default function MinerRegistryPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={9} className="p-8 text-center text-text-muted">Loading registry...</td>
+                <td colSpan={10} className="p-8 text-center text-text-muted">Loading registry...</td>
               </tr>
             ) : miners.length === 0 ? (
               <tr>
-                <td colSpan={9} className="p-8 text-center text-text-muted">No miners match the current filters.</td>
+                <td colSpan={10} className="p-8 text-center text-text-muted">No registry records match the current filters.</td>
               </tr>
             ) : miners.map((miner) => (
               <tr key={miner.id} className="border-b border-border align-top transition-colors hover:bg-primary/30">
                 <td className="p-4">
                   <p className="font-semibold text-text-primary">{miner.companyName}</p>
-                  <p className="text-xs text-text-secondary">{miner.user?.name || 'Unnamed contact'} · {miner.user?.email}</p>
+                  <p className="text-xs text-text-secondary">{miner.contact?.name || miner.user?.name || 'Unnamed contact'} · {miner.contact?.email || miner.user?.email || '-'}</p>
                   {miner.companyRegNumber && <p className="mt-1 text-xs text-text-muted">RC: {miner.companyRegNumber}</p>}
+                </td>
+                <td className="p-4">
+                  <span className="inline-flex rounded-full border border-border bg-primary px-2.5 py-1 text-xs font-semibold capitalize text-text-secondary">
+                    {miner.registryLabel || miner.registryType || 'Miner'}
+                  </span>
                 </td>
                 <td className="p-4 text-sm text-text-secondary">{miner.location || '-'}</td>
                 <td className="p-4">
-                  {statusChip(miner.user?.verificationStatus || 'pending')}
+                  {statusChip(miner.status || miner.user?.verificationStatus || 'pending')}
                   <p className="mt-2 text-xs text-text-muted">
-                    {miner.user?.onboardingComplete ? 'Onboarding complete' : 'Onboarding pending'}
+                    {miner.user ? (miner.user.onboardingComplete ? 'Onboarding complete' : 'Onboarding pending') : 'Partner registry'}
                   </p>
                 </td>
                 <td className="p-4">
@@ -231,7 +250,9 @@ export default function MinerRegistryPage() {
                   </p>
                 </td>
                 <td className="p-4 text-sm text-text-secondary">
-                  {miner.listingSummary.minerals.length > 0 ? miner.listingSummary.minerals.slice(0, 3).join(', ') : '-'}
+                  {(miner.primaryFocus?.length || miner.listingSummary.minerals.length) > 0
+                    ? (miner.primaryFocus?.length ? miner.primaryFocus : miner.listingSummary.minerals).slice(0, 3).join(', ')
+                    : '-'}
                 </td>
                 <td className="p-4 text-sm text-text-secondary">
                   {formatDate(miner.latestDocumentAt)}
@@ -240,9 +261,9 @@ export default function MinerRegistryPage() {
                   <button
                     onClick={() => openMinerDetail(miner.id)}
                     className="rounded-md border border-border px-3 py-2 text-xs font-bold text-text-primary transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={detailLoading}
+                    disabled={detailLoading || !miner.detailAvailable}
                   >
-                    View
+                    {miner.detailAvailable ? 'View' : 'Registry only'}
                   </button>
                 </td>
               </tr>

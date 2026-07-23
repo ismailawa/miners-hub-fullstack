@@ -54,6 +54,7 @@ const Footer: React.FC = () => {
             <div>
               <h3 className="font-semibold text-text-primary mb-4">For Investors</h3>
               <div className="flex flex-col space-y-3">
+                <FooterLink onClick={() => setPage('investment-opportunities')}>Investment Opportunities</FooterLink>
                 <FooterLink onClick={() => setPage('marketplace')}>Browse Listings</FooterLink>
                 <FooterLink onClick={() => setPage('services')}>Secure Escrow</FooterLink>
                 <FooterLink onClick={() => setPage('registration-guide')}>Due Diligence</FooterLink>

@@ -4,21 +4,27 @@ import { VerificationStatus } from '../lib/types';
 
 const slides = [
   {
-    image: 'https://picsum.photos/seed/mininghero1/1920/1080',
+    id: 'investment',
+    image: '/connecting.png',
+    imagePosition: 'center',
     title: "Connecting Africa's Mineral Wealth with Global Investors",
     subtitle: "The premier digital marketplace for transparent and efficient mineral trading, empowering miners, investors, and governments.",
     cta1: { text: 'Get Started', page: 'register' },
     cta2: { text: 'Learn More', page: 'services' },
   },
   {
-    image: 'https://picsum.photos/seed/mininghero2/1920/1080',
+    id: 'marketplace',
+    image: '/investors.png',
+    imagePosition: 'center',
     title: "Discover Verified Mineral Listings and Secure Your Supply Chain",
     subtitle: "Browse a real-time marketplace of high-quality minerals from vetted sources across Nigeria.",
     cta1: { text: 'Explore Marketplace', page: 'marketplace' },
     cta2: { text: 'View Miners', page: 'home', section: 'miners' },
   },
   {
-    image: 'https://picsum.photos/seed/mininghero3/1920/1080',
+    id: 'field-tech',
+    image: '/technology.png',
+    imagePosition: 'center',
     title: "Empowering Miners with Technology and Market Access",
     subtitle: "Our platform provides the tools, data, and connections you need to grow your mining business.",
     cta1: { text: 'Register as a Miner', page: 'register' },
@@ -40,6 +46,13 @@ const Hero: React.FC = () => {
     return () => clearTimeout(timer);
   }, [currentIndex, goToNext]);
 
+  useEffect(() => {
+    slides.forEach((slide) => {
+      const image = new Image();
+      image.src = slide.image;
+    });
+  }, []);
+
   const goToPrevious = () => {
     setCurrentIndex((prevIndex) => (prevIndex - 1 + slides.length) % slides.length);
   };
@@ -55,19 +68,22 @@ const Hero: React.FC = () => {
   );
 
   return (
-    <section className="relative h-[80vh] min-h-[600px] flex items-center justify-center text-center px-4 overflow-hidden">
+    <section className="relative h-[80vh] min-h-[600px] flex items-center justify-center text-center px-4 overflow-hidden bg-primary">
       {/* Background Slides */}
       {slides.map((slide, index) => (
         <div 
-          key={index}
-          className="absolute inset-0 bg-cover bg-center z-0 transition-opacity duration-1000 ease-in-out" 
+          key={slide.id}
+          aria-hidden={index !== currentIndex}
+          className={`absolute inset-0 z-0 bg-cover transition-[opacity,transform] duration-[1400ms] ease-out will-change-[opacity,transform] ${
+            index === currentIndex ? 'scale-100 opacity-100' : 'scale-105 opacity-0'
+          }`}
           style={{ 
             backgroundImage: `url('${slide.image}')`,
-            opacity: index === currentIndex ? 1 : 0,
+            backgroundPosition: slide.imagePosition,
           }}
         >
             {/* Overlay */}
-            <div className="absolute inset-0 bg-primary bg-opacity-70"></div>
+            <div className="absolute inset-0 bg-primary/70"></div>
             {/* Grid Pattern */}
             <div 
                 className="absolute inset-0 bg-repeat" 
@@ -79,7 +95,7 @@ const Hero: React.FC = () => {
       ))}
       
       {/* Content */}
-      <div className="relative z-10 max-w-4xl mx-auto" key={currentIndex}>
+      <div className="relative z-10 max-w-4xl mx-auto" key={currentSlide.id}>
         <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold text-text-primary leading-tight mb-4 animate-fade-in-down"
             style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
           {currentSlide.title}

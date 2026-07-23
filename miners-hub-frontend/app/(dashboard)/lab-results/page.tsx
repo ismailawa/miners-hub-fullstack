@@ -3,6 +3,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
+import FormModal from '../../../components/FormModal';
+import MultiFileInput, { FilePreview } from '../../../components/MultiFileInput';
 import {
   createLaboratoryPartner,
   createLabResult,
@@ -41,6 +43,9 @@ export default function LabResultsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingCertificate, setIsUploadingCertificate] = useState(false);
+  const [isPartnerFormOpen, setIsPartnerFormOpen] = useState(false);
+  const [isResultFormOpen, setIsResultFormOpen] = useState(false);
+  const [certificateFiles, setCertificateFiles] = useState<FilePreview[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [partnerForm, setPartnerForm] = useState({
     companyName: '',
@@ -100,6 +105,17 @@ export default function LabResultsPage() {
     void fetchData();
   }, [currentUser, fetchData, router]);
 
+  useEffect(() => {
+    return () => {
+      certificateFiles.forEach((filePreview) => URL.revokeObjectURL(filePreview.previewUrl));
+    };
+  }, [certificateFiles]);
+
+  const clearCertificateFiles = () => {
+    certificateFiles.forEach((filePreview) => URL.revokeObjectURL(filePreview.previewUrl));
+    setCertificateFiles([]);
+  };
+
   const handleCreatePartner = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsSaving(true);
@@ -120,6 +136,7 @@ export default function LabResultsPage() {
         contactPhone: '',
         status: 'active',
       });
+      setIsPartnerFormOpen(false);
       await fetchData();
     } catch {
       setError('Could not save laboratory partner.');
@@ -159,6 +176,8 @@ export default function LabResultsPage() {
         certificateUrl: '',
         resultNotes: '',
       }));
+      clearCertificateFiles();
+      setIsResultFormOpen(false);
       await fetchData();
     } catch {
       setError('Could not save lab result request.');
@@ -167,11 +186,14 @@ export default function LabResultsPage() {
     }
   };
 
-  const handleCertificateUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleCertificateFilesAdded = async (files: File[]) => {
+    const file = files[0];
     if (!file) return;
     setIsUploadingCertificate(true);
     setError(null);
+    certificateFiles.forEach((filePreview) => URL.revokeObjectURL(filePreview.previewUrl));
+    const preview: FilePreview = { file, previewUrl: URL.createObjectURL(file) };
+    setCertificateFiles([preview]);
     try {
       const document = await uploadDocument(file, {
         type: DocumentType.CERTIFICATE,
@@ -179,11 +201,19 @@ export default function LabResultsPage() {
       });
       setRequestForm((prev) => ({ ...prev, certificateUrl: document.url }));
     } catch {
+      URL.revokeObjectURL(preview.previewUrl);
+      setCertificateFiles([]);
       setError('Could not upload lab certificate.');
     } finally {
       setIsUploadingCertificate(false);
-      event.target.value = '';
     }
+  };
+
+  const handleCertificateRemoved = (index: number) => {
+    const filePreview = certificateFiles[index];
+    if (filePreview) URL.revokeObjectURL(filePreview.previewUrl);
+    setCertificateFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    setRequestForm((prev) => ({ ...prev, certificateUrl: '' }));
   };
 
   const handleVerify = async (result: LabResult, status: Extract<LabResultStatus, 'verified' | 'rejected'>) => {
@@ -207,11 +237,23 @@ export default function LabResultsPage() {
 
   return (
     <main className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-text-primary">Laboratory Results</h1>
-        <p className="mt-1 text-sm text-text-secondary">
-          Manage assay requests, certificates, and verification status for listings, production reports, and passports.
-        </p>
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">Laboratory Results</h1>
+          <p className="mt-1 text-sm text-text-secondary">
+            Manage assay requests, certificates, and verification status for listings, production reports, and passports.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {isAdmin && (
+            <button type="button" onClick={() => setIsPartnerFormOpen(true)} className="rounded-md border border-border px-4 py-2 text-sm font-semibold text-text-primary hover:border-accent hover:text-accent">
+              Add Laboratory
+            </button>
+          )}
+          <button type="button" onClick={() => setIsResultFormOpen(true)} className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-content hover:bg-yellow-400">
+            Add Lab Result
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -220,57 +262,77 @@ export default function LabResultsPage() {
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
-        <div className="space-y-6">
-          {isAdmin && (
-            <section className="rounded-lg border border-border bg-secondary p-5">
-              <h2 className="text-lg font-semibold text-text-primary">Add Laboratory Partner</h2>
-              <form className="mt-4 space-y-3" onSubmit={handleCreatePartner}>
-                <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Company name" value={partnerForm.companyName} onChange={(e) => setPartnerForm((prev) => ({ ...prev, companyName: e.target.value }))} required />
-                <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Accreditation number" value={partnerForm.accreditationNumber} onChange={(e) => setPartnerForm((prev) => ({ ...prev, accreditationNumber: e.target.value }))} />
-                <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Contact email" type="email" value={partnerForm.contactEmail} onChange={(e) => setPartnerForm((prev) => ({ ...prev, contactEmail: e.target.value }))} />
-                <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Contact phone" value={partnerForm.contactPhone} onChange={(e) => setPartnerForm((prev) => ({ ...prev, contactPhone: e.target.value }))} />
-                <textarea className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Address" rows={3} value={partnerForm.address} onChange={(e) => setPartnerForm((prev) => ({ ...prev, address: e.target.value }))} />
-                <button className="w-full rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-content hover:bg-yellow-400 disabled:opacity-60" disabled={isSaving}>
-                  Save Laboratory
-                </button>
-              </form>
-            </section>
-          )}
-
-          <section className="rounded-lg border border-border bg-secondary p-5">
-            <h2 className="text-lg font-semibold text-text-primary">Request or Upload Result</h2>
-            <form className="mt-4 space-y-3" onSubmit={handleCreateResult}>
-              <select className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" value={requestForm.labId} onChange={(e) => setRequestForm((prev) => ({ ...prev, labId: e.target.value }))} required>
-                <option value="">Select active lab</option>
-                {activePartners.map((partner) => (
-                  <option key={partner.id} value={partner.id}>{partner.companyName}</option>
-                ))}
-              </select>
-              <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Sample reference" value={requestForm.sampleReference} onChange={(e) => setRequestForm((prev) => ({ ...prev, sampleReference: e.target.value }))} required />
-              <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Mineral type" value={requestForm.mineralType} onChange={(e) => setRequestForm((prev) => ({ ...prev, mineralType: e.target.value }))} required />
-              <div className="grid grid-cols-2 gap-3">
-                <input className="rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Grade" value={requestForm.grade} onChange={(e) => setRequestForm((prev) => ({ ...prev, grade: e.target.value }))} />
-                <input className="rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Assay value" inputMode="decimal" value={requestForm.assayValue} onChange={(e) => setRequestForm((prev) => ({ ...prev, assayValue: e.target.value }))} />
-              </div>
-              <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Assay unit, e.g. %, g/t" value={requestForm.assayUnit} onChange={(e) => setRequestForm((prev) => ({ ...prev, assayUnit: e.target.value }))} />
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-text-muted">Certificate file</span>
-                <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary file:mr-3 file:rounded-md file:border-0 file:bg-border file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-text-primary" type="file" accept="application/pdf,image/png,image/jpeg" onChange={handleCertificateUpload} disabled={isUploadingCertificate} />
-              </label>
-              {isUploadingCertificate && <p className="text-xs text-text-muted">Uploading certificate...</p>}
-              <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Certificate URL" type="url" value={requestForm.certificateUrl} onChange={(e) => setRequestForm((prev) => ({ ...prev, certificateUrl: e.target.value }))} />
-              <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Listing ID" value={requestForm.listingId} onChange={(e) => setRequestForm((prev) => ({ ...prev, listingId: e.target.value }))} />
-              <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Production report ID" value={requestForm.productionReportId} onChange={(e) => setRequestForm((prev) => ({ ...prev, productionReportId: e.target.value }))} />
-              <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Mineral passport ID" value={requestForm.mineralPassportId} onChange={(e) => setRequestForm((prev) => ({ ...prev, mineralPassportId: e.target.value }))} />
-              <textarea className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Result notes" rows={3} value={requestForm.resultNotes} onChange={(e) => setRequestForm((prev) => ({ ...prev, resultNotes: e.target.value }))} />
-              <button className="w-full rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-content hover:bg-yellow-400 disabled:opacity-60" disabled={isSaving || activePartners.length === 0}>
-                Save Lab Result
+      {isAdmin && (
+        <FormModal
+          isOpen={isPartnerFormOpen}
+          title="Add Laboratory Partner"
+          description="Register an accredited laboratory partner for assay certificates and verification."
+          onClose={() => setIsPartnerFormOpen(false)}
+        >
+          <form className="space-y-3" onSubmit={handleCreatePartner}>
+            <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Company name" value={partnerForm.companyName} onChange={(e) => setPartnerForm((prev) => ({ ...prev, companyName: e.target.value }))} required />
+            <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Accreditation number" value={partnerForm.accreditationNumber} onChange={(e) => setPartnerForm((prev) => ({ ...prev, accreditationNumber: e.target.value }))} />
+            <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Contact email" type="email" value={partnerForm.contactEmail} onChange={(e) => setPartnerForm((prev) => ({ ...prev, contactEmail: e.target.value }))} />
+            <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Contact phone" value={partnerForm.contactPhone} onChange={(e) => setPartnerForm((prev) => ({ ...prev, contactPhone: e.target.value }))} />
+            <textarea className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Address" rows={3} value={partnerForm.address} onChange={(e) => setPartnerForm((prev) => ({ ...prev, address: e.target.value }))} />
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setIsPartnerFormOpen(false)} className="rounded-md border border-border px-4 py-2 text-sm font-semibold text-text-secondary hover:border-accent hover:text-accent">Cancel</button>
+              <button className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-content hover:bg-yellow-400 disabled:opacity-60" disabled={isSaving}>
+                Save Laboratory
               </button>
-            </form>
-          </section>
-        </div>
+            </div>
+          </form>
+        </FormModal>
+      )}
 
+      <FormModal
+        isOpen={isResultFormOpen}
+        title="Request or Upload Result"
+        description="Create an assay request or attach a laboratory certificate to an existing mining workflow."
+        onClose={() => setIsResultFormOpen(false)}
+      >
+        <form className="space-y-3" onSubmit={handleCreateResult}>
+          <select className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" value={requestForm.labId} onChange={(e) => setRequestForm((prev) => ({ ...prev, labId: e.target.value }))} required>
+            <option value="">Select active lab</option>
+            {activePartners.map((partner) => (
+              <option key={partner.id} value={partner.id}>{partner.companyName}</option>
+            ))}
+          </select>
+          <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Sample reference" value={requestForm.sampleReference} onChange={(e) => setRequestForm((prev) => ({ ...prev, sampleReference: e.target.value }))} required />
+          <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Mineral type" value={requestForm.mineralType} onChange={(e) => setRequestForm((prev) => ({ ...prev, mineralType: e.target.value }))} required />
+          <div className="grid grid-cols-2 gap-3">
+            <input className="rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Grade" value={requestForm.grade} onChange={(e) => setRequestForm((prev) => ({ ...prev, grade: e.target.value }))} />
+            <input className="rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Assay value" inputMode="decimal" value={requestForm.assayValue} onChange={(e) => setRequestForm((prev) => ({ ...prev, assayValue: e.target.value }))} />
+          </div>
+          <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Assay unit, e.g. %, g/t" value={requestForm.assayUnit} onChange={(e) => setRequestForm((prev) => ({ ...prev, assayUnit: e.target.value }))} />
+          <MultiFileInput
+            id="lab-certificate"
+            label="Certificate file"
+            files={certificateFiles}
+            onFilesAdded={(files) => void handleCertificateFilesAdded(files)}
+            onFileRemoved={handleCertificateRemoved}
+            accept="application/pdf,image/png,image/jpeg"
+            helperText="Drop a PDF, JPG, or PNG certificate here. It uploads to Cloudinary immediately."
+            multiple={false}
+            maxFiles={1}
+            disabled={isUploadingCertificate}
+          />
+          {isUploadingCertificate && <p className="text-xs text-text-muted">Uploading certificate...</p>}
+          <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Certificate URL" type="url" value={requestForm.certificateUrl} onChange={(e) => setRequestForm((prev) => ({ ...prev, certificateUrl: e.target.value }))} />
+          <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Listing ID" value={requestForm.listingId} onChange={(e) => setRequestForm((prev) => ({ ...prev, listingId: e.target.value }))} />
+          <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Production report ID" value={requestForm.productionReportId} onChange={(e) => setRequestForm((prev) => ({ ...prev, productionReportId: e.target.value }))} />
+          <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Mineral passport ID" value={requestForm.mineralPassportId} onChange={(e) => setRequestForm((prev) => ({ ...prev, mineralPassportId: e.target.value }))} />
+          <textarea className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Result notes" rows={3} value={requestForm.resultNotes} onChange={(e) => setRequestForm((prev) => ({ ...prev, resultNotes: e.target.value }))} />
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setIsResultFormOpen(false)} className="rounded-md border border-border px-4 py-2 text-sm font-semibold text-text-secondary hover:border-accent hover:text-accent">Cancel</button>
+            <button className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-content hover:bg-yellow-400 disabled:opacity-60" disabled={isSaving || activePartners.length === 0}>
+              Save Lab Result
+            </button>
+          </div>
+        </form>
+      </FormModal>
+
+      <div className="grid gap-6">
         <section className="rounded-lg border border-border bg-secondary">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5">
             <div>

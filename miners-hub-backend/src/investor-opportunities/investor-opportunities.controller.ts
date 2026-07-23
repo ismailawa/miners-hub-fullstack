@@ -10,26 +10,34 @@ import {
 import { InvestorOpportunitiesService } from './investor-opportunities.service';
 
 @Controller('investor-opportunities')
-@UseGuards(JwtAuthGuard)
 export class InvestorOpportunitiesController {
   constructor(private readonly investorOpportunitiesService: InvestorOpportunitiesService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   create(@Request() req: any, @Body() dto: CreateInvestorOpportunityDto) {
     return this.investorOpportunitiesService.create(req.user, dto);
   }
 
+  @Get('public')
+  findPublished(@Query() filters: InvestorOpportunityFilterDto) {
+    return this.investorOpportunitiesService.findPublished(filters);
+  }
+
   @Get()
+  @UseGuards(JwtAuthGuard)
   findAll(@Request() req: any, @Query() filters: InvestorOpportunityFilterDto) {
     return this.investorOpportunitiesService.findAll(req.user, filters);
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard)
   findOne(@Request() req: any, @Param('id', ParseUUIDPipe) id: string) {
     return this.investorOpportunitiesService.findOne(req.user, id);
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard)
   update(
     @Request() req: any,
     @Param('id', ParseUUIDPipe) id: string,
@@ -39,6 +47,7 @@ export class InvestorOpportunitiesController {
   }
 
   @Post(':id/inquiries')
+  @UseGuards(JwtAuthGuard)
   createInquiry(
     @Request() req: any,
     @Param('id', ParseUUIDPipe) id: string,
@@ -48,6 +57,7 @@ export class InvestorOpportunitiesController {
   }
 
   @Patch('inquiries/:id')
+  @UseGuards(JwtAuthGuard)
   updateInquiry(
     @Request() req: any,
     @Param('id', ParseUUIDPipe) id: string,

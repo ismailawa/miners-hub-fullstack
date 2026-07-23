@@ -14,6 +14,7 @@ import { Type } from 'class-transformer';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import {
   LogisticsProviderStatus,
+  LogisticsProviderCategory,
 } from '../entities/logistics-provider.entity';
 import { LogisticsQuoteStatus } from '../entities/logistics-quote-request.entity';
 import { ShipmentStatus } from '../entities/shipment.entity';
@@ -26,6 +27,10 @@ export class CreateLogisticsProviderDto {
   @IsNotEmpty()
   @IsString()
   companyName!: string;
+
+  @IsOptional()
+  @IsEnum(LogisticsProviderCategory)
+  category?: LogisticsProviderCategory;
 
   @IsOptional()
   @IsArray()
@@ -48,6 +53,14 @@ export class CreateLogisticsProviderDto {
   @IsOptional()
   @IsString()
   contactPhone?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  fleetProfiles?: Array<Record<string, any>>;
+
+  @IsOptional()
+  @IsObject()
+  integrationMetadata?: Record<string, any> | null;
 }
 
 export class UpdateLogisticsProviderDto extends CreateLogisticsProviderDto {}
@@ -56,6 +69,10 @@ export class CreateQuoteRequestDto {
   @IsOptional()
   @IsUUID()
   orderId?: string | null;
+
+  @IsOptional()
+  @IsUUID()
+  providerId?: string | null;
 
   @IsNotEmpty()
   @IsString()
@@ -82,6 +99,26 @@ export class CreateQuoteRequestDto {
 
   @IsEmail()
   contactEmail!: string;
+
+  @IsOptional()
+  @IsString()
+  pickupWindow?: string | null;
+
+  @IsOptional()
+  @IsString()
+  requiredVehicleType?: string | null;
+
+  @IsOptional()
+  @IsString()
+  loadingConstraints?: string | null;
+
+  @IsOptional()
+  @IsString()
+  safetyNotes?: string | null;
+
+  @IsOptional()
+  @IsObject()
+  requestMetadata?: Record<string, any> | null;
 }
 
 export class UpdateQuoteRequestDto {
@@ -98,6 +135,34 @@ export class UpdateQuoteRequestDto {
   @IsOptional()
   @IsString()
   quoteNotes?: string | null;
+
+  @IsOptional()
+  @IsUUID()
+  providerId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  eta?: string | null;
+
+  @IsOptional()
+  @IsString()
+  routeNotes?: string | null;
+
+  @IsOptional()
+  @IsObject()
+  costBreakdown?: Record<string, any> | null;
+
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @IsOptional()
+  @Type(() => Date)
+  validUntil?: Date | null;
+
+  @IsOptional()
+  @IsObject()
+  invoiceMetadata?: Record<string, any> | null;
 }
 
 export class CreateShipmentDto {
@@ -118,11 +183,31 @@ export class CreateShipmentDto {
   @Type(() => Number)
   quoteAmount?: number | null;
 
+  @IsOptional()
+  @IsUUID()
+  quoteRequestId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
   @IsString()
   pickupLocation!: string;
 
   @IsString()
   deliveryLocation!: string;
+
+  @IsOptional()
+  @IsObject()
+  trackingReferences?: Record<string, any> | null;
+
+  @IsOptional()
+  @IsObject()
+  internationalDetails?: Record<string, any> | null;
+
+  @IsOptional()
+  @IsObject()
+  invoiceMetadata?: Record<string, any> | null;
 }
 
 export class UpdateShipmentStatusDto {

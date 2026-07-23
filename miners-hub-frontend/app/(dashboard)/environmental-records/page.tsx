@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import { uploadImage } from '../../../lib/api/media';
 import { flushFieldQueue, getFieldQueue, queueFieldSubmission } from '../../../lib/offline/field-queue';
+import FormModal from '../../../components/FormModal';
+import MultiFileInput, { FilePreview } from '../../../components/MultiFileInput';
 import {
   createEnvironmentalRecord,
   EnvironmentalRecord,
@@ -48,6 +50,8 @@ export default function EnvironmentalRecordsPage() {
   const [error, setError] = useState<string | null>(null);
   const [queuedCount, setQueuedCount] = useState(0);
   const [isOnline, setIsOnline] = useState(true);
+  const [isRecordFormOpen, setIsRecordFormOpen] = useState(false);
+  const [evidenceFiles, setEvidenceFiles] = useState<FilePreview[]>([]);
   const [form, setForm] = useState({
     siteId: '',
     recordType: 'inspection' as EnvironmentalRecordType,
@@ -110,6 +114,17 @@ export default function EnvironmentalRecordsPage() {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      evidenceFiles.forEach((filePreview) => URL.revokeObjectURL(filePreview.previewUrl));
+    };
+  }, [evidenceFiles]);
+
+  const clearEvidenceFiles = () => {
+    evidenceFiles.forEach((filePreview) => URL.revokeObjectURL(filePreview.previewUrl));
+    setEvidenceFiles([]);
+  };
+
   const captureLocation = () => {
     if (!navigator.geolocation) {
       setError('Location capture is not supported by this browser.');
@@ -126,13 +141,14 @@ export default function EnvironmentalRecordsPage() {
     );
   };
 
-  const handleEvidenceUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
+  const handleEvidenceFilesAdded = async (files: File[]) => {
     if (files.length === 0) return;
     setIsUploading(true);
     setError(null);
     try {
       const uploaded = await Promise.all(files.map((file) => uploadImage(file, 'general')));
+      const previews = files.map((file) => ({ file, previewUrl: URL.createObjectURL(file) }));
+      setEvidenceFiles((prev) => [...prev, ...previews]);
       setForm((prev) => ({
         ...prev,
         evidenceUrls: [...prev.evidenceUrls, ...uploaded.map((file) => file.secureUrl)],
@@ -141,8 +157,17 @@ export default function EnvironmentalRecordsPage() {
       setError('Could not upload environmental evidence.');
     } finally {
       setIsUploading(false);
-      event.target.value = '';
     }
+  };
+
+  const handleEvidenceRemoved = (index: number) => {
+    const filePreview = evidenceFiles[index];
+    if (filePreview) URL.revokeObjectURL(filePreview.previewUrl);
+    setEvidenceFiles((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+    setForm((prev) => ({
+      ...prev,
+      evidenceUrls: prev.evidenceUrls.filter((_, itemIndex) => itemIndex !== index),
+    }));
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -180,9 +205,11 @@ export default function EnvironmentalRecordsPage() {
           communityVisible: false,
           privateNotes: '',
         });
+        clearEvidenceFiles();
         return;
       }
       await createEnvironmentalRecord(payload);
+      setIsRecordFormOpen(false);
       setForm({
         siteId: '',
         recordType: 'inspection',
@@ -194,6 +221,7 @@ export default function EnvironmentalRecordsPage() {
         communityVisible: false,
         privateNotes: '',
       });
+      clearEvidenceFiles();
       await fetchRecords();
     } catch {
       setError('Could not save environmental record. Confirm the site ID is valid and accessible.');
@@ -246,9 +274,14 @@ export default function EnvironmentalRecordsPage() {
 
   return (
     <main className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-text-primary">Environmental Monitoring</h1>
-        <p className="mt-1 text-sm text-text-secondary">Capture inspections, incidents, remediation evidence, and community-safe environmental updates.</p>
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">Environmental Monitoring</h1>
+          <p className="mt-1 text-sm text-text-secondary">Capture inspections, incidents, remediation evidence, and community-safe environmental updates.</p>
+        </div>
+        <button type="button" onClick={() => setIsRecordFormOpen(true)} className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-content hover:bg-yellow-400">
+          New Field Report
+        </button>
       </div>
 
       {queuedCount > 0 ? (
@@ -275,10 +308,14 @@ export default function EnvironmentalRecordsPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
-        <section className="rounded-lg border border-border bg-secondary p-5">
-          <h2 className="text-lg font-semibold text-text-primary">Field Report</h2>
-          <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
+      <div className="grid gap-6">
+        <FormModal
+          isOpen={isRecordFormOpen}
+          title="New Environmental Field Report"
+          description="Capture inspection, incident, remediation, or community concern evidence."
+          onClose={() => setIsRecordFormOpen(false)}
+        >
+          <form className="space-y-3" onSubmit={handleSubmit}>
             <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Mine site ID" value={form.siteId} onChange={(event) => setForm((prev) => ({ ...prev, siteId: event.target.value }))} required />
             <div className="grid grid-cols-2 gap-3">
               <select className="rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" value={form.recordType} onChange={(event) => setForm((prev) => ({ ...prev, recordType: event.target.value as EnvironmentalRecordType }))}>
@@ -303,10 +340,16 @@ export default function EnvironmentalRecordsPage() {
               </div>
               <button type="button" className="rounded-md border border-border px-3 py-2 text-sm font-semibold text-text-secondary hover:border-accent hover:text-accent" onClick={captureLocation}>Use GPS</button>
             </div>
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-text-muted">Evidence photos</span>
-              <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary file:mr-3 file:rounded-md file:border-0 file:bg-border file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-text-primary" type="file" accept="image/png,image/jpeg" multiple onChange={handleEvidenceUpload} disabled={isUploading} />
-            </label>
+            <MultiFileInput
+              id="environmental-evidence"
+              label="Evidence photos"
+              files={evidenceFiles}
+              onFilesAdded={(files) => void handleEvidenceFilesAdded(files)}
+              onFileRemoved={handleEvidenceRemoved}
+              accept="image/png,image/jpeg"
+              helperText="Drop JPG or PNG evidence photos here. Files upload to Cloudinary immediately."
+              disabled={isUploading}
+            />
             {form.evidenceUrls.length > 0 && <p className="text-xs text-text-muted">{form.evidenceUrls.length} evidence file(s) attached</p>}
             {isReviewer && (
               <>
@@ -317,11 +360,14 @@ export default function EnvironmentalRecordsPage() {
                 <textarea className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Private regulator/admin notes" rows={3} value={form.privateNotes} onChange={(event) => setForm((prev) => ({ ...prev, privateNotes: event.target.value }))} />
               </>
             )}
-            <button className="w-full rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-content hover:bg-yellow-400 disabled:opacity-60" disabled={isSaving || isUploading}>
-              Save Environmental Record
-            </button>
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setIsRecordFormOpen(false)} className="rounded-md border border-border px-4 py-2 text-sm font-semibold text-text-secondary hover:border-accent hover:text-accent">Cancel</button>
+              <button className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-content hover:bg-yellow-400 disabled:opacity-60" disabled={isSaving || isUploading}>
+                Save Environmental Record
+              </button>
+            </div>
           </form>
-        </section>
+        </FormModal>
 
         <section className="rounded-lg border border-border bg-secondary">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5">

@@ -17,9 +17,18 @@ export enum LogisticsProviderStatus {
   SUSPENDED = 'suspended',
 }
 
+export enum LogisticsProviderCategory {
+  INTERNATIONAL_CARRIER = 'international_carrier',
+  LOCAL_HAULAGE = 'local_haulage',
+  WAREHOUSING = 'warehousing',
+  CUSTOMS_CLEARING = 'customs_clearing',
+  LAST_MILE = 'last_mile',
+}
+
 @Entity('logistics_providers')
 @Index(['userId'])
 @Index(['status'])
+@Index(['category'])
 export class LogisticsProvider {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -37,6 +46,14 @@ export class LogisticsProvider {
   @IsNotEmpty()
   @IsString()
   companyName!: string;
+
+  @Column({
+    type: 'enum',
+    enum: LogisticsProviderCategory,
+    default: LogisticsProviderCategory.LOCAL_HAULAGE,
+  })
+  @IsEnum(LogisticsProviderCategory)
+  category!: LogisticsProviderCategory;
 
   @Column({ name: 'service_areas', type: 'text', array: true, default: [] })
   @IsArray()
@@ -63,6 +80,21 @@ export class LogisticsProvider {
   @IsOptional()
   @IsString()
   contactPhone?: string | null;
+
+  @Column({ name: 'fleet_profiles', type: 'jsonb', default: [] })
+  fleetProfiles!: Array<{
+    plateNumber?: string;
+    vehicleType?: string;
+    capacityTons?: number;
+    driverName?: string;
+    driverPhone?: string;
+    insuranceStatus?: string;
+    complianceDocumentUrls?: string[];
+    availability?: 'available' | 'busy' | 'offline';
+  }>;
+
+  @Column({ name: 'integration_metadata', type: 'jsonb', nullable: true })
+  integrationMetadata?: Record<string, any> | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

@@ -37,6 +37,11 @@ export class LogisticsController {
     return this.logisticsService.trackShipment(trackingId);
   }
 
+  @Post('integrations/maersk/webhook')
+  async ingestMaerskWebhook(@Body() payload: Record<string, any>) {
+    return this.logisticsService.ingestMaerskTrackingEvent(payload);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('providers')
   async getProviders() {

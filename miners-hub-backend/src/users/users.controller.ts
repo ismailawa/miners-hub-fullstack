@@ -9,6 +9,9 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { UserRole } from '../entities/user.entity';
 import { EscrowService } from '../escrow/escrow.service';
 import { UpsertPayoutAccountDto } from '../escrow/escrow.dto';
 
@@ -37,13 +40,15 @@ export class UsersController {
   }
 
   @Get('payout-account')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.MINER)
   async getPayoutAccount(@Request() req: any) {
     return this.escrowService.getPayoutAccount(req.user.id);
   }
 
   @Post('payout-account')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.MINER)
   async upsertPayoutAccount(
     @Request() req: any,
     @Body() dto: UpsertPayoutAccountDto,

@@ -20,5 +20,8 @@ export async function uploadImage(
   formData.append('file', file);
   formData.append('context', context);
 
-  return apiClient.post<MediaUploadResult>('/api/media/upload', formData);
+  return apiClient.post<MediaUploadResult>('/api/media/upload', formData, {
+    timeout: 30000,
+    retries: 0,
+  });
 }

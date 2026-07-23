@@ -14,6 +14,9 @@ interface MultiFileInputProps {
     id: string;
     accept?: string;
     helperText?: string;
+    multiple?: boolean;
+    maxFiles?: number;
+    disabled?: boolean;
 }
 
 const MultiFileInput: React.FC<MultiFileInputProps> = ({
@@ -25,14 +28,24 @@ const MultiFileInput: React.FC<MultiFileInputProps> = ({
     id,
     accept = 'image/png,image/jpeg,application/pdf',
     helperText = 'PNG, JPG, or PDF up to 10MB',
+    multiple = true,
+    maxFiles,
+    disabled = false,
 }) => {
     const inputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
 
     const addFiles = (fileList: FileList | File[]) => {
+        if (disabled) return;
         const selectedFiles = Array.from(fileList);
         if (selectedFiles.length > 0) {
-            onFilesAdded(selectedFiles);
+            const remainingSlots = maxFiles ? Math.max(maxFiles - files.length, 0) : undefined;
+            const nextFiles = multiple
+                ? selectedFiles.slice(0, remainingSlots)
+                : selectedFiles.slice(0, 1);
+            if (nextFiles.length > 0) {
+                onFilesAdded(nextFiles);
+            }
         }
     };
 
@@ -88,7 +101,9 @@ const MultiFileInput: React.FC<MultiFileInputProps> = ({
                 onDragEnter={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`mt-2 flex min-h-[180px] cursor-pointer items-center justify-center rounded-xl border-2 border-dashed px-6 py-7 text-center transition-all duration-200 ${
+                className={`mt-2 flex min-h-[180px] items-center justify-center rounded-xl border-2 border-dashed px-6 py-7 text-center transition-all duration-200 ${
+                    disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                } ${
                     isDragging
                         ? 'border-accent bg-accent/10 shadow-[0_0_0_4px_rgba(217,119,6,0.12)]'
                         : 'border-border bg-primary hover:border-accent/70 hover:bg-secondary'
@@ -100,9 +115,10 @@ const MultiFileInput: React.FC<MultiFileInputProps> = ({
                     name={id}
                     type="file"
                     className="sr-only"
-                    multiple
+                    multiple={multiple}
                     onChange={handleFileChange}
                     accept={accept}
+                    disabled={disabled}
                 />
                 <div className="max-w-sm">
                     <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border ${

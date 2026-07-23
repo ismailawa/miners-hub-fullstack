@@ -13,6 +13,8 @@ import {
   reviewProductionReport,
 } from '../../../lib/api/production-reports';
 import { flushFieldQueue, getFieldQueue, queueFieldSubmission } from '../../../lib/offline/field-queue';
+import FormModal from '../../../components/FormModal';
+import DashboardSearchFilters, { ActiveFilter } from '../../../components/DashboardSearchFilters';
 
 const statusOptions: Array<'all' | ProductionReportStatus> = ['all', 'draft', 'submitted', 'under_review', 'approved', 'rejected', 'overdue'];
 
@@ -66,8 +68,11 @@ export default function ProductionReportsPage() {
   const [reports, setReports] = useState<ProductionReport[]>([]);
   const [analytics, setAnalytics] = useState<ProductionAnalytics | null>(null);
   const [selectedReport, setSelectedReport] = useState<ProductionReport | null>(null);
+  const [isReportFormOpen, setIsReportFormOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [mineralFilter, setMineralFilter] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [reviewNotes, setReviewNotes] = useState('');
   const [loading, setLoading] = useState(true);
@@ -96,6 +101,33 @@ export default function ProductionReportsPage() {
       pending: reports.filter((report) => report.status === 'submitted' || report.status === 'under_review').length,
     };
   }, [reports]);
+
+  const filteredReports = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return reports;
+    return reports.filter((report) => [
+      report.mineralType,
+      report.grade,
+      report.destination,
+      report.site?.name,
+      report.miner?.companyName,
+      report.status,
+    ].some((value) => String(value || '').toLowerCase().includes(term)));
+  }, [reports, searchTerm]);
+
+  const activeFilters = useMemo<ActiveFilter[]>(() => {
+    const filters: ActiveFilter[] = [];
+    if (searchTerm.trim()) filters.push({ key: 'search', label: `Search: ${searchTerm.trim()}`, clear: () => setSearchTerm('') });
+    if (statusFilter !== 'all') filters.push({ key: 'status', label: `Status: ${statusFilter.replace(/_/g, ' ')}`, clear: () => setStatusFilter('all') });
+    if (mineralFilter.trim()) filters.push({ key: 'mineral', label: `Mineral: ${mineralFilter.trim()}`, clear: () => setMineralFilter('') });
+    return filters;
+  }, [mineralFilter, searchTerm, statusFilter]);
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setMineralFilter('');
+  };
 
   const loadReports = async () => {
     setLoading(true);
@@ -177,6 +209,7 @@ export default function ProductionReportsPage() {
       const report = await createProductionReport(payload);
       setSelectedReport(report);
       setForm(emptyForm);
+      setIsReportFormOpen(false);
       await loadReports();
     } catch (err: any) {
       setError(err?.message || 'Failed to submit production report');
@@ -220,9 +253,18 @@ export default function ProductionReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-text-primary">Production Reports</h1>
-        <p className="mt-1 text-sm text-text-secondary">Submit site production, review reported output, estimate royalty exposure, and monitor production trends.</p>
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">Production Reports</h1>
+          <p className="mt-1 text-sm text-text-secondary">Submit site production, review reported output, estimate royalty exposure, and monitor production trends.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsReportFormOpen(true)}
+          className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400"
+        >
+          Submit Report
+        </button>
       </div>
 
       {queuedCount > 0 ? (
@@ -240,18 +282,81 @@ export default function ProductionReportsPage() {
         <div className="rounded-lg border border-border bg-secondary p-3"><p className="text-xs text-text-muted">Royalty due</p><p className="text-lg font-bold">{money(analytics?.royaltyDue)}</p></div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-secondary p-4 md:grid-cols-5">
-        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent">
-          {statusOptions.map((status) => <option key={status} value={status}>Status: {status.replace(/_/g, ' ')}</option>)}
-        </select>
-        <input value={mineralFilter} onChange={(event) => setMineralFilter(event.target.value)} placeholder="Mineral type" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent md:col-span-2" />
-        <div className="rounded-md border border-border bg-primary px-3 py-2 text-xs text-text-secondary">Current period: {deadlineSummary.currentMonth} · Pending: {deadlineSummary.pending} · Overdue: {deadlineSummary.overdue}</div>
-        <button onClick={loadReports} className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400">Apply</button>
-      </div>
+      <DashboardSearchFilters
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Search reports, sites, miners, minerals, or destinations"
+        isFilterPanelOpen={isFilterPanelOpen}
+        onToggleFilters={() => setIsFilterPanelOpen((open) => !open)}
+        activeFilters={activeFilters}
+        onReset={resetFilters}
+      >
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <label className="text-sm text-text-secondary">
+            <span className="mb-1.5 block font-semibold">Status</span>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent">
+              {statusOptions.map((status) => <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>)}
+            </select>
+          </label>
+          <label className="text-sm text-text-secondary">
+            <span className="mb-1.5 block font-semibold">Mineral type</span>
+            <input value={mineralFilter} onChange={(event) => setMineralFilter(event.target.value)} placeholder="Gold" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          </label>
+          <div className="rounded-md border border-border bg-primary px-3 py-2 text-xs text-text-secondary">
+            Current period: {deadlineSummary.currentMonth} · Pending: {deadlineSummary.pending} · Overdue: {deadlineSummary.overdue}
+          </div>
+          <button onClick={loadReports} className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400 md:self-end">Apply Filters</button>
+        </div>
+      </DashboardSearchFilters>
 
       {error && <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>}
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+      <FormModal
+        isOpen={isReportFormOpen}
+        title="Submit Production Report"
+        description="Capture reported output, supporting evidence, and royalty estimate."
+        onClose={() => setIsReportFormOpen(false)}
+      >
+        <form onSubmit={submitReport} className="space-y-3">
+          <input required value={form.siteId} onChange={(event) => setForm({ ...form, siteId: event.target.value })} placeholder="Mine site ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          {isReviewer && <input value={form.minerId} onChange={(event) => setForm({ ...form, minerId: event.target.value })} placeholder="Miner profile ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />}
+          <input required value={form.mineralType} onChange={(event) => setForm({ ...form, mineralType: event.target.value })} placeholder="Mineral type" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          <div className="grid grid-cols-2 gap-3">
+            <input required type="date" value={form.periodStart} onChange={(event) => setForm({ ...form, periodStart: event.target.value })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent" />
+            <input required type="date" value={form.periodEnd} onChange={(event) => setForm({ ...form, periodEnd: event.target.value })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <input required type="number" step="0.01" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} placeholder="Quantity" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+            <select value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent">
+              <option value="tonne">tonne</option>
+              <option value="kg">kg</option>
+              <option value="gram">gram</option>
+              <option value="bag">bag</option>
+            </select>
+          </div>
+          <input value={form.grade} onChange={(event) => setForm({ ...form, grade: event.target.value })} placeholder="Grade / purity" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          <input value={form.destination} onChange={(event) => setForm({ ...form, destination: event.target.value })} placeholder="Destination" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          <div className="grid grid-cols-2 gap-3">
+            <input type="number" step="0.01" value={form.estimatedValue} onChange={(event) => setForm({ ...form, estimatedValue: event.target.value })} placeholder="Estimated value" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+            <input type="number" step="0.01" value={form.royaltyRate} onChange={(event) => setForm({ ...form, royaltyRate: event.target.value })} placeholder="Royalty %" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          </div>
+          <div className="rounded-lg border border-border bg-primary p-3">
+            <p className="text-xs text-text-muted">Royalty estimate</p>
+            <p className="text-xl font-bold text-text-primary">{money(royaltyEstimate)}</p>
+          </div>
+          <textarea value={form.supportingDocumentIds} onChange={(event) => setForm({ ...form, supportingDocumentIds: event.target.value })} placeholder="Supporting document IDs" rows={2} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          <select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as ProductionReportStatus })} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent">
+            <option value="submitted">Submit for review</option>
+            <option value="draft">Save draft</option>
+          </select>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setIsReportFormOpen(false)} className="rounded-md border border-border px-4 py-2 text-sm font-semibold text-text-secondary hover:border-accent hover:text-accent">Cancel</button>
+            <button disabled={saving} className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400 disabled:opacity-70">{saving ? 'Saving...' : 'Save Report'}</button>
+          </div>
+        </form>
+      </FormModal>
+
+      <div className="grid gap-6">
         <section className="space-y-6">
           <div className="overflow-x-auto rounded-lg border border-border bg-secondary">
             <table className="w-full min-w-[980px] border-collapse text-left">
@@ -269,9 +374,9 @@ export default function ProductionReportsPage() {
               <tbody>
                 {loading ? (
                   <tr><td colSpan={7} className="p-8 text-center text-text-muted">Loading production reports...</td></tr>
-                ) : reports.length === 0 ? (
+                ) : filteredReports.length === 0 ? (
                   <tr><td colSpan={7} className="p-8 text-center text-text-muted">No production reports match the current filters.</td></tr>
-                ) : reports.map((report) => (
+                ) : filteredReports.map((report) => (
                   <tr key={report.id} onClick={() => setSelectedReport(report)} className="cursor-pointer border-b border-border align-top hover:bg-primary/40">
                     <td className="p-4"><p className="font-semibold text-text-primary">{report.mineralType}</p><p className="text-xs text-text-muted">{report.grade || 'Grade not stated'} · {report.destination || 'No destination'}</p></td>
                     <td className="p-4 text-sm text-text-secondary">{report.site?.name || '-'}</td>
@@ -302,45 +407,6 @@ export default function ProductionReportsPage() {
           </div>
         </section>
 
-        <aside className="space-y-6">
-          <form onSubmit={submitReport} className="rounded-lg border border-border bg-secondary p-4">
-            <h2 className="font-bold text-text-primary">Submit Production Report</h2>
-            <div className="mt-4 space-y-3">
-              <input required value={form.siteId} onChange={(event) => setForm({ ...form, siteId: event.target.value })} placeholder="Mine site ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              {isReviewer && <input value={form.minerId} onChange={(event) => setForm({ ...form, minerId: event.target.value })} placeholder="Miner profile ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />}
-              <input required value={form.mineralType} onChange={(event) => setForm({ ...form, mineralType: event.target.value })} placeholder="Mineral type" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              <div className="grid grid-cols-2 gap-3">
-                <input required type="date" value={form.periodStart} onChange={(event) => setForm({ ...form, periodStart: event.target.value })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent" />
-                <input required type="date" value={form.periodEnd} onChange={(event) => setForm({ ...form, periodEnd: event.target.value })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <input required type="number" step="0.01" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} placeholder="Quantity" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-                <select value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent">
-                  <option value="tonne">tonne</option>
-                  <option value="kg">kg</option>
-                  <option value="gram">gram</option>
-                  <option value="bag">bag</option>
-                </select>
-              </div>
-              <input value={form.grade} onChange={(event) => setForm({ ...form, grade: event.target.value })} placeholder="Grade / purity" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              <input value={form.destination} onChange={(event) => setForm({ ...form, destination: event.target.value })} placeholder="Destination" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              <div className="grid grid-cols-2 gap-3">
-                <input type="number" step="0.01" value={form.estimatedValue} onChange={(event) => setForm({ ...form, estimatedValue: event.target.value })} placeholder="Estimated value" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-                <input type="number" step="0.01" value={form.royaltyRate} onChange={(event) => setForm({ ...form, royaltyRate: event.target.value })} placeholder="Royalty %" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              </div>
-              <div className="rounded-lg border border-border bg-primary p-3">
-                <p className="text-xs text-text-muted">Royalty estimate</p>
-                <p className="text-xl font-bold text-text-primary">{money(royaltyEstimate)}</p>
-              </div>
-              <textarea value={form.supportingDocumentIds} onChange={(event) => setForm({ ...form, supportingDocumentIds: event.target.value })} placeholder="Supporting document IDs" rows={2} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              <select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as ProductionReportStatus })} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent">
-                <option value="submitted">Submit for review</option>
-                <option value="draft">Save draft</option>
-              </select>
-              <button disabled={saving} className="w-full rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400 disabled:opacity-70">{saving ? 'Saving...' : 'Save Report'}</button>
-            </div>
-          </form>
-        </aside>
       </div>
 
       {selectedReport && (

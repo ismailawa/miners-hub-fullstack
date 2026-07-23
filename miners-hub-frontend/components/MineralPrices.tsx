@@ -1,7 +1,33 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MINERAL_PRICES_DATA } from '../lib/constants/data';
 import { MineralPrice } from '../lib/types';
-import { formatCurrency } from '../lib/currency';
+
+const HOURLY_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
+const USD_TO_NGN_RATE = Number(process.env.NEXT_PUBLIC_USD_NGN_RATE || 1600);
+
+const usdFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const ngnFormatter = new Intl.NumberFormat('en-NG', {
+  style: 'currency',
+  currency: 'NGN',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
+const timeFormatter = new Intl.DateTimeFormat('en-NG', {
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+const formatUsd = (value: number) => usdFormatter.format(value);
+const formatNgn = (value: number) => ngnFormatter.format(value);
+
+const getNextHourlyUpdate = (date: Date) => new Date(date.getTime() + HOURLY_UPDATE_INTERVAL_MS);
 
 const MineralIcon: React.FC<{ symbol: string }> = ({ symbol }) => {
   const icons: { [key: string]: React.ReactNode } = {
@@ -49,6 +75,7 @@ const PriceRow: React.FC<{ mineral: MineralPrice }> = ({ mineral }) => {
     if (prevPriceRef.current !== undefined && prevPriceRef.current !== mineral.price) {
       setFlash(mineral.price > prevPriceRef.current ? 'up' : 'down');
       const timer = setTimeout(() => setFlash(''), 500); // flash for 500ms
+      prevPriceRef.current = mineral.price;
       return () => clearTimeout(timer);
     }
     prevPriceRef.current = mineral.price;
@@ -71,7 +98,10 @@ const PriceRow: React.FC<{ mineral: MineralPrice }> = ({ mineral }) => {
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap font-semibold text-text-primary text-right">
-        {formatCurrency(mineral.price)}
+        <div>{formatUsd(mineral.price)}</div>
+        <div className="mt-1 text-xs font-medium text-text-muted">
+          {formatNgn(mineral.price * USD_TO_NGN_RATE)}
+        </div>
       </td>
       <td className={`px-6 py-4 whitespace-nowrap font-semibold text-right ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
         <span className="inline-flex items-center">
@@ -90,31 +120,49 @@ const PriceRow: React.FC<{ mineral: MineralPrice }> = ({ mineral }) => {
 
 const MineralPrices: React.FC = () => {
   const [prices, setPrices] = useState<MineralPrice[]>(MINERAL_PRICES_DATA);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date>(() => new Date());
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    const updatePrices = () => {
       setPrices(prevPrices =>
         prevPrices.map(mineral => {
-          const changePercent = (Math.random() - 0.5) * 0.01; // +/- 0.5%
+          const changePercent = (Math.random() - 0.5) * 0.015;
           const newPrice = mineral.price * (1 + changePercent);
-          
           const originalPrice = MINERAL_PRICES_DATA.find(p => p.symbol === mineral.symbol)?.price || newPrice;
           const newChange = ((newPrice - originalPrice) / originalPrice) * 100;
 
           return { ...mineral, price: newPrice, change: newChange };
         })
       );
-    }, 3000); // Update every 3 seconds
+      setLastUpdatedAt(new Date());
+    };
+
+    const interval = setInterval(() => {
+      updatePrices();
+    }, HOURLY_UPDATE_INTERVAL_MS);
 
     return () => clearInterval(interval);
   }, []);
 
+  const nextUpdatedAt = getNextHourlyUpdate(lastUpdatedAt);
+
   return (
     <section id="minerals" className="py-20 bg-secondary/50">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-extrabold text-text-primary">Live Mineral Prices</h2>
-          <p className="text-lg text-text-secondary mt-4">Stay updated with international market prices.</p>
+        <div className="mx-auto mb-10 max-w-4xl">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 className="text-3xl md:text-4xl font-extrabold text-text-primary">Live Mineral Prices</h2>
+              <p className="mt-3 text-base text-text-secondary">
+                International reference prices with naira equivalents refreshed hourly.
+              </p>
+            </div>
+            <div className="rounded-lg border border-border bg-primary px-4 py-3 text-sm text-text-secondary">
+              <div className="font-semibold text-text-primary">Hourly update</div>
+              <div>Last: {timeFormatter.format(lastUpdatedAt)}</div>
+              <div>Next: {timeFormatter.format(nextUpdatedAt)}</div>
+            </div>
+          </div>
         </div>
         
         <div className="max-w-4xl mx-auto">
@@ -126,7 +174,7 @@ const MineralPrices: React.FC = () => {
                     Mineral
                   </th>
                   <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider">
-                    Price (USD)
+                    USD / NGN Equivalent
                   </th>
                   <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider">
                     Change (24h)
@@ -139,6 +187,9 @@ const MineralPrices: React.FC = () => {
                 ))}
               </tbody>
             </table>
+            <div className="border-t border-border bg-primary/40 px-6 py-3 text-xs text-text-muted">
+              USD is the reference market price. NGN equivalent uses the configured exchange rate of {formatNgn(USD_TO_NGN_RATE)} per $1.
+            </div>
           </div>
         </div>
       </div>

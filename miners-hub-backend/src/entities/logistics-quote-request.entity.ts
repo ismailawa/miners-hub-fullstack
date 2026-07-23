@@ -3,10 +3,14 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { LogisticsProvider } from './logistics-provider.entity';
+import { User } from './user.entity';
 
 export enum LogisticsQuoteStatus {
   REQUESTED = 'requested',
@@ -32,6 +36,15 @@ export class LogisticsQuoteRequest {
   @IsOptional()
   @IsUUID()
   orderId?: string | null;
+
+  @Column({ name: 'provider_id', type: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  providerId?: string | null;
+
+  @ManyToOne(() => LogisticsProvider, { nullable: true })
+  @JoinColumn({ name: 'provider_id' })
+  provider?: LogisticsProvider | null;
 
   @Column()
   @IsNotEmpty()
@@ -78,6 +91,40 @@ export class LogisticsQuoteRequest {
 
   @Column({ name: 'quote_notes', type: 'text', nullable: true })
   quoteNotes?: string | null;
+
+  @Column({ name: 'eta', type: 'varchar', nullable: true })
+  eta?: string | null;
+
+  @Column({ name: 'route_notes', type: 'text', nullable: true })
+  routeNotes?: string | null;
+
+  @Column({ name: 'cost_breakdown', type: 'jsonb', nullable: true })
+  costBreakdown?: Record<string, any> | null;
+
+  @Column({ name: 'currency', default: 'NGN' })
+  currency!: string;
+
+  @Column({ name: 'valid_until', type: 'timestamp', nullable: true })
+  validUntil?: Date | null;
+
+  @Column({ name: 'accepted_by_user_id', type: 'uuid', nullable: true })
+  acceptedByUserId?: string | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'accepted_by_user_id' })
+  acceptedBy?: User | null;
+
+  @Column({ name: 'accepted_at', type: 'timestamp', nullable: true })
+  acceptedAt?: Date | null;
+
+  @Column({ name: 'shipment_id', type: 'uuid', nullable: true })
+  shipmentId?: string | null;
+
+  @Column({ name: 'request_metadata', type: 'jsonb', nullable: true })
+  requestMetadata?: Record<string, any> | null;
+
+  @Column({ name: 'invoice_metadata', type: 'jsonb', nullable: true })
+  invoiceMetadata?: Record<string, any> | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

@@ -52,6 +52,19 @@ export class SellerPayoutAccount {
   })
   status!: SellerPayoutStatus;
 
+  @Column({ name: 'payment_gateway', default: 'flutterwave' })
+  paymentGateway!: string;
+
+  @Column({ name: 'gateway_subaccount_id', type: 'varchar', nullable: true })
+  gatewaySubaccountId: string | null = null;
+
+  @Column({
+    name: 'gateway_subaccount_reference',
+    type: 'varchar',
+    nullable: true,
+  })
+  gatewaySubaccountReference: string | null = null;
+
   @Column({
     name: 'flutterwave_subaccount_id',
     type: 'varchar',

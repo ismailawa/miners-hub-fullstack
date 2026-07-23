@@ -27,6 +27,7 @@ Status legend:
 
 - [x] Silence TypeScript 6 baseUrl deprecation warning in frontend and backend configs.
 - [x] Review authentication, refresh token, and role guard behavior.
+- [x] Implement dashboard and API permission boundaries so users only see role-appropriate areas.
 - [x] Review KYC flow and admin verification state handling.
 - [x] Review document upload, review, deletion, and access authorization.
 - [x] Review notification and chat real-time update reliability.
@@ -41,9 +42,12 @@ Status legend:
 - [x] Implement MetaMap-style KYC start, completion, status tracking, and onboarding lock state.
 - [x] Implement miner and investor profile creation/update during onboarding.
 - [x] Persist onboarding drafts, resume exact step, and gate investment/sales actions until verification.
+- [x] Allow users to exit onboarding while preserving their draft step.
 - [x] Implement document upload, secure owner/admin retrieval, deletion, and admin review.
 - [x] Implement media/image upload for listings.
 - [x] Implement marketplace listing creation, update, deletion, published browsing, filtering, and admin approval.
+- [x] Improve marketplace search with expandable professional filter controls.
+- [x] Handle notification fetch failures without noisy console errors.
 - [x] Implement buy-now orders with status transitions and status history.
 - [x] Implement Flutterwave escrow payment initiation, webhook handling, release, refund, and seller payout account management.
 - [x] Implement contracts with proposal, status transitions, local signatures, SignNow links, sync, and webhook handling.
@@ -54,7 +58,13 @@ Status legend:
 - [x] Implement public/admin events.
 - [x] Implement AI chat, market summary, and price forecast endpoints/UI.
 - [x] Implement authenticated dashboard shell with overview, messages, profile, contracts, orders, transactions, listings, tasks, marketplace, and admin sections.
+- [x] Make dashboard navigation groups collapsible.
+- [x] Keep only the active dashboard navigation group open.
+- [x] Improve home page global search experience.
+- [x] Convert dashboard add and edit forms to modal flows.
+- [x] Remove empty form columns and standardize dashboard search/filter panels.
 - [x] Implement public pages for marketplace, logistics, warehousing, services, forum, news, knowledge base, analytics, registration guide, terms, privacy, and about.
+- [x] Make trusted partner homepage section backend-managed and hidden when no partners are published.
 
 ## Sprint 2: Registry, GIS, Compliance, and Reporting
 
@@ -63,7 +73,8 @@ Status legend:
 - [x] Build admin miner registry list from users, miner profiles, KYC, and documents.
 - [x] Build miner registry detail view with verification state and timeline.
 - [x] Add registry filters for role, verification status, document status, location, and mineral focus.
-- [!] Add cross-role registry filters when investor, laboratory, logistics, financier, and insurer registries are introduced. Blocked until those registries exist.
+- [x] Add cross-role registry filters for miner, investor, laboratory, and logistics records.
+- [!] Add financier and insurer registry filters when those registries are introduced. Blocked until financier and insurer registries exist.
 - [x] Add cooperative and partner profile fields where required.
 
 ### Story 2.2: GIS Mine Mapping
@@ -112,6 +123,34 @@ Status legend:
 - [x] Implement public logistics information, quote form UI, and demo shipment tracking UI.
 - [x] Persist logistics quote requests through backend API.
 
+### Story 3.5: End-to-End Logistics Fulfillment Cycle
+
+- [x] Define and enforce the full logistics state machine across quote request, quote, acceptance, shipment creation, pickup, transit, delivery, dispute, cancellation, order status, and escrow release readiness.
+- [x] Add logistics provider categories for international carrier, local haulage, warehousing, customs/clearing, and last-mile delivery so flows can route requests to the right provider type.
+- [x] Add Maersk as a proposed international shipment provider option with service coverage metadata for ocean, intermodal carrier haulage, multi-carrier inland transport, ground freight, customs/clearance handoff, and cargo tracking handoff.
+- [x] Model international shipment handoff fields for port of loading, port of discharge, container type, incoterms, export documents, customs status, ocean carrier reference, container/B/L tracking number, and external tracking URL.
+- [!] Add Maersk API integration settings for sandbox/production base URLs, client credentials, consumer key, OAuth token caching, webhook signing/verification, access scope, and provider feature flags. Blocked until Maersk developer credentials and webhook signing requirements are issued.
+- [!] Integrate Maersk Ocean Track & Trace or Multi Carrier Tracking API where approved, mapping container, booking, B/L, SCAC, milestone, vessel, ETA, and event timestamps into Miners Hub shipment milestones. Blocked until Maersk API access is approved.
+- [x] Add Maersk webhook ingestion for shipment/container tracking events so international shipment milestones update without manual polling when webhook access is enabled.
+- [!] Add Maersk API fallback polling for tracking references where webhook access is unavailable, with retry handling, 404 party-scope messaging, and shipment-age limits. Blocked until Maersk API access is approved.
+- [!] Evaluate Maersk Ocean Invoice Summary API access for invoice retrieval, then map invoice number, carrier, shipment reference, charges, taxes, currency, due date, payment status, and invoice document link into logistics cost records. Blocked until invoice API access is approved.
+- [x] Add invoicing fallback for Maersk shipments when API access is not approved: manual invoice upload via Cloudinary, invoice metadata entry, approval workflow, and reconciliation against accepted logistics quote.
+- [x] Add local logistics provider registration for companies and independent vehicle owners, including fleet/vehicle profiles, plate number, vehicle type, capacity, service areas, driver/contact details, compliance documents, insurance status, and availability.
+- [x] Add vehicle request flow for local haulage from mine/site/warehouse to buyer, port, processor, or storage location, with route, cargo weight, pickup window, required vehicle type, loading constraints, and safety/compliance notes.
+- [x] Match local vehicle requests to eligible available providers by service area, vehicle capacity, capability, verification status, and quote response SLA.
+- [x] Add order-linked logistics quote requests from paid or confirmed orders with pickup, delivery, commodity, quantity, buyer, seller, and listing details prefilled from the order.
+- [x] Add structured logistics quotes with provider assignment, ETA, route notes, cost breakdown, currency, validity window, and accepted-by metadata.
+- [x] Let the correct party accept or decline quoted logistics costs, then automatically create or schedule the shipment from the accepted quote.
+- [x] Add role-specific logistics work queues for admins, buyers, sellers, and logistics providers so each user sees only relevant quotes, assignments, and shipments.
+- [x] Replace proof URL entry with Cloudinary-backed drop-zone uploads for pickup proof, checkpoint evidence, handoff documents, and proof of delivery.
+- [x] Synchronize shipment milestones into order status history and move eligible orders through processing, shipped, delivered, awaiting escrow release, disputed, or cancelled states.
+- [x] Add notifications for quote received, quote accepted or declined, provider assigned, pickup scheduled, shipment picked up, checkpoint update, delivered, disputed, and cancelled.
+- [x] Replace demo public tracking data with live `/api/logistics/shipments/track/:trackingId` results and resilient empty/error states.
+- [x] Automatically link delivered shipments to mineral passports and refresh passport snapshots with tracking ID, provider, route, milestones, and delivery evidence.
+- [x] Add logistics dispute and cancellation rules that pause delivery completion and prevent escrow release until resolved.
+- [x] Add seed data covering Maersk international carrier and local vehicle provider scenarios.
+- [ ] Add end-to-end tests covering order payment, quote, acceptance, shipment creation, milestone updates, proof upload, delivery confirmation, passport update, and escrow release readiness.
+
 ### Story 3.3: Laboratory Integration
 
 - [x] Add laboratory partner profile model.
@@ -152,6 +191,7 @@ Status legend:
 - [x] Add investor inquiry tracking.
 - [x] Add opportunity detail with due diligence documents and risk indicators.
 - [x] Add analytics subscription hooks for investor intelligence.
+- [x] Add public investor opportunities discovery page.
 
 ### Story 4.4: Mobile/PWA Field Workflows
 

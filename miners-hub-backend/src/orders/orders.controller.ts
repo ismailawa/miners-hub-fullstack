@@ -11,6 +11,9 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { UserRole } from '../entities/user.entity';
 import { OrdersService } from './orders.service';
 import {
   CreateOrderDto,
@@ -19,7 +22,8 @@ import {
 } from './orders.dto';
 
 @Controller('orders')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.MINER, UserRole.INVESTOR)
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
@@ -28,6 +32,7 @@ export class OrdersController {
    * Investor creates an order from a published buy_now listing.
    */
   @Post()
+  @Roles(UserRole.INVESTOR)
   async create(@Request() req: any, @Body() dto: CreateOrderDto) {
     return this.ordersService.create(req.user.id, dto);
   }

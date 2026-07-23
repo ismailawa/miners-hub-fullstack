@@ -91,6 +91,9 @@ export class EscrowTransaction {
   @Column({ default: 'NGN' })
   currency!: string;
 
+  @Column({ name: 'payment_gateway', default: 'flutterwave' })
+  paymentGateway!: string;
+
   @Column({
     type: 'enum',
     enum: EscrowStatus,
@@ -100,6 +103,18 @@ export class EscrowTransaction {
 
   @Column({ name: 'flutterwave_tx_ref' })
   flutterwaveTxRef!: string;
+
+  @Column({ name: 'gateway_tx_ref', type: 'varchar', nullable: true })
+  gatewayTxRef: string | null = null;
+
+  @Column({ name: 'gateway_transaction_id', type: 'varchar', nullable: true })
+  gatewayTransactionId: string | null = null;
+
+  @Column({ name: 'gateway_payment_link', type: 'text', nullable: true })
+  gatewayPaymentLink: string | null = null;
+
+  @Column({ name: 'gateway_payment_status', type: 'varchar', nullable: true })
+  gatewayPaymentStatus: string | null = null;
 
   @Column({
     name: 'flutterwave_transaction_id',

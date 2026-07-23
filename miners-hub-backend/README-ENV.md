@@ -40,6 +40,17 @@ SIGNNOW_API_KEY=your-signnow-service-account-token
 SIGNNOW_OWNER_EMAIL=signnow-service-account@example.com
 SIGNNOW_WEBHOOK_SECRET=your-signnow-webhook-secret
 
+# Payment Gateway
+# Flutterwave is the active supported gateway today. PAYMENT_GATEWAY is the
+# extension point for future providers.
+PAYMENT_GATEWAY=flutterwave
+FLUTTERWAVE_SECRET_KEY=your-flutterwave-secret-key
+FLUTTERWAVE_WEBHOOK_HASH=your-flutterwave-webhook-hash
+FLUTTERWAVE_MOCK_MODE=false
+PLATFORM_COMMISSION_PERCENT=5
+PLATFORM_COMMISSION_BANK_CODE=your-bank-code
+PLATFORM_COMMISSION_ACCOUNT_NUMBER=your-account-number
+
 # MetaMap KYC Integration
 # METAMAP_API_BASE_URL defaults to https://api.getmati.com when omitted.
 METAMAP_CLIENT_ID=your-metamap-client-id

@@ -15,6 +15,9 @@ import {
   updateMineSite,
 } from '../../../lib/api/mine-sites';
 import { flushFieldQueue, getFieldQueue, queueFieldSubmission } from '../../../lib/offline/field-queue';
+import FormModal from '../../../components/FormModal';
+import DashboardSearchFilters, { ActiveFilter } from '../../../components/DashboardSearchFilters';
+import MapboxMineSitesMap from '../../../components/MapboxMineSitesMap';
 
 const statusOptions: Array<'all' | MineSiteStatus> = ['all', 'planned', 'active', 'suspended', 'closed'];
 const riskOptions: Array<'all' | MineSiteRiskLevel> = ['all', 'low', 'medium', 'high', 'critical'];
@@ -113,6 +116,8 @@ export default function MineSitesPage() {
   const [sites, setSites] = useState<MineSite[]>([]);
   const [selectedSite, setSelectedSite] = useState<MineSite | null>(null);
   const [editingSite, setEditingSite] = useState<MineSite | null>(null);
+  const [isSiteFormOpen, setIsSiteFormOpen] = useState(false);
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [filters, setFilters] = useState<MineSiteFilters>({
     search: '',
     state: '',
@@ -137,9 +142,16 @@ export default function MineSitesPage() {
     linkedLicenses: sites.filter((site) => site.links.hasLicense).length,
   }), [sites]);
 
-  const mappedSites = useMemo(() => {
-    return sites.filter((site) => site.latitude !== null && site.longitude !== null);
-  }, [sites]);
+  const activeFilters = useMemo<ActiveFilter[]>(() => {
+    const active: ActiveFilter[] = [];
+    if (filters.search?.trim()) active.push({ key: 'search', label: `Search: ${filters.search.trim()}`, clear: () => updateFilter('search', '') });
+    if (filters.state?.trim()) active.push({ key: 'state', label: `State: ${filters.state.trim()}`, clear: () => updateFilter('state', '') });
+    if (filters.mineralType?.trim()) active.push({ key: 'mineral', label: `Mineral: ${filters.mineralType.trim()}`, clear: () => updateFilter('mineralType', '') });
+    if (filters.siteStatus !== 'all') active.push({ key: 'status', label: `Status: ${filters.siteStatus}`, clear: () => updateFilter('siteStatus', 'all') });
+    if (filters.riskLevel !== 'all') active.push({ key: 'risk', label: `Risk: ${filters.riskLevel}`, clear: () => updateFilter('riskLevel', 'all') });
+    return active;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
 
   const loadSites = async (nextFilters = filters) => {
     setLoading(true);
@@ -197,6 +209,12 @@ export default function MineSitesPage() {
     }
   };
 
+  const resetFilters = () => {
+    const nextFilters = { search: '', state: '', mineralType: '', siteStatus: 'all', riskLevel: 'all' };
+    setFilters(nextFilters);
+    void loadSites(nextFilters);
+  };
+
   const resetForm = () => {
     setEditingSite(null);
     setForm(emptyForm);
@@ -224,6 +242,7 @@ export default function MineSitesPage() {
         : await createMineSite(payload);
       setSelectedSite(saved);
       resetForm();
+      setIsSiteFormOpen(false);
       await loadSites();
     } catch (err: any) {
       setError(err?.message || 'Failed to save mine site');
@@ -266,6 +285,7 @@ export default function MineSitesPage() {
   const startEdit = (site: MineSite) => {
     setEditingSite(site);
     setForm(toForm(site));
+    setIsSiteFormOpen(true);
   };
 
   const removeSite = async (site: MineSite) => {
@@ -292,9 +312,18 @@ export default function MineSitesPage() {
           <h1 className="text-2xl font-bold text-text-primary">Mine Sites Map</h1>
           <p className="mt-1 text-sm text-text-secondary">Track operator sites, coordinates, licenses, production links, compliance exposure, and environmental risk.</p>
         </div>
-        <div className="rounded-lg border border-border bg-secondary px-4 py-3 text-sm text-text-secondary">
-          <p className="font-semibold text-text-primary">PostGIS evaluation</p>
-          <p className="mt-1 max-w-xl">MVP stores coordinates and optional GeoJSON. Enable PostGIS before polygon editing, proximity search, and clustering become production requirements.</p>
+        <div className="flex flex-col gap-3 lg:items-end">
+          <button
+            type="button"
+            onClick={() => { resetForm(); setIsSiteFormOpen(true); }}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400"
+          >
+            Add Mine Site
+          </button>
+          <div className="rounded-lg border border-border bg-secondary px-4 py-3 text-sm text-text-secondary">
+            <p className="font-semibold text-text-primary">PostGIS evaluation</p>
+            <p className="mt-1 max-w-xl">MVP stores coordinates and optional GeoJSON. Enable PostGIS before polygon editing, proximity search, and clustering become production requirements.</p>
+          </div>
         </div>
       </div>
 
@@ -312,47 +341,91 @@ export default function MineSitesPage() {
         <div className="rounded-lg border border-border bg-secondary p-3"><p className="text-xs text-text-muted">Linked licenses</p><p className="text-xl font-bold">{summary.linkedLicenses}</p></div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-secondary p-4 md:grid-cols-6">
-        <input value={filters.search} onChange={(event) => updateFilter('search', event.target.value)} placeholder="Search site, community, operator" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent md:col-span-2" />
-        <input value={filters.state} onChange={(event) => updateFilter('state', event.target.value)} placeholder="State" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-        <input value={filters.mineralType} onChange={(event) => updateFilter('mineralType', event.target.value)} placeholder="Mineral" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-        <select value={filters.siteStatus} onChange={(event) => updateFilter('siteStatus', event.target.value)} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent">
-          {statusOptions.map((status) => <option key={status} value={status}>Status: {status}</option>)}
-        </select>
-        <select value={filters.riskLevel} onChange={(event) => updateFilter('riskLevel', event.target.value)} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent">
-          {riskOptions.map((risk) => <option key={risk} value={risk}>Risk: {risk}</option>)}
-        </select>
-        <button onClick={() => loadSites(filters)} className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400 md:col-start-6">Apply</button>
-      </div>
+      <DashboardSearchFilters
+        searchValue={filters.search || ''}
+        onSearchChange={(value) => updateFilter('search', value)}
+        searchPlaceholder="Search sites, communities, operators, or coordinates"
+        isFilterPanelOpen={isFilterPanelOpen}
+        onToggleFilters={() => setIsFilterPanelOpen((open) => !open)}
+        activeFilters={activeFilters}
+        onReset={resetFilters}
+      >
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <label className="text-sm text-text-secondary">
+            <span className="mb-1.5 block font-semibold">State</span>
+            <input value={filters.state} onChange={(event) => updateFilter('state', event.target.value)} placeholder="Plateau" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          </label>
+          <label className="text-sm text-text-secondary">
+            <span className="mb-1.5 block font-semibold">Mineral</span>
+            <input value={filters.mineralType} onChange={(event) => updateFilter('mineralType', event.target.value)} placeholder="Tin" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          </label>
+          <label className="text-sm text-text-secondary">
+            <span className="mb-1.5 block font-semibold">Site status</span>
+            <select value={filters.siteStatus} onChange={(event) => updateFilter('siteStatus', event.target.value)} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent">
+              {statusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+            </select>
+          </label>
+          <label className="text-sm text-text-secondary">
+            <span className="mb-1.5 block font-semibold">Risk level</span>
+            <select value={filters.riskLevel} onChange={(event) => updateFilter('riskLevel', event.target.value)} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent">
+              {riskOptions.map((risk) => <option key={risk} value={risk}>{risk}</option>)}
+            </select>
+          </label>
+          <button onClick={() => loadSites(filters)} className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400 md:self-end">Apply Filters</button>
+        </div>
+      </DashboardSearchFilters>
 
       {error && <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>}
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+      <FormModal
+        isOpen={isSiteFormOpen}
+        title={editingSite ? 'Edit Mine Site' : 'Add Mine Site'}
+        description="Capture site ownership, minerals, coordinates, links, and risk status."
+        onClose={() => { setIsSiteFormOpen(false); resetForm(); }}
+      >
+        <form onSubmit={submitForm} className="space-y-3">
+          <input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Site name" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          {canAssignOperator && <input required={!editingSite} value={form.operatorId} onChange={(event) => setForm({ ...form, operatorId: event.target.value })} placeholder="Operator miner ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />}
+          <input value={form.licenseId} onChange={(event) => setForm({ ...form, licenseId: event.target.value })} placeholder="License ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          <input required value={form.mineralTypes} onChange={(event) => setForm({ ...form, mineralTypes: event.target.value })} placeholder="Minerals, comma-separated" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          <div className="grid grid-cols-2 gap-3">
+            <input required value={form.state} onChange={(event) => setForm({ ...form, state: event.target.value })} placeholder="State" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+            <input value={form.lga} onChange={(event) => setForm({ ...form, lga: event.target.value })} placeholder="LGA" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          </div>
+          <input value={form.community} onChange={(event) => setForm({ ...form, community: event.target.value })} placeholder="Community" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          <div className="grid grid-cols-2 gap-3">
+            <input type="number" step="0.0000001" value={form.latitude} onChange={(event) => setForm({ ...form, latitude: event.target.value })} placeholder="Latitude" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+            <input type="number" step="0.0000001" value={form.longitude} onChange={(event) => setForm({ ...form, longitude: event.target.value })} placeholder="Longitude" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          </div>
+          <button type="button" onClick={captureLocation} className="w-full rounded-md border border-border px-3 py-2 text-sm font-semibold text-text-secondary hover:border-accent hover:text-accent">Use GPS Location</button>
+          <div className="grid grid-cols-2 gap-3">
+            <select value={form.siteStatus} onChange={(event) => setForm({ ...form, siteStatus: event.target.value as MineSiteStatus })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent">
+              {statusOptions.filter((status) => status !== 'all').map((status) => <option key={status} value={status}>{status}</option>)}
+            </select>
+            <select value={form.riskLevel} onChange={(event) => setForm({ ...form, riskLevel: event.target.value as MineSiteRiskLevel })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent">
+              {riskOptions.filter((risk) => risk !== 'all').map((risk) => <option key={risk} value={risk}>{risk}</option>)}
+            </select>
+          </div>
+          <textarea value={form.documentIds} onChange={(event) => setForm({ ...form, documentIds: event.target.value })} placeholder="Document IDs, comma-separated" rows={2} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          <textarea value={form.productionReportIds} onChange={(event) => setForm({ ...form, productionReportIds: event.target.value })} placeholder="Production report IDs" rows={2} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          <textarea value={form.complianceCaseIds} onChange={(event) => setForm({ ...form, complianceCaseIds: event.target.value })} placeholder="Compliance case IDs" rows={2} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          <textarea value={form.environmentalRecordIds} onChange={(event) => setForm({ ...form, environmentalRecordIds: event.target.value })} placeholder="Environmental record IDs" rows={2} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => { setIsSiteFormOpen(false); resetForm(); }} className="rounded-md border border-border px-4 py-2 text-sm font-semibold text-text-secondary hover:border-accent hover:text-accent">Cancel</button>
+            <button disabled={saving} className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-70">{saving ? 'Saving...' : editingSite ? 'Update Site' : 'Create Site'}</button>
+          </div>
+        </form>
+      </FormModal>
+
+      <div className={`grid grid-cols-1 gap-6 ${selectedSite ? 'xl:grid-cols-[1.35fr_0.65fr]' : ''}`}>
         <section className="overflow-hidden rounded-lg border border-border bg-secondary">
           <div className="relative h-[520px] bg-primary">
-            <div className="absolute inset-0 opacity-60" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
-            <div className="absolute left-4 top-4 rounded-md border border-border bg-secondary/95 px-3 py-2 text-xs text-text-secondary">
-              Nigeria coordinate layer · {mappedSites.length} mapped
-            </div>
-            {loading ? (
-              <div className="absolute inset-0 flex items-center justify-center text-text-muted">Loading mine sites...</div>
-            ) : mappedSites.length === 0 ? (
-              <div className="absolute inset-0 flex items-center justify-center text-text-muted">No mapped sites match the current filters.</div>
-            ) : mappedSites.map((site) => {
-              const left = Math.min(92, Math.max(8, (((site.longitude || 0) - 2.5) / 12.5) * 100));
-              const top = Math.min(90, Math.max(10, (1 - (((site.latitude || 0) - 4) / 10)) * 100));
-              return (
-                <button
-                  key={site.id}
-                  onClick={() => setSelectedSite(site)}
-                  className={`absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-lg transition-transform hover:scale-125 ${site.riskLevel === 'critical' || site.riskLevel === 'high' ? 'bg-red-500' : site.siteStatus === 'active' ? 'bg-green-500' : 'bg-yellow-400'}`}
-                  style={{ left: `${left}%`, top: `${top}%` }}
-                  title={site.name}
-                >
-                  <span className="sr-only">{site.name}</span>
-                </button>
-              );
-            })}
+            <MapboxMineSitesMap
+              sites={sites}
+              selectedSiteId={selectedSite?.id}
+              loading={loading}
+              onSelectSite={setSelectedSite}
+            />
           </div>
           <div className="overflow-x-auto border-t border-border">
             <table className="w-full min-w-[900px] border-collapse text-left">
@@ -384,44 +457,8 @@ export default function MineSitesPage() {
           </div>
         </section>
 
-        <aside className="space-y-6">
-          <form onSubmit={submitForm} className="rounded-lg border border-border bg-secondary p-4">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="font-bold text-text-primary">{editingSite ? 'Edit Site' : 'Add Mine Site'}</h2>
-              {editingSite && <button type="button" onClick={resetForm} className="text-xs font-semibold text-text-muted hover:text-accent">Cancel</button>}
-            </div>
-            <div className="mt-4 space-y-3">
-              <input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Site name" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              {canAssignOperator && <input required={!editingSite} value={form.operatorId} onChange={(event) => setForm({ ...form, operatorId: event.target.value })} placeholder="Operator miner ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />}
-              <input value={form.licenseId} onChange={(event) => setForm({ ...form, licenseId: event.target.value })} placeholder="License ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              <input required value={form.mineralTypes} onChange={(event) => setForm({ ...form, mineralTypes: event.target.value })} placeholder="Minerals, comma-separated" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              <div className="grid grid-cols-2 gap-3">
-                <input required value={form.state} onChange={(event) => setForm({ ...form, state: event.target.value })} placeholder="State" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-                <input value={form.lga} onChange={(event) => setForm({ ...form, lga: event.target.value })} placeholder="LGA" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              </div>
-              <input value={form.community} onChange={(event) => setForm({ ...form, community: event.target.value })} placeholder="Community" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              <div className="grid grid-cols-2 gap-3">
-                <input type="number" step="0.0000001" value={form.latitude} onChange={(event) => setForm({ ...form, latitude: event.target.value })} placeholder="Latitude" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-                <input type="number" step="0.0000001" value={form.longitude} onChange={(event) => setForm({ ...form, longitude: event.target.value })} placeholder="Longitude" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              </div>
-              <button type="button" onClick={captureLocation} className="w-full rounded-md border border-border px-3 py-2 text-sm font-semibold text-text-secondary hover:border-accent hover:text-accent">Use GPS Location</button>
-              <div className="grid grid-cols-2 gap-3">
-                <select value={form.siteStatus} onChange={(event) => setForm({ ...form, siteStatus: event.target.value as MineSiteStatus })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent">
-                  {statusOptions.filter((status) => status !== 'all').map((status) => <option key={status} value={status}>{status}</option>)}
-                </select>
-                <select value={form.riskLevel} onChange={(event) => setForm({ ...form, riskLevel: event.target.value as MineSiteRiskLevel })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent">
-                  {riskOptions.filter((risk) => risk !== 'all').map((risk) => <option key={risk} value={risk}>{risk}</option>)}
-                </select>
-              </div>
-              <textarea value={form.documentIds} onChange={(event) => setForm({ ...form, documentIds: event.target.value })} placeholder="Document IDs, comma-separated" rows={2} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              <textarea value={form.productionReportIds} onChange={(event) => setForm({ ...form, productionReportIds: event.target.value })} placeholder="Production report IDs" rows={2} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              <textarea value={form.complianceCaseIds} onChange={(event) => setForm({ ...form, complianceCaseIds: event.target.value })} placeholder="Compliance case IDs" rows={2} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              <textarea value={form.environmentalRecordIds} onChange={(event) => setForm({ ...form, environmentalRecordIds: event.target.value })} placeholder="Environmental record IDs" rows={2} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-              <button disabled={saving} className="w-full rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-70">{saving ? 'Saving...' : editingSite ? 'Update Site' : 'Create Site'}</button>
-            </div>
-          </form>
-
-          {selectedSite && (
+        {selectedSite && (
+          <aside className="space-y-6">
             <section className="rounded-lg border border-border bg-secondary p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -450,8 +487,8 @@ export default function MineSitesPage() {
                 <button onClick={() => removeSite(selectedSite)} disabled={saving} className="rounded-md border border-red-500/40 px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/10 disabled:opacity-70">Delete</button>
               </div>
             </section>
-          )}
-        </aside>
+          </aside>
+        )}
       </div>
     </div>
   );
