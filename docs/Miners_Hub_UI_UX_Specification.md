@@ -4,9 +4,12 @@
 
 Miners Hub should feel like a trusted civic infrastructure product with a marketplace layer: clear, professional, data-rich, and operationally efficient. The interface must support repeated daily work by miners, administrators, regulators, buyers, and partners rather than behave like a marketing website.
 
+Public positioning should communicate Miners Hub as compliance-first mineral commerce infrastructure: verified minerals, compliant trade, traceable batches, and investor-ready opportunities. Marketplace language should remain present but secondary to trust, legality, and operational evidence.
+
 Core principles:
 
 - Trust first: verification, approval state, document status, payment state, and traceability must be visible.
+- Compliance first: license category, export readiness, environmental obligations, AML/KYB risk, and review history must appear wherever they influence action.
 - Operational clarity: users should always know what needs attention and what changed recently.
 - Low friction: registration, KYC, listing creation, document upload, orders, contracts, and reporting must have guided flows.
 - Mobile-aware: field users need responsive screens, short forms, resumable tasks, and upload-friendly interactions.
@@ -257,12 +260,14 @@ Purpose: introduce Miners Hub, surface marketplace access, registration, service
 Primary components:
 
 - Header with marketplace, services, logistics, forum, knowledge base, register, and login.
-- Hero area with clear Miners Hub identity.
+- Hero area with clear Miners Hub identity and compliance-first positioning: verified minerals, compliant trade, and investable opportunities.
 - Mineral price or market snapshot.
 - How it works.
 - Featured miners/listings or services.
 - Partner and stakeholder signals.
 - Footer with policy links.
+
+Homepage trust signals should prioritize verified actors, license-aware records, escrow-backed trade, traceability, lab evidence, logistics chain-of-custody, ESG/compliance workflows, and investor due diligence.
 
 ### Marketplace
 
@@ -346,11 +351,21 @@ Primary components:
 
 - License table.
 - Expiry calendar.
+- Export readiness checklist table.
+- ESG obligation register with CDA, EIA, rehabilitation, reclamation, compensation/remediation, and community benefit statuses.
+- AML/KYB profile register with beneficial ownership, SCUML evidence, source-of-funds/source-of-minerals notes, suspicious activity state, and risk tier.
 - Compliance case board.
 - Inspection forms.
 - Document viewer.
 - Review notes.
 - Audit timeline.
+
+Interaction requirements:
+
+- Add/edit license, export-readiness, ESG obligation, and compliance case workflows open in modals.
+- Admin/government reviewers can approve, reject, block, waive, or require action from detail drawers without leaving the page.
+- Investor-facing opportunity cards and details should show a concise ESG/community readiness summary, due-diligence review status, and risk score when a linked mine site has obligations.
+- Investor opportunity reviewers can approve or require action on the diligence pack before publication.
 
 ### Production Reports
 
@@ -579,5 +594,5 @@ Future releases should add:
 - Logistics shipment management.
 - Mineral passport certificate and public QR verification.
 - Environmental monitoring dashboards.
-- Investor opportunity portal and deal room.
+- Investor opportunity portal and deal room, building on the implemented public opportunity view and ESG/community due-diligence summary.
 - Mobile/PWA offline capture for field reports, inspections, and uploads.

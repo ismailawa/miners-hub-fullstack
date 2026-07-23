@@ -6,6 +6,10 @@ Miners Hub is a digital ecosystem for formalizing mining activity, improving gov
 
 The product combines a government-facing mining administration platform with a commercial marketplace for miners, buyers, investors, laboratories, logistics providers, financiers, insurers, processors, exporters, communities, and development partners.
 
+Strategic positioning:
+
+Miners Hub is Nigeria's compliance-first operating layer for legal, traceable, and investable mineral commerce. The marketplace is a distribution channel, but the core product is the trust infrastructure underneath it: verified actors, license-aware records, mine-site evidence, production reporting, lab validation, escrow, logistics chain-of-custody, environmental obligations, export readiness, audit trails, and investor due diligence.
+
 ## 2. Problem Statement
 
 Plateau State's mining sector is constrained by informal operations, fragmented records, revenue leakage, manual licensing and compliance processes, weak traceability, limited production reporting, poor logistics visibility, fragmented buyer networks, limited financing access, environmental oversight gaps, and insufficient data for policy decisions.
@@ -22,6 +26,9 @@ Miners Hub addresses these problems by creating a single source of truth for min
 - Provide mineral passport and traceability records from source site through testing, logistics, sale, and export.
 - Improve royalty and fee visibility for government revenue collection.
 - Provide dashboards for policy, market intelligence, investor engagement, and operational monitoring.
+- Package mining opportunities with license, compliance, ESG, logistics, production, lab, and risk context so investors can evaluate opportunities with confidence.
+- Support lawful mineral export readiness with title, export permit, assay, invoice, customs, logistics, and proceeds records where applicable.
+- Add AML/KYB readiness for high-risk mineral trade actors, especially buyers, exporters, buying centers, and precious mineral dealers.
 - Offer web and mobile-ready access for field users with low-bandwidth realities.
 
 ## 4. Success Metrics
@@ -93,6 +100,9 @@ The current Miners Hub codebase already includes the following product foundatio
 - Forum posts and replies for stakeholder discussions.
 - Events and admin event management.
 - AI chat, market summary, and forecast endpoints.
+- Compliance registers for mineral titles, export readiness, ESG obligations, AML/KYB risk profiles, and compliance cases.
+- Investor opportunities with ESG summaries, computed due-diligence scores, admin/government review state, publication gate, and inquiry tracking.
+- Logistics quote acceptance, shipment creation, delivery/passport synchronization, escrow release readiness, and dispute escrow hold regression coverage.
 - Public pages for marketplace, forum, news, knowledge base, data analytics, services, logistics, warehousing, registration guide, and policy pages.
 - Dashboard pages for overview, messages, profile, contracts, orders, transactions, listings, and miner task management.
 
@@ -120,10 +130,13 @@ Priority:
 
 The system shall digitize license submission, document review, expiry tracking, renewal reminders, inspection records, compliance flags, and approval history.
 
+License records should support Nigerian mineral-title and trade-permit categories, including Reconnaissance Permit, Exploration Licence, Small-Scale Mining Lease, Mining Lease, Quarry Lease, Water Use Permit, Possess and Purchase Licence, Mineral Buying Center Licence, and Mineral Export Permit. Export permits should be modelled per shipment where the business process requires it.
+
 Priority:
 
 - MVP extension: build on existing documents and admin review workflows.
-- Phase 2: add regulator roles, compliance case management, inspection scheduling, and renewal automation.
+- Phase 2: add regulator roles, compliance case management, inspection scheduling, renewal automation, title/permit category configuration, annual service fee tracking, and permit-priority audit history.
+- Phase 3: add Community Development Agreement tracking for ML, SSML, and QL holders, host-community obligation status, and evidence of periodic review.
 
 ### 7.4 Production Reporting
 
@@ -192,6 +205,8 @@ Priority:
 
 The system shall present verified investment opportunities, mining site summaries, production history, compliance profile, supporting documents, contact workflows, and inquiry tracking.
 
+Investor opportunities must be risk-aware. Each opportunity should expose license category/status, site status, production history, lab evidence, environmental/compliance flags, CDA/host-community obligation status where applicable, logistics feasibility, infrastructure constraints, security risk notes, capital requirement, expected use of funds, and due diligence documents.
+
 Priority:
 
 - MVP extension: enhance investor profile and inquiry records.
@@ -205,6 +220,20 @@ Priority:
 
 - Phase 1: responsive web support.
 - Phase 4: dedicated mobile app or PWA with offline queueing and location capture.
+
+### 7.13 Export Readiness and AML Risk Controls
+
+The system shall support lawful mineral export preparation and AML/KYB controls for regulated mineral trade actors.
+
+Export readiness should capture mineral title, export permit, buyer/exporter identity, assay/lab certificate, mineral passport, accepted logistics quote, shipping documents, invoice, customs/clearing status, carrier reference, payment/proceeds metadata, and exceptions that block shipment release.
+
+AML/KYB controls should capture beneficial ownership where required, SCUML-style registration evidence where applicable, risk tier, source-of-funds/source-of-minerals notes, transaction monitoring flags, high-risk region indicators, suspicious activity notes, and admin/regulator review outcomes.
+
+Priority:
+
+- Implemented: KYB/AML profiles, beneficial ownership fields, SCUML evidence, risk tiering, source notes, suspicious activity status, and reviewer decisions.
+- Implemented: export-readiness checklist records linked to orders, mineral passports, logistics references, invoices, and documents.
+- Phase 4: add configurable AML rules, anomaly detection, regulator report exports, and external watchlist integrations.
 
 ## 8. Functional Requirements
 
@@ -236,6 +265,14 @@ Priority:
 - Users can upload required documents for KYC, licenses, listings, contracts, laboratory results, production reports, and environmental inspections.
 - Admins can review, approve, reject, and annotate documents.
 - The system should store file metadata and secure file URLs.
+
+### Compliance, ESG, and Export Readiness
+
+- License workflows should distinguish exploration, mining, quarrying, water-use, buying-center, possess-and-purchase, and export-permit records.
+- ML, SSML, and QL workflows should support Community Development Agreement records and review status.
+- Environmental workflows should track EIA, rehabilitation program, reclamation reserve, compensation/remediation evidence, and unresolved environmental obligations.
+- Export workflows should validate that the relevant mineral title, permit, lab evidence, mineral passport, logistics documentation, invoice, and customs status are present before marking a shipment export-ready.
+- AML/KYB workflows should support risk-tiering for buyers, exporters, buying centers, investors, and high-value mineral transactions.
 
 ### Administration
 
@@ -275,6 +312,9 @@ Priority:
 - Launch miner registry.
 - Add mine site records and GIS map.
 - Add licensing and compliance case management.
+- Add mineral title and permit category support for RP, EL, SSML, ML, QL, WUP, Possess and Purchase, Buying Center, and Export Permit records.
+- Add CDA, EIA, rehabilitation, reclamation reserve, and compensation obligation tracking.
+- Add KYB and AML risk fields for regulated mineral trade actors.
 - Add production reporting and royalty-ready data capture.
 - Add government revenue dashboards.
 
@@ -289,6 +329,7 @@ Priority:
 ### Phase 4: Finance, AI, Investor Services, and Mobile
 
 - Expand investor portal.
+- Add investor opportunity risk scoring across license, site, security, ESG, logistics, production, lab, and export readiness.
 - Add financing, insurance, and analytics subscription workflows.
 - Improve AI analytics and forecasting.
 - Launch mobile/PWA offline field workflows.

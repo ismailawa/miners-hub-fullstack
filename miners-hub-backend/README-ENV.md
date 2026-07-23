@@ -15,6 +15,7 @@ NODE_ENV=development
 # Connection string format: postgresql://user:password@host:port/database
 # Get this from Supabase Dashboard > Settings > Database > Connection string > URI
 DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
+TYPEORM_SYNC=false
 
 # Cloudinary Upload Configuration
 # Used for KYC documents, listing attachments, and onboarding file uploads
@@ -76,9 +77,12 @@ For local development, create a `.env` file with:
 PORT=3001
 NODE_ENV=development
 FRONTEND_URL=http://localhost:3000
+TYPEORM_SYNC=false
 ```
 
-Database and other configuration will be added in subsequent stories.
+Run `npm run migration:run` whenever backend migrations are added or pulled.
+Avoid `TYPEORM_SYNC=true` for shared development data because it can hide
+missing migration problems and create schema drift.
 
 ## See Also
 

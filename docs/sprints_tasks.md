@@ -34,6 +34,9 @@ Status legend:
 - [x] Review audit log coverage for admin and regulated actions.
 - [x] Persist revoked refresh tokens outside process memory.
 - [x] Add audit logging for document upload/delete and listing create/update/delete.
+- [x] Run Docker development database with TypeORM synchronize disabled and document migration-first workflow.
+- [x] Add admin moderation side effects for user unapproval/rejection and listing unpublish workflows.
+- [x] Add regression tests for admin auction/listing status side effects.
 
 ### Story 1.3: Implemented MVP Capabilities Found in Codebase
 
@@ -60,6 +63,7 @@ Status legend:
 - [x] Implement authenticated dashboard shell with overview, messages, profile, contracts, orders, transactions, listings, tasks, marketplace, and admin sections.
 - [x] Make dashboard navigation groups collapsible.
 - [x] Keep only the active dashboard navigation group open.
+- [x] Replace page-level loading screens with branded blinking Miners Hub loader.
 - [x] Improve home page global search experience.
 - [x] Convert dashboard add and edit forms to modal flows.
 - [x] Remove empty form columns and standardize dashboard search/filter panels.
@@ -112,6 +116,7 @@ Status legend:
 - [x] Improve order and escrow timeline clarity.
 - [x] Add frontend controls for existing backend min/max price filters.
 - [x] Add marketplace filters for grade, quantity, and seller verification status.
+- [x] Prevent unpublished or unapproved auction listings from remaining bid-accessible.
 
 ### Story 3.2: Logistics Management
 
@@ -149,7 +154,7 @@ Status legend:
 - [x] Automatically link delivered shipments to mineral passports and refresh passport snapshots with tracking ID, provider, route, milestones, and delivery evidence.
 - [x] Add logistics dispute and cancellation rules that pause delivery completion and prevent escrow release until resolved.
 - [x] Add seed data covering Maersk international carrier and local vehicle provider scenarios.
-- [ ] Add end-to-end tests covering order payment, quote, acceptance, shipment creation, milestone updates, proof upload, delivery confirmation, passport update, and escrow release readiness.
+- [x] Add end-to-end tests covering order payment, quote, acceptance, shipment creation, milestone updates, proof upload, delivery confirmation, passport update, and escrow release readiness.
 
 ### Story 3.3: Laboratory Integration
 
@@ -200,3 +205,33 @@ Status legend:
 - [x] Add mobile-first inspection and environmental evidence upload.
 - [x] Add offline queueing strategy for field submissions.
 - [x] Add location capture for site, inspection, and incident records.
+
+## Sprint 5: Compliance-First Positioning and Mineral Trade Risk Controls
+
+### Story 5.1: Strategic Positioning Refinement
+
+- [x] Reposition public Miners Hub messaging around verified minerals, compliant trade, traceability, and investor-ready opportunities.
+- [x] Update PRD, architecture, database, and UI/UX docs with compliance-first mineral commerce direction.
+
+### Story 5.2: Mineral Title, Permit, and Export Readiness
+
+- [x] Add configurable mineral title and permit categories for RP, EL, SSML, ML, QL, WUP, Possess and Purchase, Mineral Buying Center, and Mineral Export Permit records.
+- [x] Track annual service fees, expiry, renewal reminders, application priority evidence, and permit-per-shipment export records.
+- [x] Add export-readiness checklist linking mineral title, export permit, lab certificate, mineral passport, invoice, customs status, and logistics documentation.
+
+### Story 5.3: ESG, CDA, and Environmental Obligations
+
+- [x] Track Community Development Agreement status for ML, SSML, and QL holders.
+- [x] Track EIA, rehabilitation program, reclamation reserve, compensation/remediation evidence, and unresolved environmental obligations.
+- [x] Surface ESG and host-community obligation status in investor opportunity due diligence packs.
+
+### Story 5.4: AML/KYB and Risk Controls
+
+- [x] Add KYB and beneficial ownership profile fields for buyers, exporters, buying centers, investors, and high-value mineral actors.
+- [x] Add SCUML-style registration evidence, risk tier, source-of-funds/source-of-minerals notes, and suspicious activity review status.
+- [x] Add risk indicators for high-risk geography, inconsistent production/listing volumes, missing licenses, and unusual transaction patterns.
+
+### Story 5.5: Investor Opportunity Risk Scoring
+
+- [x] Add opportunity scoring across license status, site status, production history, lab evidence, ESG obligations, logistics feasibility, security notes, and export readiness.
+- [x] Add investor-facing due diligence summary and admin/government review state before publication.

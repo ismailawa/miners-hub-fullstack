@@ -107,6 +107,11 @@ docker-compose exec backend npm run migration:run
 docker-compose -f docker-compose.dev.yml exec backend npm run migration:run
 ```
 
+The development compose file runs with `TYPEORM_SYNC=false`. Keep schema changes
+migration-driven so local Docker, staging, and production databases behave the
+same way. After pulling backend entity changes or adding a migration, run the
+development migration command above before testing the affected feature.
+
 ## Development Database Persistence
 
 The development compose file persists PostgreSQL data in the named volume
@@ -132,7 +137,7 @@ If ports 3000, 3001, or 5432 are already in use, modify the port mappings in `do
 
 ```yaml
 ports:
-  - "3002:3000"  # Change host port
+  - "3002:3000" # Change host port
 ```
 
 ### Database Connection Issues

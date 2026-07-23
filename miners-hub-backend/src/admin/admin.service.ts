@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User, VerificationStatus } from '../entities/user.entity';
+import { In, Repository } from 'typeorm';
+import { User, UserRole, VerificationStatus } from '../entities/user.entity';
 import { Miner } from '../entities/miner.entity';
 import { Listing, ListingStatus } from '../entities/listing.entity';
 import { Auction } from '../entities/auction.entity';
@@ -29,7 +29,10 @@ type RegistryRole = 'miner' | 'investor' | 'laboratory' | 'logistics';
 
 interface RegistryFilters {
   role?: RegistryRole | 'all';
-  status?: VerificationStatus | LaboratoryPartnerStatus | LogisticsProviderStatus;
+  status?:
+    | VerificationStatus
+    | LaboratoryPartnerStatus
+    | LogisticsProviderStatus;
   documentStatus?: DocumentReviewStatus;
   location?: string;
   mineralType?: string;
@@ -67,9 +70,7 @@ export class AdminService {
     const query = this.userRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.miner', 'miner')
-      .leftJoinAndSelect('miner.listings', 'listings')
-      .leftJoinAndSelect('user.investor', 'investor')
-      .leftJoinAndSelect('user.documents', 'documents');
+      .leftJoinAndSelect('user.investor', 'investor');
 
     if (status) {
       query.where('user.verificationStatus = :status', { status });
@@ -82,7 +83,53 @@ export class AdminService {
     query.orderBy('user.createdAt', 'DESC');
     query.skip(rawOffset).take(Math.min(limit, 100));
 
-    return query.getMany();
+    const users = await query.getMany();
+    if (users.length === 0) return [];
+
+    const userIds = users.map((user) => user.id);
+    const minerIds = users
+      .map((user) => user.miner?.id)
+      .filter((id): id is string => Boolean(id));
+
+    const [documents, listings] = await Promise.all([
+      this.documentRepository.find({
+        where: { userId: In(userIds) },
+        order: { createdAt: 'DESC' },
+      }),
+      minerIds.length > 0
+        ? this.listingRepository.find({
+            where: { minerId: In(minerIds) },
+            order: { createdAt: 'DESC' },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const documentsByUserId = new Map<string, Document[]>();
+    documents.forEach((document) => {
+      documentsByUserId.set(document.userId, [
+        ...(documentsByUserId.get(document.userId) || []),
+        document,
+      ]);
+    });
+
+    const listingsByMinerId = new Map<string, Listing[]>();
+    listings.forEach((listing) => {
+      listingsByMinerId.set(listing.minerId, [
+        ...(listingsByMinerId.get(listing.minerId) || []),
+        listing,
+      ]);
+    });
+
+    return users.map((user) => ({
+      ...user,
+      documents: documentsByUserId.get(user.id) || [],
+      miner: user.miner
+        ? {
+            ...user.miner,
+            listings: listingsByMinerId.get(user.miner.id) || [],
+          }
+        : user.miner,
+    }));
   }
 
   async getMinerRegistry(filters: RegistryFilters) {
@@ -538,7 +585,8 @@ export class AdminService {
       contact: {
         name: provider.user?.name || null,
         email: provider.contactEmail || provider.user?.email || null,
-        phoneNumber: provider.contactPhone || provider.user?.phoneNumber || null,
+        phoneNumber:
+          provider.contactPhone || provider.user?.phoneNumber || null,
       },
       userId: provider.userId || null,
       companyName: provider.companyName,
@@ -728,23 +776,78 @@ export class AdminService {
       user.onboardingComplete = false;
     }
     const saved = await this.userRepository.save(user);
+    const moderation = await this.applyUserVerificationSideEffects(
+      saved,
+      status,
+    );
     if (adminId) {
       this.auditLogService.log({
         userId: adminId,
         action: 'admin.user.verify',
         resource: 'user',
         resourceId: id,
-        metadata: { status },
+        metadata: { status, moderation },
       });
     }
     return saved;
   }
 
+  private async applyUserVerificationSideEffects(
+    user: User,
+    status: VerificationStatus,
+  ) {
+    if (
+      user.role !== UserRole.MINER ||
+      status === VerificationStatus.VERIFIED
+    ) {
+      return { affectedListings: 0, cancelledAuctions: 0 };
+    }
+
+    const miner = await this.minerRepository.findOne({
+      where: { userId: user.id },
+    });
+    if (!miner) {
+      return { affectedListings: 0, cancelledAuctions: 0 };
+    }
+
+    const nextListingStatus =
+      status === VerificationStatus.REJECTED
+        ? ListingStatus.ARCHIVED
+        : ListingStatus.UNDER_REVIEW;
+    const listings = await this.listingRepository.find({
+      where: {
+        minerId: miner.id,
+        status: In([
+          ListingStatus.SUBMITTED,
+          ListingStatus.UNDER_REVIEW,
+          ListingStatus.PUBLISHED,
+        ]),
+      },
+    });
+
+    let cancelledAuctions = 0;
+    for (const listing of listings) {
+      if (
+        listing.status === ListingStatus.PUBLISHED &&
+        listing.listingType === 'auction' &&
+        (await this.cancelActiveAuctionForListing(listing.id))
+      ) {
+        cancelledAuctions += 1;
+      }
+      listing.status = nextListingStatus;
+    }
+
+    if (listings.length > 0) {
+      await this.listingRepository.save(listings);
+    }
+
+    return { affectedListings: listings.length, cancelledAuctions };
+  }
+
   private resolveLicenseStatus(documents: Document[]) {
     if (
       documents.some(
-        (document) =>
-          document.reviewStatus === DocumentReviewStatus.APPROVED,
+        (document) => document.reviewStatus === DocumentReviewStatus.APPROVED,
       )
     ) {
       return DocumentReviewStatus.APPROVED;
@@ -807,8 +910,12 @@ export class AdminService {
 
     listing.status = status;
     const saved = await this.listingRepository.save(listing);
-    if (saved.status === ListingStatus.PUBLISHED && saved.listingType === 'auction') {
-      await this.ensureAuctionForPublishedListing(saved);
+    if (saved.listingType === 'auction') {
+      if (saved.status === ListingStatus.PUBLISHED) {
+        await this.ensureAuctionForPublishedListing(saved);
+      } else {
+        await this.cancelActiveAuctionForListing(saved.id);
+      }
     }
     if (adminId) {
       this.auditLogService.log({
@@ -822,11 +929,26 @@ export class AdminService {
     return saved;
   }
 
-  private async ensureAuctionForPublishedListing(listing: Listing): Promise<void> {
+  private async ensureAuctionForPublishedListing(
+    listing: Listing,
+  ): Promise<void> {
     const existing = await this.auctionRepository.findOne({
       where: { listingId: listing.id },
     });
-    if (existing) return;
+    if (existing) {
+      if (existing.status === 'cancelled') {
+        const startTime = new Date();
+        existing.status = 'active';
+        existing.startTime = startTime;
+        existing.endTime = new Date(
+          startTime.getTime() + 7 * 24 * 60 * 60 * 1000,
+        );
+        existing.startingBid = Number(listing.price);
+        existing.currentBid = null;
+        await this.auctionRepository.save(existing);
+      }
+      return;
+    }
 
     const startTime = new Date();
     const endTime = new Date(startTime.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -840,6 +962,19 @@ export class AdminService {
       status: 'active',
     });
     await this.auctionRepository.save(auction);
+  }
+
+  private async cancelActiveAuctionForListing(
+    listingId: string,
+  ): Promise<boolean> {
+    const auction = await this.auctionRepository.findOne({
+      where: { listingId, status: 'active' },
+    });
+    if (!auction) return false;
+
+    auction.status = 'cancelled';
+    await this.auctionRepository.save(auction);
+    return true;
   }
 
   async getOrders(status?: OrderStatus, limit = 100, rawOffset = 0) {

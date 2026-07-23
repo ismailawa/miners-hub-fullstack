@@ -8,9 +8,27 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 import { User } from './user.entity';
 import { MineSite } from './mine-site.entity';
+
+export enum LicenseType {
+  RECONNAISSANCE_PERMIT = 'reconnaissance_permit',
+  EXPLORATION_LICENCE = 'exploration_licence',
+  SMALL_SCALE_MINING_LEASE = 'small_scale_mining_lease',
+  MINING_LEASE = 'mining_lease',
+  QUARRY_LEASE = 'quarry_lease',
+  WATER_USE_PERMIT = 'water_use_permit',
+  POSSESS_AND_PURCHASE_LICENCE = 'possess_and_purchase_licence',
+  MINERAL_BUYING_CENTER_LICENCE = 'mineral_buying_center_licence',
+  MINERAL_EXPORT_PERMIT = 'mineral_export_permit',
+}
 
 export enum LicenseStatus {
   SUBMITTED = 'submitted',
@@ -31,6 +49,7 @@ export enum LicenseRenewalStatus {
 @Index(['holderUserId'])
 @Index(['siteId'])
 @Index(['status'])
+@Index(['licenseType'])
 @Index(['expiryDate'])
 export class License {
   @PrimaryGeneratedColumn('uuid')
@@ -58,10 +77,15 @@ export class License {
   @IsString()
   licenseNumber!: string;
 
-  @Column({ name: 'license_type' })
+  @Column({
+    name: 'license_type',
+    type: 'enum',
+    enum: LicenseType,
+    default: LicenseType.MINING_LEASE,
+  })
   @IsNotEmpty()
-  @IsString()
-  licenseType!: string;
+  @IsEnum(LicenseType)
+  licenseType!: LicenseType;
 
   @Column({ name: 'issuing_authority' })
   @IsNotEmpty()
@@ -73,6 +97,42 @@ export class License {
 
   @Column({ name: 'expiry_date', type: 'date' })
   expiryDate!: string;
+
+  @Column({
+    name: 'annual_service_fee',
+    type: 'decimal',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
+  annualServiceFee?: number | null;
+
+  @Column({ name: 'service_fee_paid_until', type: 'date', nullable: true })
+  serviceFeePaidUntil?: string | null;
+
+  @Column({
+    name: 'application_priority_date',
+    type: 'timestamp',
+    nullable: true,
+  })
+  applicationPriorityDate?: Date | null;
+
+  @Column({
+    name: 'permit_shipment_reference',
+    type: 'varchar',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  permitShipmentReference?: string | null;
+
+  @Column({ name: 'issuing_office', type: 'varchar', nullable: true })
+  @IsOptional()
+  @IsString()
+  issuingOffice?: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  metadata?: Record<string, any> | null;
 
   @Column({
     type: 'enum',

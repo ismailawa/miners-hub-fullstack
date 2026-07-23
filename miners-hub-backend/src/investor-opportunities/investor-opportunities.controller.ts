@@ -1,9 +1,21 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import {
   CreateInvestorOpportunityDto,
   CreateInvestorOpportunityInquiryDto,
   InvestorOpportunityFilterDto,
+  ReviewInvestorOpportunityDto,
   UpdateInvestorOpportunityDto,
   UpdateInvestorOpportunityInquiryDto,
 } from './investor-opportunities.dto';
@@ -11,7 +23,9 @@ import { InvestorOpportunitiesService } from './investor-opportunities.service';
 
 @Controller('investor-opportunities')
 export class InvestorOpportunitiesController {
-  constructor(private readonly investorOpportunitiesService: InvestorOpportunitiesService) {}
+  constructor(
+    private readonly investorOpportunitiesService: InvestorOpportunitiesService,
+  ) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -44,6 +58,16 @@ export class InvestorOpportunitiesController {
     @Body() dto: UpdateInvestorOpportunityDto,
   ) {
     return this.investorOpportunitiesService.update(req.user, id, dto);
+  }
+
+  @Patch(':id/review')
+  @UseGuards(JwtAuthGuard)
+  review(
+    @Request() req: any,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReviewInvestorOpportunityDto,
+  ) {
+    return this.investorOpportunitiesService.review(req.user, id, dto);
   }
 
   @Post(':id/inquiries')

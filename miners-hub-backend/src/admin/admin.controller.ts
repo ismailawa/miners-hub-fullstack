@@ -38,12 +38,12 @@ export class AdminController {
 
   @Get('users')
   async getUsers(
-    @Query('status') status?: VerificationStatus,
+    @Query('status') status?: VerificationStatus | 'all',
     @Query('limit') limit?: string,
     @Query('rawOffset') rawOffset?: string,
   ) {
     return this.adminService.getUsers(
-      status,
+      status === 'all' ? undefined : status,
       Number(limit) || 100,
       Number(rawOffset) || 0,
     );

@@ -816,6 +816,113 @@ Suggested fields:
 - `created_at timestamp`
 - `updated_at timestamp`
 
+### export_readiness_checklists
+
+Purpose: shipment-level export readiness review for mineral orders that require export preparation. Implemented in Story 5.2.
+
+Suggested fields:
+
+- `id uuid primary key`
+- `order_id uuid nullable references orders(id)`
+- `mineral_passport_id uuid nullable references mineral_passports(id)`
+- `exporter_user_id uuid nullable references users(id)`
+- `license_id uuid nullable references licenses(id)`
+- `export_permit_document_id uuid nullable references documents(id)`
+- `assay_document_id uuid nullable references documents(id)`
+- `invoice_document_id uuid nullable references documents(id)`
+- `customs_status varchar`
+- `carrier_reference varchar nullable`
+- `readiness_status varchar`
+- `blocking_issues text[]`
+- `reviewed_by uuid nullable references users(id)`
+- `reviewed_at timestamp nullable`
+- `created_at timestamp`
+- `updated_at timestamp`
+
+### esg_obligations
+
+Purpose: CDA, EIA, rehabilitation, reclamation reserve, compensation/remediation, community-benefit, and related ESG obligation register. Implemented in Story 5.3.
+
+Key fields:
+
+- `id uuid primary key`
+- `site_id uuid nullable references mine_sites(id)`
+- `license_id uuid nullable references licenses(id)`
+- `responsible_user_id uuid references users(id)`
+- `obligation_type enum`: `community_development_agreement`, `environmental_impact_assessment`, `rehabilitation_program`, `reclamation_reserve`, `compensation_remediation`, `community_benefit`, `other`
+- `title varchar(255)`
+- `description text nullable`
+- `status enum`: `missing`, `draft`, `submitted`, `approved`, `action_required`, `overdue`, `fulfilled`, `waived`
+- `document_ids uuid[]`
+- `evidence_urls text[]`
+- `due_date date nullable`
+- `last_reviewed_by uuid nullable references users(id)`
+- `last_reviewed_at timestamp nullable`
+- `review_notes text nullable`
+- `metadata jsonb nullable`
+- `created_at timestamp`
+- `updated_at timestamp`
+
+Indexes:
+
+- `site_id`
+- `license_id`
+- `responsible_user_id`
+- `obligation_type`
+- `status`
+- `due_date`
+
+Relationships:
+
+- Many-to-one with `mine_sites`
+- Many-to-one with `licenses`
+- Many-to-one with `users` as responsible user
+- Many-to-one with `users` as last reviewer
+
+### aml_kyb_risk_profiles
+
+Purpose: risk profile for regulated or high-value mineral trade actors such as buyers, exporters, buying centers, investors, miners, logistics providers, laboratories, and precious mineral dealers. Implemented in Story 5.4.
+
+Key fields:
+
+- `id uuid primary key`
+- `user_id uuid references users(id)`
+- `actor_type enum`: `buyer`, `exporter`, `buying_center`, `investor`, `miner`, `logistics_provider`, `laboratory`, `high_value_actor`, `other`
+- `business_name varchar nullable`
+- `business_registration_number varchar nullable`
+- `beneficial_owner_summary text nullable`
+- `beneficial_owner_document_ids uuid[]`
+- `scuml_registration_number varchar nullable`
+- `scuml_registration_status enum`: `not_required`, `not_provided`, `pending`, `registered`, `expired`, `rejected`
+- `scuml_document_ids uuid[]`
+- `source_of_funds_notes text nullable`
+- `source_of_minerals_notes text nullable`
+- `risk_tier enum`: `low`, `medium`, `high`, `critical`
+- `risk_reasons text[]`
+- `risk_indicators text[]`
+- `suspicious_activity_status enum`: `none`, `monitoring`, `escalated`, `reported`, `closed`
+- `review_status enum`: `draft`, `submitted`, `under_review`, `cleared`, `action_required`, `suspicious`, `escalated`, `closed`
+- `last_reviewed_by uuid nullable references users(id)`
+- `last_reviewed_at timestamp nullable`
+- `review_notes text nullable`
+- `metadata jsonb nullable`
+- `created_at timestamp`
+- `updated_at timestamp`
+
+### investor_opportunities Story 5.5 additions
+
+Purpose: investor due-diligence scoring and publication review state.
+
+Added fields:
+
+- `risk_score integer`
+- `risk_score_breakdown jsonb nullable`
+- `due_diligence_summary jsonb nullable`
+- `due_diligence_review_status enum`: `draft`, `pending_review`, `approved`, `action_required`, `rejected`
+- `due_diligence_review_notes text nullable`
+- `due_diligence_reviewed_by uuid nullable references users(id)`
+- `due_diligence_reviewed_at timestamp nullable`
+
 ## 5. Schema Governance
 
 - Use explicit TypeORM migrations for every schema change.

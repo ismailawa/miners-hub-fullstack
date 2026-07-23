@@ -9,7 +9,7 @@ services:
       - "3001:3001"
     environment:
       - NODE_ENV=development
-      - TYPEORM_SYNC=true
+      - TYPEORM_SYNC=false
       - PORT=3001
       - FRONTEND_URL=http://localhost:3000
       # Database configuration
@@ -25,13 +25,14 @@ services:
     volumes:
       - ./miners-hub-backend:/app
       - /app/node_modules
+      - /app/dist
     networks:
       - miners-hub-network
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
-    command: sh -c "npm install && npm run start:dev"
+    command: sh -c "npm install && npm run build && npm run start:dev"
 
   frontend:
     build:

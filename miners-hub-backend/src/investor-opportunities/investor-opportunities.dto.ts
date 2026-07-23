@@ -13,6 +13,7 @@ import {
 import { Type } from 'class-transformer';
 import {
   InvestorOpportunityInquiryStatus,
+  InvestorOpportunityReviewStatus,
   InvestorOpportunityRiskRating,
   InvestorOpportunityStage,
   InvestorOpportunityStatus,
@@ -83,6 +84,9 @@ export class CreateInvestorOpportunityDto {
   riskIndicators?: string[];
 
   @IsOptional()
+  dueDiligenceSummary?: Record<string, any> | null;
+
+  @IsOptional()
   @IsBoolean()
   analyticsSubscriptionEnabled?: boolean;
 
@@ -141,6 +145,9 @@ export class UpdateInvestorOpportunityDto {
   @IsArray()
   @IsString({ each: true })
   riskIndicators?: string[];
+
+  @IsOptional()
+  dueDiligenceSummary?: Record<string, any> | null;
 
   @IsOptional()
   @IsBoolean()
@@ -218,4 +225,25 @@ export class UpdateInvestorOpportunityInquiryDto {
   @IsOptional()
   @IsString()
   notes?: string | null;
+}
+
+export class ReviewInvestorOpportunityDto {
+  @IsEnum(InvestorOpportunityReviewStatus)
+  reviewStatus!: InvestorOpportunityReviewStatus;
+
+  @IsOptional()
+  @IsString()
+  reviewNotes?: string | null;
+
+  @IsOptional()
+  @IsNumber()
+  riskScore?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  riskIndicators?: string[];
+
+  @IsOptional()
+  dueDiligenceSummary?: Record<string, any> | null;
 }

@@ -208,7 +208,9 @@ export interface MinerRegistryFilters {
 }
 
 export async function getUsers(status?: string): Promise<AdminUser[]> {
-  const url = status ? `/api/admin/users?status=${status}` : '/api/admin/users';
+  const url = status && status !== 'all'
+    ? `/api/admin/users?status=${status}`
+    : '/api/admin/users';
   return apiClient.get<AdminUser[]>(url);
 }
 

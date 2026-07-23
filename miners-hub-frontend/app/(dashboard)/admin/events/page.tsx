@@ -1,29 +1,32 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '../../../../contexts/AuthContext';
-import FormModal from '../../../../components/FormModal';
-import MultiFileInput, { FilePreview } from '../../../../components/MultiFileInput';
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "../../../../contexts/AuthContext";
+import BrandLoader from "../../../../components/BrandLoader";
+import FormModal from "../../../../components/FormModal";
+import MultiFileInput, {
+  FilePreview,
+} from "../../../../components/MultiFileInput";
 import {
   createEvent,
   deleteEvent,
   getEvents,
   updateEvent,
-} from '../../../../lib/api/admin';
-import { uploadImage } from '../../../../lib/api/media';
-import type { Event } from '../../../../lib/types';
-import type { EventPayload } from '../../../../lib/api/events';
+} from "../../../../lib/api/admin";
+import { uploadImage } from "../../../../lib/api/media";
+import type { Event } from "../../../../lib/types";
+import type { EventPayload } from "../../../../lib/api/events";
 
 const emptyForm: EventPayload = {
-  title: '',
-  description: '',
-  date: '',
-  location: '',
-  imageUrl: '',
-  registrationUrl: '',
+  title: "",
+  description: "",
+  date: "",
+  location: "",
+  imageUrl: "",
+  registrationUrl: "",
   featured: false,
-  status: 'published',
+  status: "published",
 };
 
 export default function AdminEventsPage() {
@@ -36,7 +39,7 @@ export default function AdminEventsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eventImageFile, setEventImageFile] = useState<File | null>(null);
-  const [eventImagePreview, setEventImagePreview] = useState<string>('');
+  const [eventImagePreview, setEventImagePreview] = useState<string>("");
   const [isEventFormOpen, setIsEventFormOpen] = useState(false);
 
   const fetchEvents = async () => {
@@ -46,26 +49,26 @@ export default function AdminEventsPage() {
       const data = await getEvents();
       setEvents(data);
     } catch (err: any) {
-      setError(err?.message || 'Failed to fetch events');
+      setError(err?.message || "Failed to fetch events");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (currentUser && currentUser.role !== 'admin') {
-      router.push('/dashboard');
+    if (currentUser && currentUser.role !== "admin") {
+      router.push("/dashboard");
       return;
     }
 
-    if (currentUser?.role === 'admin') {
+    if (currentUser?.role === "admin") {
       void fetchEvents();
     }
   }, [currentUser, router]);
 
   useEffect(() => {
     return () => {
-      if (eventImagePreview.startsWith('blob:')) {
+      if (eventImagePreview.startsWith("blob:")) {
         URL.revokeObjectURL(eventImagePreview);
       }
     };
@@ -75,17 +78,22 @@ export default function AdminEventsPage() {
     setFormData(emptyForm);
     setEditingId(null);
     setEventImageFile(null);
-    setEventImagePreview('');
+    setEventImagePreview("");
   };
 
   const handleChange = (
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+    event: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
   ) => {
     const { name, value, type } = event.target;
-    const checked = type === 'checkbox' ? (event.target as HTMLInputElement).checked : undefined;
+    const checked =
+      type === "checkbox"
+        ? (event.target as HTMLInputElement).checked
+        : undefined;
     setFormData((current) => ({
       ...current,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
@@ -93,12 +101,12 @@ export default function AdminEventsPage() {
     const file = files[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      setError('Please select a JPG or PNG image.');
+    if (!file.type.startsWith("image/")) {
+      setError("Please select a JPG or PNG image.");
       return;
     }
 
-    if (eventImagePreview.startsWith('blob:')) {
+    if (eventImagePreview.startsWith("blob:")) {
       URL.revokeObjectURL(eventImagePreview);
     }
     setEventImageFile(file);
@@ -106,11 +114,11 @@ export default function AdminEventsPage() {
   };
 
   const handleImageRemoved = () => {
-    if (eventImagePreview.startsWith('blob:')) {
+    if (eventImagePreview.startsWith("blob:")) {
       URL.revokeObjectURL(eventImagePreview);
     }
     setEventImageFile(null);
-    setEventImagePreview('');
+    setEventImagePreview("");
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -120,11 +128,11 @@ export default function AdminEventsPage() {
     try {
       let imageUrl = formData.imageUrl;
       if (eventImageFile) {
-        const uploaded = await uploadImage(eventImageFile, 'event');
+        const uploaded = await uploadImage(eventImageFile, "event");
         imageUrl = uploaded.secureUrl;
       }
       if (!imageUrl) {
-        setError('Please upload an event image or provide an image URL.');
+        setError("Please upload an event image or provide an image URL.");
         setSaving(false);
         return;
       }
@@ -138,7 +146,9 @@ export default function AdminEventsPage() {
 
       if (editingId) {
         const updated = await updateEvent(editingId, payload);
-        setEvents((current) => current.map((item) => (item.id === editingId ? updated : item)));
+        setEvents((current) =>
+          current.map((item) => (item.id === editingId ? updated : item)),
+        );
       } else {
         const created = await createEvent(payload);
         setEvents((current) => [created, ...current]);
@@ -146,7 +156,7 @@ export default function AdminEventsPage() {
       resetForm();
       setIsEventFormOpen(false);
     } catch (err: any) {
-      setError(err?.message || 'Failed to save event');
+      setError(err?.message || "Failed to save event");
     } finally {
       setSaving(false);
     }
@@ -156,13 +166,13 @@ export default function AdminEventsPage() {
     setEditingId(event.id);
     setFormData({
       title: event.title,
-      description: event.description || '',
+      description: event.description || "",
       date: event.date,
       location: event.location,
       imageUrl: event.imageUrl,
-      registrationUrl: event.registrationUrl || '',
+      registrationUrl: event.registrationUrl || "",
       featured: Boolean(event.featured),
-      status: event.status || 'published',
+      status: event.status || "published",
     });
     setEventImageFile(null);
     setEventImagePreview(event.imageUrl);
@@ -170,7 +180,7 @@ export default function AdminEventsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    const confirmed = window.confirm('Delete this event?');
+    const confirmed = window.confirm("Delete this event?");
     if (!confirmed) return;
 
     try {
@@ -178,18 +188,20 @@ export default function AdminEventsPage() {
       setEvents((current) => current.filter((event) => event.id !== id));
       if (editingId === id) resetForm();
     } catch (err: any) {
-      alert(err?.message || 'Failed to delete event');
+      alert(err?.message || "Failed to delete event");
     }
   };
 
-  if (loading) return <div className="p-8">Loading events...</div>;
+  if (loading) return <BrandLoader label="Loading events" />;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Events</h1>
-          <p className="text-text-secondary">Create and manage homepage featured and upcoming events.</p>
+          <p className="text-text-secondary">
+            Create and manage homepage featured and upcoming events.
+          </p>
         </div>
         <button
           type="button"
@@ -211,7 +223,7 @@ export default function AdminEventsPage() {
 
       <FormModal
         isOpen={isEventFormOpen}
-        title={editingId ? 'Edit Event' : 'Add Event'}
+        title={editingId ? "Edit Event" : "Add Event"}
         description="Manage homepage event details, image, registration link, and publication status."
         onClose={() => {
           setIsEventFormOpen(false);
@@ -222,7 +234,9 @@ export default function AdminEventsPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="block">
-              <span className="text-sm font-medium text-text-secondary">Title</span>
+              <span className="text-sm font-medium text-text-secondary">
+                Title
+              </span>
               <input
                 name="title"
                 value={formData.title}
@@ -232,7 +246,9 @@ export default function AdminEventsPage() {
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-text-secondary">Date</span>
+              <span className="text-sm font-medium text-text-secondary">
+                Date
+              </span>
               <input
                 type="date"
                 name="date"
@@ -243,7 +259,9 @@ export default function AdminEventsPage() {
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-text-secondary">Location</span>
+              <span className="text-sm font-medium text-text-secondary">
+                Location
+              </span>
               <input
                 name="location"
                 value={formData.location}
@@ -253,7 +271,9 @@ export default function AdminEventsPage() {
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-text-secondary">Status</span>
+              <span className="text-sm font-medium text-text-secondary">
+                Status
+              </span>
               <select
                 name="status"
                 value={formData.status}
@@ -266,11 +286,22 @@ export default function AdminEventsPage() {
               </select>
             </label>
             <label className="block md:col-span-2">
-              <span className="text-sm font-medium text-text-secondary">Event Image</span>
+              <span className="text-sm font-medium text-text-secondary">
+                Event Image
+              </span>
               <MultiFileInput
                 id="event-image"
                 label="Upload event image"
-                files={eventImageFile && eventImagePreview ? [{ file: eventImageFile, previewUrl: eventImagePreview } as FilePreview] : []}
+                files={
+                  eventImageFile && eventImagePreview
+                    ? [
+                        {
+                          file: eventImageFile,
+                          previewUrl: eventImagePreview,
+                        } as FilePreview,
+                      ]
+                    : []
+                }
                 onFilesAdded={handleImageFilesAdded}
                 onFileRemoved={handleImageRemoved}
                 accept="image/png,image/jpeg"
@@ -287,7 +318,9 @@ export default function AdminEventsPage() {
               )}
             </label>
             <label className="block md:col-span-2">
-              <span className="text-sm font-medium text-text-secondary">Registration URL</span>
+              <span className="text-sm font-medium text-text-secondary">
+                Registration URL
+              </span>
               <input
                 name="registrationUrl"
                 value={formData.registrationUrl}
@@ -297,7 +330,9 @@ export default function AdminEventsPage() {
               />
             </label>
             <label className="block md:col-span-2">
-              <span className="text-sm font-medium text-text-secondary">Description</span>
+              <span className="text-sm font-medium text-text-secondary">
+                Description
+              </span>
               <textarea
                 name="description"
                 value={formData.description}
@@ -335,7 +370,11 @@ export default function AdminEventsPage() {
                 disabled={saving}
                 className="px-5 py-2 rounded-md bg-accent text-accent-content font-semibold hover:bg-yellow-400 disabled:opacity-60 transition-colors"
               >
-                {saving ? 'Saving...' : editingId ? 'Update Event' : 'Add Event'}
+                {saving
+                  ? "Saving..."
+                  : editingId
+                    ? "Update Event"
+                    : "Add Event"}
               </button>
             </div>
           </div>
@@ -346,30 +385,53 @@ export default function AdminEventsPage() {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-primary/50 text-text-secondary text-sm">
-              <th className="p-4 font-semibold border-b border-border">Event</th>
+              <th className="p-4 font-semibold border-b border-border">
+                Event
+              </th>
               <th className="p-4 font-semibold border-b border-border">Date</th>
-              <th className="p-4 font-semibold border-b border-border">Location</th>
-              <th className="p-4 font-semibold border-b border-border">Status</th>
-              <th className="p-4 font-semibold border-b border-border">Actions</th>
+              <th className="p-4 font-semibold border-b border-border">
+                Location
+              </th>
+              <th className="p-4 font-semibold border-b border-border">
+                Status
+              </th>
+              <th className="p-4 font-semibold border-b border-border">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
             {events.map((event) => (
-              <tr key={event.id} className="border-b border-border hover:bg-primary/30 transition-colors">
+              <tr
+                key={event.id}
+                className="border-b border-border hover:bg-primary/30 transition-colors"
+              >
                 <td className="p-4">
                   <div className="flex items-center gap-3">
-                    <img src={event.imageUrl} alt={event.title} className="w-16 h-12 rounded-md object-cover bg-primary" />
+                    <img
+                      src={event.imageUrl}
+                      alt={event.title}
+                      className="w-16 h-12 rounded-md object-cover bg-primary"
+                    />
                     <div>
-                      <p className="text-sm font-medium text-text-primary">{event.title}</p>
-                      {event.featured && <p className="text-xs text-accent">Featured</p>}
+                      <p className="text-sm font-medium text-text-primary">
+                        {event.title}
+                      </p>
+                      {event.featured && (
+                        <p className="text-xs text-accent">Featured</p>
+                      )}
                     </div>
                   </div>
                 </td>
-                <td className="p-4 text-sm text-text-secondary">{new Date(event.date).toLocaleDateString()}</td>
-                <td className="p-4 text-sm text-text-secondary">{event.location}</td>
+                <td className="p-4 text-sm text-text-secondary">
+                  {new Date(event.date).toLocaleDateString()}
+                </td>
+                <td className="p-4 text-sm text-text-secondary">
+                  {event.location}
+                </td>
                 <td className="p-4">
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary text-text-secondary capitalize">
-                    {event.status || 'published'}
+                    {event.status || "published"}
                   </span>
                 </td>
                 <td className="p-4 text-sm">

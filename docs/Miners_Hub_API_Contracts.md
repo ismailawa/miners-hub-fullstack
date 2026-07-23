@@ -390,7 +390,13 @@ Request:
 
 ```ts
 {
-  status: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled" | "refunded";
+  status: "pending" |
+    "confirmed" |
+    "processing" |
+    "shipped" |
+    "delivered" |
+    "cancelled" |
+    "refunded";
 }
 ```
 
@@ -463,7 +469,12 @@ Request:
 
 ```ts
 {
-  status: "draft" | "proposed" | "under_review" | "signed" | "executed" | "terminated";
+  status: "draft" |
+    "proposed" |
+    "under_review" |
+    "signed" |
+    "executed" |
+    "terminated";
 }
 ```
 
@@ -979,7 +990,7 @@ Array<{
   latestDocumentAt?: string | null;
   createdAt: string;
   updatedAt: string;
-}>
+}>;
 ```
 
 ### GET /api/admin/miner-registry/:id
@@ -1105,7 +1116,9 @@ Response: updated `MineSite`.
 Response:
 
 ```ts
-{ success: true }
+{
+  success: true;
+}
 ```
 
 ## Licensing and Compliance
@@ -1308,11 +1321,14 @@ Response:
   totalQuantity: number;
   estimatedValue: number;
   royaltyDue: number;
-  byMineral: Record<string, {
-    quantity: number;
-    value: number;
-    royalty: number;
-  }>;
+  byMineral: Record<
+    string,
+    {
+      quantity: number;
+      value: number;
+      royalty: number;
+    }
+  >;
 }
 ```
 
@@ -1336,7 +1352,13 @@ Request:
 
 ```ts
 {
-  status: "draft" | "submitted" | "under_review" | "published" | "sold" | "expired" | "archived";
+  status: "draft" |
+    "submitted" |
+    "under_review" |
+    "published" |
+    "sold" |
+    "expired" |
+    "archived";
 }
 ```
 
@@ -1670,7 +1692,7 @@ Response: revenue analytics from orders, escrow transactions, and production rep
     lga: string | null;
     siteId: string | null;
     status: string | null;
-  };
+  }
   totals: {
     orderCount: number;
     orderGross: number;
@@ -1681,7 +1703,7 @@ Response: revenue analytics from orders, escrow transactions, and production rep
     royaltyDue: number;
     approvedRoyaltyDue: number;
     governmentRevenue: number;
-  };
+  }
   byMineral: Array<{
     mineral: string;
     orderCount: number;
@@ -1753,12 +1775,13 @@ Request:
     restricted?: boolean;
   }>;
   riskIndicators?: string[];
+  dueDiligenceSummary?: Record<string, unknown> | null;
   analyticsSubscriptionEnabled?: boolean;
   status?: "draft" | "published" | "closed" | "archived";
 }
 ```
 
-Response: created investor opportunity. Publishing sets `publishedAt`.
+Response: created investor opportunity with computed `riskScore`, `riskScoreBreakdown`, `dueDiligenceSummary`, and `dueDiligenceReviewStatus`. Publishing requires approved due-diligence review.
 
 ### GET /api/investor-opportunities
 
@@ -1766,7 +1789,7 @@ Access: authenticated
 
 Query: `mineral`, `location`, `riskRating`, `stage`, `licenseStatus`, `minCapital`, `maxCapital`, `status`, pagination fields.
 
-Response: paginated opportunity listings with mine site summary, sponsor summary, inquiry count, capital requirement, stage, license status, due diligence document metadata, and risk indicators. Admins and government users can filter all statuses; other users see published opportunities and their own sponsored drafts.
+Response: paginated opportunity listings with mine site summary, sponsor summary, inquiry count, capital requirement, stage, license status, due diligence document metadata, ESG summary, risk score, review status, and risk indicators. Admins and government users can filter all statuses; other users see published opportunities and their own sponsored drafts.
 
 ### GET /api/investor-opportunities/:id
 
@@ -1781,6 +1804,24 @@ Access: admin, government user, or opportunity sponsor
 Request: partial opportunity update, including status changes for publishing, closing, or archiving.
 
 Response: updated opportunity.
+
+### PATCH /api/investor-opportunities/:id/review
+
+Access: admin or government user
+
+Request:
+
+```ts
+{
+  reviewStatus: "draft" | "pending_review" | "approved" | "action_required" | "rejected";
+  reviewNotes?: string | null;
+  riskScore?: number;
+  riskIndicators?: string[];
+  dueDiligenceSummary?: Record<string, unknown> | null;
+}
+```
+
+Response: reviewed opportunity with score breakdown and reviewer metadata. If a published opportunity is moved out of `approved`, it returns to draft.
 
 ### POST /api/investor-opportunities/:id/inquiries
 
@@ -1962,3 +2003,278 @@ Request:
 ```
 
 Response: updated shipment with appended milestone.
+
+## Export Readiness and Mineral Titles
+
+### License Type Values
+
+License records use configured Nigerian mineral-title and trade-permit categories:
+
+```ts
+type LicenseType =
+  | "reconnaissance_permit"
+  | "exploration_licence"
+  | "small_scale_mining_lease"
+  | "mining_lease"
+  | "quarry_lease"
+  | "water_use_permit"
+  | "possess_and_purchase_licence"
+  | "mineral_buying_center_licence"
+  | "mineral_export_permit";
+```
+
+`POST /api/licenses` and `PATCH /api/licenses/:id` additionally accept:
+
+```ts
+{
+  licenseType: LicenseType;
+  annualServiceFee?: number | null;
+  serviceFeePaidUntil?: string | null;
+  applicationPriorityDate?: string | null;
+  permitShipmentReference?: string | null;
+  issuingOffice?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+```
+
+### POST /api/export-readiness
+
+Access: authenticated. Admins/government users may create a checklist for any exporter; other users create for themselves.
+
+Request:
+
+```ts
+{
+  orderId?: string | null;
+  mineralPassportId?: string | null;
+  exporterUserId?: string;
+  licenseId?: string | null;
+  exportPermitDocumentId?: string | null;
+  assayDocumentId?: string | null;
+  invoiceDocumentId?: string | null;
+  customsStatus?: "not_required" | "not_started" | "preparing" | "submitted" | "cleared" | "held" | "rejected";
+  carrierReference?: string | null;
+  blockingIssues?: string[];
+  metadata?: Record<string, unknown> | null;
+}
+```
+
+Response: created export-readiness checklist with linked exporter, license, order, mineral passport, and completeness flags.
+
+### GET /api/export-readiness
+
+Access: authenticated. Admins/government users see all records; other users see their own exporter records.
+
+Query:
+
+```ts
+{
+  readinessStatus?: "draft" | "under_review" | "blocked" | "ready" | "expired";
+  customsStatus?: "not_required" | "not_started" | "preparing" | "submitted" | "cleared" | "held" | "rejected";
+  orderId?: string;
+  exporterUserId?: string; // reviewer only
+  page?: number;
+  limit?: number;
+  rawOffset?: number;
+}
+```
+
+Response: paginated export-readiness checklists.
+
+### GET /api/export-readiness/:id
+
+Access: authenticated reviewer or owning exporter.
+
+Response: export-readiness checklist detail.
+
+### PATCH /api/export-readiness/:id
+
+Access: authenticated reviewer or owning exporter.
+
+Request: partial export-readiness checklist payload. Non-reviewer updates return the checklist to `draft`.
+
+Response: updated checklist.
+
+### PATCH /api/export-readiness/:id/status
+
+Access: admin or government user.
+
+Request:
+
+```ts
+{
+  readinessStatus: "draft" | "under_review" | "blocked" | "ready" | "expired";
+  customsStatus?: "not_required" | "not_started" | "preparing" | "submitted" | "cleared" | "held" | "rejected";
+  blockingIssues?: string[];
+  reviewNotes?: string;
+}
+```
+
+Response: reviewed checklist with reviewer metadata.
+
+### POST /api/esg-obligations
+
+Access: authenticated. Admins/government users may create an obligation for any responsible user; other users create obligations for themselves and linked records they can access.
+
+Request:
+
+```ts
+{
+  siteId?: string | null;
+  licenseId?: string | null;
+  responsibleUserId?: string;
+  obligationType:
+    | "community_development_agreement"
+    | "environmental_impact_assessment"
+    | "rehabilitation_program"
+    | "reclamation_reserve"
+    | "compensation_remediation"
+    | "community_benefit"
+    | "other";
+  title: string;
+  description?: string | null;
+  status?: "missing" | "draft" | "submitted" | "approved" | "action_required" | "overdue" | "fulfilled" | "waived";
+  documentIds?: string[];
+  evidenceUrls?: string[];
+  dueDate?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+```
+
+Response: created ESG obligation with linked site, license, responsible user, evidence, and review metadata.
+
+### GET /api/esg-obligations
+
+Access: authenticated. Admins/government users see all obligations; other users see obligations assigned to them.
+
+Query:
+
+```ts
+{
+  status?: "missing" | "draft" | "submitted" | "approved" | "action_required" | "overdue" | "fulfilled" | "waived";
+  obligationType?: string;
+  siteId?: string;
+  licenseId?: string;
+  responsibleUserId?: string; // reviewer only
+  dueBefore?: string;
+  page?: number;
+  limit?: number;
+  rawOffset?: number;
+}
+```
+
+Response: paginated ESG obligations.
+
+### GET /api/esg-obligations/:id
+
+Access: authenticated reviewer or responsible user.
+
+Response: ESG obligation detail.
+
+### PATCH /api/esg-obligations/:id
+
+Access: authenticated reviewer or responsible user.
+
+Request: partial ESG obligation payload. Non-reviewer updates return the obligation to `submitted`.
+
+Response: updated ESG obligation.
+
+### PATCH /api/esg-obligations/:id/status
+
+Access: admin or government user.
+
+Request:
+
+```ts
+{
+  status: "missing" | "draft" | "submitted" | "approved" | "action_required" | "overdue" | "fulfilled" | "waived";
+  reviewNotes?: string;
+}
+```
+
+Response: reviewed ESG obligation with reviewer metadata.
+
+Investor opportunity responses include an `esgSummary` object when the opportunity is linked to a mine site:
+
+```ts
+{
+  total: number;
+  approved: number;
+  fulfilled: number;
+  actionRequired: number;
+  overdue: number;
+  dueSoonOrOverdue: number;
+  types: string[];
+}
+```
+
+### POST /api/aml-kyb-profiles
+
+Access: authenticated. Admins/government users may create for any user; other users create for themselves.
+
+Request:
+
+```ts
+{
+  userId?: string;
+  actorType: "buyer" | "exporter" | "buying_center" | "investor" | "miner" | "logistics_provider" | "laboratory" | "high_value_actor" | "other";
+  businessName?: string | null;
+  businessRegistrationNumber?: string | null;
+  beneficialOwnerSummary?: string | null;
+  beneficialOwnerDocumentIds?: string[];
+  scumlRegistrationNumber?: string | null;
+  scumlRegistrationStatus?: "not_required" | "not_provided" | "pending" | "registered" | "expired" | "rejected";
+  scumlDocumentIds?: string[];
+  sourceOfFundsNotes?: string | null;
+  sourceOfMineralsNotes?: string | null;
+  riskTier?: "low" | "medium" | "high" | "critical";
+  riskReasons?: string[];
+  riskIndicators?: string[];
+  suspiciousActivityStatus?: "none" | "monitoring" | "escalated" | "reported" | "closed";
+  reviewStatus?: "draft" | "submitted" | "under_review" | "cleared" | "action_required" | "suspicious" | "escalated" | "closed";
+  metadata?: Record<string, unknown> | null;
+}
+```
+
+Response: created AML/KYB profile with computed risk indicators for pending KYC, missing beneficial ownership, missing SCUML evidence, missing source notes, and missing approved mineral title/trade permit where applicable.
+
+### GET /api/aml-kyb-profiles
+
+Access: authenticated. Admins/government users see all profiles; other users see their own profiles.
+
+Query: `userId`, `actorType`, `riskTier`, `reviewStatus`, `suspiciousActivityStatus`, pagination fields.
+
+Response: paginated AML/KYB profiles.
+
+### GET /api/aml-kyb-profiles/:id
+
+Access: reviewer or profile owner.
+
+Response: AML/KYB profile detail.
+
+### PATCH /api/aml-kyb-profiles/:id
+
+Access: reviewer or profile owner.
+
+Request: partial AML/KYB profile payload. Non-reviewer updates resubmit the profile for review.
+
+Response: updated AML/KYB profile with refreshed risk indicators.
+
+### PATCH /api/aml-kyb-profiles/:id/status
+
+Access: admin or government user.
+
+Request:
+
+```ts
+{
+  reviewStatus: "draft" | "submitted" | "under_review" | "cleared" | "action_required" | "suspicious" | "escalated" | "closed";
+  riskTier?: "low" | "medium" | "high" | "critical";
+  riskReasons?: string[];
+  riskIndicators?: string[];
+  suspiciousActivityStatus?: "none" | "monitoring" | "escalated" | "reported" | "closed";
+  reviewNotes?: string | null;
+}
+```
+
+Response: reviewed AML/KYB profile with reviewer metadata.

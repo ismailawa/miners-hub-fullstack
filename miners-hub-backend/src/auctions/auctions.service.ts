@@ -89,7 +89,7 @@ export class AuctionsService {
 
     const saved = await this.auctionRepository.save(auction);
 
-    this.auditLogService.log({
+    await this.auditLogService.log({
       userId,
       action: 'auction.create',
       resource: 'auction',
@@ -139,6 +139,9 @@ export class AuctionsService {
       order: { bids: { amount: 'DESC' } },
     });
     if (!auction) throw new NotFoundException('Auction not found.');
+    if (auction.listing.status !== ListingStatus.PUBLISHED) {
+      throw new NotFoundException('Auction not found.');
+    }
     return auction as Auction & { bids: Bid[] };
   }
 
@@ -164,6 +167,9 @@ export class AuctionsService {
       relations: ['listing', 'listing.miner'],
     });
     if (!auction) throw new NotFoundException('Auction not found.');
+    if (auction.listing.status !== ListingStatus.PUBLISHED) {
+      throw new BadRequestException('Auction is not open for bidding.');
+    }
 
     // Check auction is active and not expired
     if (auction.status !== 'active') {
@@ -222,7 +228,7 @@ export class AuctionsService {
       notificationType: 'info',
     });
 
-    this.auditLogService.log({
+    await this.auditLogService.log({
       userId: bidderId,
       action: 'auction.bid_placed',
       resource: 'auction',
@@ -303,7 +309,7 @@ export class AuctionsService {
             notificationType: 'info',
           });
 
-          this.auditLogService.log({
+          await this.auditLogService.log({
             userId: highestBid.bidderId,
             action: 'auction.finalized',
             resource: 'auction',

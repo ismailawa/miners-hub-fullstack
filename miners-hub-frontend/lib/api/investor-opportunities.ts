@@ -1,9 +1,41 @@
-import apiClient from './client';
+import apiClient from "./client";
 
-export type InvestorOpportunityStatus = 'draft' | 'published' | 'closed' | 'archived';
-export type InvestorOpportunityStage = 'exploration' | 'development' | 'production' | 'expansion';
-export type InvestorOpportunityRiskRating = 'low' | 'medium' | 'high' | 'critical';
-export type InvestorOpportunityInquiryStatus = 'new' | 'contacted' | 'due_diligence' | 'closed';
+export type InvestorOpportunityStatus =
+  | "draft"
+  | "published"
+  | "closed"
+  | "archived";
+export type InvestorOpportunityStage =
+  | "exploration"
+  | "development"
+  | "production"
+  | "expansion";
+export type InvestorOpportunityRiskRating =
+  | "low"
+  | "medium"
+  | "high"
+  | "critical";
+export type InvestorOpportunityInquiryStatus =
+  | "new"
+  | "contacted"
+  | "due_diligence"
+  | "closed";
+export type InvestorOpportunityReviewStatus =
+  | "draft"
+  | "pending_review"
+  | "approved"
+  | "action_required"
+  | "rejected";
+
+export interface InvestorOpportunityEsgSummary {
+  total: number;
+  approved: number;
+  fulfilled: number;
+  actionRequired: number;
+  overdue: number;
+  dueSoonOrOverdue: number;
+  types: string[];
+}
 
 export interface InvestorOpportunity {
   id: string;
@@ -17,14 +49,36 @@ export interface InvestorOpportunity {
   riskRating: InvestorOpportunityRiskRating;
   licenseStatus?: string | null;
   summary: string;
-  dueDiligenceDocuments: Array<{ title: string; url: string; type?: string; restricted?: boolean }>;
+  dueDiligenceDocuments: Array<{
+    title: string;
+    url: string;
+    type?: string;
+    restricted?: boolean;
+  }>;
   riskIndicators: string[];
+  riskScore: number;
+  riskScoreBreakdown?: Record<string, any> | null;
+  dueDiligenceSummary?: Record<string, any> | null;
+  dueDiligenceReviewStatus: InvestorOpportunityReviewStatus;
+  dueDiligenceReviewNotes?: string | null;
+  dueDiligenceReviewedBy?: string | null;
+  dueDiligenceReviewedAt?: string | null;
+  dueDiligenceReviewer?: { id: string; name?: string | null; email: string };
   analyticsSubscriptionEnabled: boolean;
   status: InvestorOpportunityStatus;
   publishedAt?: string | null;
   inquiryCount: number;
-  site?: { id: string; name: string; state: string; lga?: string | null; community?: string | null; riskLevel?: string; siteStatus?: string } | null;
+  site?: {
+    id: string;
+    name: string;
+    state: string;
+    lga?: string | null;
+    community?: string | null;
+    riskLevel?: string;
+    siteStatus?: string;
+  } | null;
   sponsor?: { id: string; name?: string | null; email: string };
+  esgSummary?: InvestorOpportunityEsgSummary;
   inquiries?: InvestorOpportunityInquiry[];
   createdAt: string;
   updatedAt: string;
@@ -54,8 +108,14 @@ export interface InvestorOpportunityPayload {
   riskRating?: InvestorOpportunityRiskRating;
   licenseStatus?: string | null;
   summary: string;
-  dueDiligenceDocuments?: Array<{ title: string; url: string; type?: string; restricted?: boolean }>;
+  dueDiligenceDocuments?: Array<{
+    title: string;
+    url: string;
+    type?: string;
+    restricted?: boolean;
+  }>;
   riskIndicators?: string[];
+  dueDiligenceSummary?: Record<string, any> | null;
   analyticsSubscriptionEnabled?: boolean;
   status?: InvestorOpportunityStatus;
 }
@@ -69,33 +129,71 @@ interface Paginated<T> {
 }
 
 function buildQuery(filters: Record<string, string> = {}) {
-  const params = new URLSearchParams({ limit: '100' });
+  const params = new URLSearchParams({ limit: "100" });
   Object.entries(filters).forEach(([key, value]) => {
-    if (value && value !== 'all') params.set(key, value);
+    if (value && value !== "all") params.set(key, value);
   });
   return params.toString();
 }
 
-export async function getInvestorOpportunities(filters: Record<string, string> = {}) {
-  return apiClient.get<Paginated<InvestorOpportunity>>(`/api/investor-opportunities?${buildQuery(filters)}`);
+export async function getInvestorOpportunities(
+  filters: Record<string, string> = {},
+) {
+  return apiClient.get<Paginated<InvestorOpportunity>>(
+    `/api/investor-opportunities?${buildQuery(filters)}`,
+  );
 }
 
-export async function getPublicInvestorOpportunities(filters: Record<string, string> = {}) {
-  return apiClient.get<Paginated<InvestorOpportunity>>(`/api/investor-opportunities/public?${buildQuery(filters)}`, {
-    skipAuth: true,
-  });
+export async function getPublicInvestorOpportunities(
+  filters: Record<string, string> = {},
+) {
+  return apiClient.get<Paginated<InvestorOpportunity>>(
+    `/api/investor-opportunities/public?${buildQuery(filters)}`,
+    {
+      skipAuth: true,
+    },
+  );
 }
 
 export async function getInvestorOpportunity(id: string) {
-  return apiClient.get<InvestorOpportunity>(`/api/investor-opportunities/${id}`);
+  return apiClient.get<InvestorOpportunity>(
+    `/api/investor-opportunities/${id}`,
+  );
 }
 
-export async function createInvestorOpportunity(payload: InvestorOpportunityPayload) {
-  return apiClient.post<InvestorOpportunity>('/api/investor-opportunities', payload);
+export async function createInvestorOpportunity(
+  payload: InvestorOpportunityPayload,
+) {
+  return apiClient.post<InvestorOpportunity>(
+    "/api/investor-opportunities",
+    payload,
+  );
 }
 
-export async function updateInvestorOpportunity(id: string, payload: Partial<InvestorOpportunityPayload>) {
-  return apiClient.patch<InvestorOpportunity>(`/api/investor-opportunities/${id}`, payload);
+export async function updateInvestorOpportunity(
+  id: string,
+  payload: Partial<InvestorOpportunityPayload>,
+) {
+  return apiClient.patch<InvestorOpportunity>(
+    `/api/investor-opportunities/${id}`,
+    payload,
+  );
+}
+
+export async function reviewInvestorOpportunity(
+  id: string,
+  payload: {
+    reviewStatus: InvestorOpportunityReviewStatus;
+    reviewNotes?: string | null;
+    riskScore?: number;
+    riskIndicators?: string[];
+    dueDiligenceSummary?: Record<string, any> | null;
+  },
+) {
+  return apiClient.patch<InvestorOpportunity>(
+    `/api/investor-opportunities/${id}/review`,
+    payload,
+  );
 }
 
 export async function createInvestorOpportunityInquiry(
@@ -108,12 +206,18 @@ export async function createInvestorOpportunityInquiry(
     analyticsSubscriptionInterest?: boolean;
   },
 ) {
-  return apiClient.post<InvestorOpportunityInquiry>(`/api/investor-opportunities/${id}/inquiries`, payload);
+  return apiClient.post<InvestorOpportunityInquiry>(
+    `/api/investor-opportunities/${id}/inquiries`,
+    payload,
+  );
 }
 
 export async function updateInvestorOpportunityInquiry(
   id: string,
   payload: { status?: InvestorOpportunityInquiryStatus; notes?: string | null },
 ) {
-  return apiClient.patch<InvestorOpportunityInquiry>(`/api/investor-opportunities/inquiries/${id}`, payload);
+  return apiClient.patch<InvestorOpportunityInquiry>(
+    `/api/investor-opportunities/inquiries/${id}`,
+    payload,
+  );
 }

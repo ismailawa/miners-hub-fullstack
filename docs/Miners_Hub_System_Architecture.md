@@ -4,12 +4,19 @@
 
 Miners Hub is structured as a cloud-first web platform with a Next.js frontend, NestJS backend, PostgreSQL database, object/media storage, third-party identity and payment integrations, real-time messaging, and future GIS, laboratory, logistics, mobile, and analytics services.
 
+The platform should be treated architecturally as regulated mineral commerce infrastructure, not only a marketplace. Domain services should preserve the chain of trust from actor identity, mineral title, mine site, production, lab evidence, listing, order, escrow, logistics, environmental obligation, export readiness, and investor due diligence.
+
 The existing implementation is organized as:
 
 - Frontend: `miners-hub-frontend`, built with Next.js, React, TypeScript, and Tailwind CSS.
 - Backend: `miners-hub-backend`, built with NestJS, TypeScript, TypeORM, PostgreSQL, Socket.IO, JWT authentication, throttling, and modular domain services.
 - Infrastructure: Docker Compose files for local/dev orchestration.
 - Integrations: MetaMap-oriented KYC fields/endpoints, payment-gateway-backed escrow flows with Flutterwave as the active provider, SignNow contract workflows, Cloudinary/media upload support, and AI endpoints.
+
+Database schema changes are migration-first. Docker development uses
+`TYPEORM_SYNC=false`, so new TypeORM entities or columns must ship with an
+explicit migration and developers must run migrations before validating the
+affected flow.
 
 ## 2. Logical System Diagram
 
@@ -94,6 +101,13 @@ Key endpoints:
 - `POST /listings`
 - `PATCH /listings/:id`
 - `DELETE /listings/:id`
+
+Admin moderation side effects keep the public marketplace consistent:
+publishing an auction listing creates or reactivates its auction record,
+unpublishing an auction listing cancels the active auction, and public auction
+detail/bid paths reject auctions whose listing is no longer published. When a
+miner is unapproved or rejected, active miner listings are removed from public
+circulation and any active auction listing is cancelled.
 
 ### Orders Module
 
@@ -408,6 +422,80 @@ Suggested fields:
 - `status`
 - `published_at`
 
+### Export Readiness Checklist
+
+Represents shipment-level readiness for lawful commercial export where applicable.
+
+Suggested fields:
+
+- `id`
+- `order_id`
+- `mineral_passport_id`
+- `exporter_user_id`
+- `license_id`
+- `export_permit_document_id`
+- `assay_document_id`
+- `invoice_document_id`
+- `customs_status`
+- `carrier_reference`
+- `readiness_status`
+- `blocking_issues`
+- `reviewed_by`
+- `reviewed_at`
+
+Implemented in Story 5.2 as `export_readiness_checklists` with linked order, mineral passport, exporter, license, export permit document, assay document, invoice document, customs status, readiness status, blocking issues, reviewer metadata, and audit logging.
+
+### ESG Obligation
+
+Represents CDA, EIA, rehabilitation, reclamation reserve, compensation/remediation, community benefit, and related host-community/environmental obligations.
+
+Key attributes:
+
+- `id`
+- `site_id`
+- `license_id`
+- `responsible_user_id`
+- `obligation_type`
+- `title`
+- `description`
+- `status`
+- `document_ids`
+- `evidence_urls`
+- `due_date`
+- `last_reviewed_by`
+- `last_reviewed_at`
+- `review_notes`
+
+Implemented in Story 5.3 as `esg_obligations` with linked mine site, license, responsible user, reviewer metadata, evidence URLs, supporting document IDs, audit logging, and investor opportunity ESG summaries for due diligence.
+
+### AML and KYB Risk Profile
+
+Represents risk controls for high-value mineral trade actors.
+
+Key attributes:
+
+- `id`
+- `user_id`
+- `actor_type`
+- `business_name`
+- `business_registration_number`
+- `beneficial_owner_summary`
+- `beneficial_owner_document_ids`
+- `scuml_registration_number`
+- `scuml_registration_status`
+- `scuml_document_ids`
+- `risk_tier`
+- `risk_reasons`
+- `risk_indicators`
+- `suspicious_activity_status`
+- `source_of_funds_notes`
+- `source_of_minerals_notes`
+- `last_reviewed_by`
+- `last_reviewed_at`
+- `review_status`
+
+Implemented in Story 5.4 as `aml_kyb_risk_profiles` with owner/reviewer access rules, computed risk indicators, review decisions, audit logging, and frontend compliance dashboard management.
+
 ## 6. API Design Principles
 
 - Use REST resources for stable domain objects.
@@ -417,6 +505,7 @@ Suggested fields:
 - Use pagination, filtering, and sorting for all list endpoints.
 - Use role-aware response shaping to prevent data leakage.
 - Record audit logs for admin, compliance, payment, KYC, document, and traceability actions.
+- Model trust evidence as linked records instead of flat text where possible, especially for licenses, export permits, lab evidence, ESG obligations, logistics documents, and AML/KYB reviews.
 
 ## 7. Proposed API Additions
 
@@ -438,12 +527,29 @@ Current MVP mine-site records use numeric coordinates and optional GeoJSON. Post
 - `GET /licenses`
 - `GET /licenses/:id`
 - `PATCH /licenses/:id/status`
+- `POST /export-readiness`
+- `GET /export-readiness`
+- `GET /export-readiness/:id`
+- `PATCH /export-readiness/:id`
+- `PATCH /export-readiness/:id/status`
+- `POST /esg-obligations`
+- `GET /esg-obligations`
+- `GET /esg-obligations/:id`
+- `PATCH /esg-obligations/:id`
+- `PATCH /esg-obligations/:id/status`
+- `POST /aml-kyb-profiles`
+- `GET /aml-kyb-profiles`
+- `GET /aml-kyb-profiles/:id`
+- `PATCH /aml-kyb-profiles/:id`
+- `PATCH /aml-kyb-profiles/:id/status`
 - `POST /compliance-cases`
 - `GET /compliance-cases`
 - `GET /compliance-cases/:id`
 - `PATCH /compliance-cases/:id`
 
-The MVP implementation supports miner license submissions, admin/government review decisions, expiry indicators, compliance case board states, inspection scheduling, corrective actions, and audit logging for review-sensitive changes.
+The MVP implementation supports miner license submissions, admin/government review decisions, expiry indicators, export readiness checklists, ESG obligation tracking, AML/KYB risk profiles, compliance case board states, inspection scheduling, corrective actions, and audit logging for review-sensitive changes.
+
+Future compliance services should add deeper regulator workflows and automated renewal/obligation reminders.
 
 ### Production and Revenue
 
@@ -456,6 +562,7 @@ The MVP implementation supports miner license submissions, admin/government revi
 - `GET /analytics/production`
 
 The MVP implementation supports miner production submission, reviewer approval/rejection, supporting evidence IDs, royalty-ready value/rate/due fields, and production analytics grouped by mineral.
+
 - `GET /analytics/compliance`
 
 ### Laboratory, Logistics, and Traceability
@@ -482,6 +589,7 @@ Implemented logistics MVP endpoints:
 - `PATCH /logistics/shipments/:id/status`
 
 Shipments are linked to orders and include a nullable `mineral_passport_id` for Story 3.4 traceability records.
+
 - `POST /mineral-passports`
 - `GET /mineral-passports/:id`
 - `GET /public/mineral-passports/:token`
@@ -494,7 +602,10 @@ Shipments are linked to orders and include a nullable `mineral_passport_id` for 
 - `POST /investor-opportunities`
 - `GET /investor-opportunities`
 - `GET /investor-opportunities/:id`
+- `PATCH /investor-opportunities/:id/review`
 - `POST /investor-opportunities/:id/inquiries`
+
+Investor opportunity responses include linked-site ESG summaries and computed due-diligence scoring across license, site, production, lab evidence, ESG obligations, logistics/export readiness, AML/KYB, and risk indicators. Publishing requires approved admin/government due-diligence review.
 
 ## 8. Security Architecture
 

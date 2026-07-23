@@ -1,33 +1,34 @@
-import type { Metadata } from 'next';
-import { Providers } from './providers';
-import 'mapbox-gl/dist/mapbox-gl.css';
-import './globals.css';
+import type { Metadata } from "next";
+import { Providers } from "./providers";
+import "mapbox-gl/dist/mapbox-gl.css";
+import "./globals.css";
 
 export const metadata: Metadata = {
-    title: 'Miners Hub',
-    description: 'Digital ecosystem for the mining industry',
-    manifest: '/manifest.webmanifest',
-    icons: {
-        icon: [
-            { url: '/favicon.svg', type: 'image/svg+xml' },
-            { url: '/icon.svg', type: 'image/svg+xml' },
-        ],
-        apple: [{ url: '/apple-icon.svg', type: 'image/svg+xml' }],
-    },
+  title: "Miners Hub",
+  description:
+    "Compliance-first infrastructure for verified, traceable, and investable mineral commerce in Nigeria.",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/apple-icon.svg", type: "image/svg+xml" }],
+  },
 };
 
 export default function RootLayout({
-    children,
+  children,
 }: {
-    children: React.ReactNode;
+  children: React.ReactNode;
 }) {
-    return (
-        <html lang="en">
-            {/* Script to restore theme moved to providers/useEffect or handled by a ThemeProvider later. 
+  return (
+    <html lang="en">
+      {/* Script to restore theme moved to providers/useEffect or handled by a ThemeProvider later. 
           For now we rely on logical defaults or hydration. */}
-            <body>
-                <Providers>{children}</Providers>
-            </body>
-        </html>
-    );
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
 }
