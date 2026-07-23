@@ -28,6 +28,10 @@ JWT_SECRET=your-jwt-secret-key-here-change-in-production
 JWT_REFRESH_SECRET=your-jwt-refresh-secret-key-here-change-in-production
 JWT_EXPIRATION=15m
 JWT_REFRESH_EXPIRATION=7d
+PASSWORD_RESET_OTP_SECRET=your-password-reset-otp-secret-change-in-production
+
+# Password reset OTPs are logged by the backend in development until a
+# transactional email provider is connected.
 
 # AI Integration (Google Gemini)
 # Will be configured in Story 7.2

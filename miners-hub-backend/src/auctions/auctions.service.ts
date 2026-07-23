@@ -111,6 +111,9 @@ export class AuctionsService {
       .leftJoinAndSelect('auction.bids', 'bids')
       .leftJoinAndSelect('bids.bidder', 'bidder')
       .where('auction.status = :status', { status: 'active' })
+      .andWhere('listing.status = :listingStatus', {
+        listingStatus: ListingStatus.PUBLISHED,
+      })
       .andWhere('auction.endTime > :now', { now: new Date() })
       .orderBy('auction.endTime', 'ASC')
       .addOrderBy('bids.amount', 'DESC')

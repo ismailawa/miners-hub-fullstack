@@ -36,6 +36,7 @@ import { EnvironmentalRecordsModule } from './environmental-records/environmenta
 import { AnalyticsModule } from './analytics/analytics.module';
 import { InvestorOpportunitiesModule } from './investor-opportunities/investor-opportunities.module';
 import { TrustedPartnersModule } from './trusted-partners/trusted-partners.module';
+import { MineralPricesModule } from './mineral-prices/mineral-prices.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -82,6 +83,7 @@ import { TrustedPartnersModule } from './trusted-partners/trusted-partners.modul
     AnalyticsModule,
     InvestorOpportunitiesModule,
     TrustedPartnersModule,
+    MineralPricesModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

@@ -92,11 +92,13 @@ export class AdminController {
   @Get('listings')
   async getListings(
     @Query('status') status?: ListingStatus,
+    @Query('listingType') listingType?: 'buy_now' | 'auction',
     @Query('limit') limit?: string,
     @Query('rawOffset') rawOffset?: string,
   ) {
     return this.adminService.getListings(
       status,
+      listingType,
       Number(limit) || 100,
       Number(rawOffset) || 0,
     );

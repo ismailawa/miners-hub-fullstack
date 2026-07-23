@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MINERAL_PRICES_DATA } from '../lib/constants/data';
 import { MineralPrice } from '../lib/types';
+import { getPublishedMineralPriceOverrides } from '../lib/api/mineral-prices';
 
 const HOURLY_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
 const USD_TO_NGN_RATE = Number(process.env.NEXT_PUBLIC_USD_NGN_RATE || 1600);
@@ -28,6 +29,14 @@ const formatUsd = (value: number) => usdFormatter.format(value);
 const formatNgn = (value: number) => ngnFormatter.format(value);
 
 const getNextHourlyUpdate = (date: Date) => new Date(date.getTime() + HOURLY_UPDATE_INTERVAL_MS);
+
+const mergeAdminPrices = (basePrices: MineralPrice[], adminPrices: MineralPrice[]) => {
+  const bySymbol = new Map(basePrices.map((price) => [price.symbol.toLowerCase(), price]));
+  adminPrices.forEach((price) => {
+    bySymbol.set(price.symbol.toLowerCase(), price);
+  });
+  return Array.from(bySymbol.values());
+};
 
 const MineralIcon: React.FC<{ symbol: string }> = ({ symbol }) => {
   const icons: { [key: string]: React.ReactNode } = {
@@ -120,7 +129,36 @@ const PriceRow: React.FC<{ mineral: MineralPrice }> = ({ mineral }) => {
 
 const MineralPrices: React.FC = () => {
   const [prices, setPrices] = useState<MineralPrice[]>(MINERAL_PRICES_DATA);
+  const [adminPrices, setAdminPrices] = useState<MineralPrice[]>([]);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date>(() => new Date());
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadAdminPrices = async () => {
+      try {
+        const overrides = await getPublishedMineralPriceOverrides();
+        if (!isMounted) return;
+        const mapped = overrides.map((override) => ({
+          name: override.name,
+          symbol: override.symbol,
+          price: Number(override.price),
+          change: Number(override.change),
+        }));
+        setAdminPrices(mapped);
+        setPrices(mergeAdminPrices(MINERAL_PRICES_DATA, mapped));
+        setLastUpdatedAt(new Date());
+      } catch {
+        setAdminPrices([]);
+        setPrices(MINERAL_PRICES_DATA);
+      }
+    };
+
+    void loadAdminPrices();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const updatePrices = () => {
@@ -128,7 +166,10 @@ const MineralPrices: React.FC = () => {
         prevPrices.map(mineral => {
           const changePercent = (Math.random() - 0.5) * 0.015;
           const newPrice = mineral.price * (1 + changePercent);
-          const originalPrice = MINERAL_PRICES_DATA.find(p => p.symbol === mineral.symbol)?.price || newPrice;
+          const originalPrice =
+            adminPrices.find(p => p.symbol.toLowerCase() === mineral.symbol.toLowerCase())?.price ||
+            MINERAL_PRICES_DATA.find(p => p.symbol === mineral.symbol)?.price ||
+            newPrice;
           const newChange = ((newPrice - originalPrice) / originalPrice) * 100;
 
           return { ...mineral, price: newPrice, change: newChange };
@@ -142,7 +183,7 @@ const MineralPrices: React.FC = () => {
     }, HOURLY_UPDATE_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [adminPrices]);
 
   const nextUpdatedAt = getNextHourlyUpdate(lastUpdatedAt);
 

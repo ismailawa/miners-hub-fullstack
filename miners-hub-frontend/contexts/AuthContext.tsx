@@ -28,7 +28,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  updateUser: (user: User) => void;
+  updateUser: (user: User) => Promise<void>;
   setPage: (page: string, payload?: PagePayload) => void;
   isLoading: boolean;
   error: string | null;
@@ -154,20 +154,54 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
-  const updateUser = async (user: User) => {
+  const updateUser = async (user: User): Promise<void> => {
+    const previousUser = currentUser;
     try {
       // First update optimistically in local state
       setCurrentUser(user);
-      
+
+      const profilePayload: Partial<User> = {
+        name: user.name,
+        phoneNumber: user.phoneNumber,
+        address: user.address,
+        dateOfBirth: user.dateOfBirth,
+        nationality: user.nationality,
+        nin: user.nin,
+        profileImageUrl: user.profileImageUrl,
+        onboardingComplete: user.onboardingComplete,
+        onboardingStep: user.onboardingStep,
+        onboardingDraft: user.onboardingDraft,
+        businessName: user.businessName,
+        companyRegNumber: user.companyRegNumber,
+        businessAddress: user.businessAddress,
+        businessWebsite: user.businessWebsite,
+        industry: user.industry,
+        yearsInOperation: user.yearsInOperation,
+        cooperativeName: user.cooperativeName,
+        cooperativeRegNumber: user.cooperativeRegNumber,
+        partnerType: user.partnerType,
+        partnerOrganization: user.partnerOrganization,
+        miningEquipment: user.miningEquipment,
+        certifications: user.certifications,
+        investmentPreferences: user.investmentPreferences,
+        riskAppetite: user.riskAppetite,
+        jurisdiction: user.jurisdiction,
+        notificationSettings: user.notificationSettings,
+        twoFactorEnabled: user.twoFactorEnabled,
+      };
+
+      if (user.role === 'miner' || user.role === 'investor') {
+        profilePayload.role = user.role;
+      }
+
       // Then persist to the backend
-      const updatedUser = await usersApi.updateProfile(user);
+      const updatedUser = await usersApi.updateProfile(profilePayload);
       
       // Update with the definitive server response
       setCurrentUser(updatedUser);
     } catch (error) {
-      console.error('Failed to update user profile on the backend:', error);
-      // In a robust implementation, we would probably revert the optimistic update here
-      // and show an error notification to the user.
+      setCurrentUser(previousUser);
+      throw error;
     }
   };
   const clearError = () => {

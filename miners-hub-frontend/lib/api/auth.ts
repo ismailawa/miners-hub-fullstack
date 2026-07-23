@@ -39,6 +39,10 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface AuthMessageResponse {
+  message: string;
+}
+
 // Re-export ApiError for backward compatibility
 export type { ApiError } from './errors';
 
@@ -136,4 +140,32 @@ export async function refreshToken(): Promise<string> {
   }
 
   return response.accessToken;
+}
+
+export async function requestPasswordResetOtp(email: string): Promise<AuthMessageResponse> {
+  return apiClient.post<AuthMessageResponse>('/api/auth/forgot-password', {
+    email,
+  });
+}
+
+export async function verifyPasswordResetOtp(
+  email: string,
+  otp: string,
+): Promise<AuthMessageResponse> {
+  return apiClient.post<AuthMessageResponse>('/api/auth/forgot-password/verify', {
+    email,
+    otp,
+  });
+}
+
+export async function resetPasswordWithOtp(
+  email: string,
+  otp: string,
+  newPassword: string,
+): Promise<AuthMessageResponse> {
+  return apiClient.post<AuthMessageResponse>('/api/auth/forgot-password/reset', {
+    email,
+    otp,
+    newPassword,
+  });
 }

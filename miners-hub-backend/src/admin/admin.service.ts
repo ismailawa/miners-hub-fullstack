@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { User, VerificationStatus } from '../entities/user.entity';
 import { Miner } from '../entities/miner.entity';
 import { Listing, ListingStatus } from '../entities/listing.entity';
+import { Auction } from '../entities/auction.entity';
 import { Event } from '../entities/event.entity';
 import { Order, OrderStatus } from '../entities/order.entity';
 import {
@@ -45,6 +46,8 @@ export class AdminService {
     private readonly minerRepository: Repository<Miner>,
     @InjectRepository(Listing)
     private readonly listingRepository: Repository<Listing>,
+    @InjectRepository(Auction)
+    private readonly auctionRepository: Repository<Auction>,
     @InjectRepository(Event)
     private readonly eventRepository: Repository<Event>,
     @InjectRepository(Order)
@@ -64,7 +67,9 @@ export class AdminService {
     const query = this.userRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.miner', 'miner')
-      .leftJoinAndSelect('user.investor', 'investor');
+      .leftJoinAndSelect('miner.listings', 'listings')
+      .leftJoinAndSelect('user.investor', 'investor')
+      .leftJoinAndSelect('user.documents', 'documents');
 
     if (status) {
       query.where('user.verificationStatus = :status', { status });
@@ -717,6 +722,10 @@ export class AdminService {
       user.kycRejectedAt = new Date();
       user.kycVerifiedAt = null;
       user.onboardingComplete = false;
+    } else if (status === VerificationStatus.PENDING) {
+      user.kycRejectedAt = null;
+      user.kycVerifiedAt = null;
+      user.onboardingComplete = false;
     }
     const saved = await this.userRepository.save(user);
     if (adminId) {
@@ -760,7 +769,12 @@ export class AdminService {
     return 'missing';
   }
 
-  async getListings(status?: ListingStatus, limit = 100, rawOffset = 0) {
+  async getListings(
+    status?: ListingStatus,
+    listingType?: 'buy_now' | 'auction',
+    limit = 100,
+    rawOffset = 0,
+  ) {
     const query = this.listingRepository
       .createQueryBuilder('listing')
       .leftJoinAndSelect('listing.miner', 'miner')
@@ -770,10 +784,15 @@ export class AdminService {
       query.where('listing.status = :status', { status });
     }
 
+    if (listingType) {
+      query.andWhere('listing.listingType = :listingType', { listingType });
+    }
+
     query.orderBy('listing.createdAt', 'DESC');
     query.skip(rawOffset).take(Math.min(limit, 100));
 
-    return query.getMany();
+    const [data, total] = await query.getManyAndCount();
+    return { data, total, limit: Math.min(limit, 100), rawOffset };
   }
 
   async updateListingStatus(
@@ -788,6 +807,9 @@ export class AdminService {
 
     listing.status = status;
     const saved = await this.listingRepository.save(listing);
+    if (saved.status === ListingStatus.PUBLISHED && saved.listingType === 'auction') {
+      await this.ensureAuctionForPublishedListing(saved);
+    }
     if (adminId) {
       this.auditLogService.log({
         userId: adminId,
@@ -798,6 +820,26 @@ export class AdminService {
       });
     }
     return saved;
+  }
+
+  private async ensureAuctionForPublishedListing(listing: Listing): Promise<void> {
+    const existing = await this.auctionRepository.findOne({
+      where: { listingId: listing.id },
+    });
+    if (existing) return;
+
+    const startTime = new Date();
+    const endTime = new Date(startTime.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const auction = this.auctionRepository.create({
+      listingId: listing.id,
+      startTime,
+      endTime,
+      startingBid: Number(listing.price),
+      minimumIncrement: 0,
+      currentBid: null,
+      status: 'active',
+    });
+    await this.auctionRepository.save(auction);
   }
 
   async getOrders(status?: OrderStatus, limit = 100, rawOffset = 0) {

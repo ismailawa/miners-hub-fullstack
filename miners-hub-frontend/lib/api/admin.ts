@@ -10,9 +10,41 @@ export interface AdminUser {
   role: string;
   verificationStatus: string;
   onboardingComplete: boolean;
+  phoneNumber?: string | null;
+  profileImageUrl?: string | null;
+  kycSubmittedAt?: string | null;
+  kycVerifiedAt?: string | null;
+  kycRejectedAt?: string | null;
   createdAt: string;
-  miner?: any;
-  investor?: any;
+  miner?: {
+    id?: string;
+    companyName?: string | null;
+    location?: string | null;
+    businessAddress?: string | null;
+    businessWebsite?: string | null;
+    industry?: string | null;
+    yearsInOperation?: string | null;
+    listings?: Array<{
+      id: string;
+      mineralType: string;
+      status: string;
+      quantity: number;
+      price: number;
+      createdAt: string;
+    }>;
+  } | null;
+  investor?: {
+    id?: string;
+    investmentPreferences?: string[] | null;
+    riskAppetite?: string | null;
+  } | null;
+  documents?: Array<{
+    id: string;
+    type: string;
+    fileName: string;
+    reviewStatus: 'pending' | 'approved' | 'rejected';
+    createdAt: string;
+  }>;
 }
 
 export interface AdminListing {
@@ -20,15 +52,30 @@ export interface AdminListing {
   mineralType: string;
   quantity: number;
   price: number;
+  gradePurity?: string | null;
+  location?: string | null;
+  listingType?: 'buy_now' | 'auction';
+  moisturePercentage?: number | null;
+  images?: string[];
   status: string;
   createdAt: string;
+  updatedAt?: string;
   miner?: {
+    id?: string;
     companyName: string;
     user?: {
       name: string;
       email: string;
+      verificationStatus?: string;
     }
   }
+}
+
+export interface AdminListingsResponse {
+  data: AdminListing[];
+  total: number;
+  limit: number;
+  rawOffset: number;
 }
 
 export interface AdminDocument {
@@ -184,9 +231,30 @@ export async function verifyUser(id: string, status: string): Promise<AdminUser>
   return apiClient.patch<AdminUser>(`/api/admin/users/${id}/verify`, { status });
 }
 
-export async function getListings(status?: string): Promise<AdminListing[]> {
-  const url = status ? `/api/admin/listings?status=${status}` : '/api/admin/listings';
-  return apiClient.get<AdminListing[]>(url);
+export async function getListings(filters: {
+  status?: string;
+  listingType?: string;
+  limit?: number;
+  rawOffset?: number;
+} = {}): Promise<AdminListingsResponse> {
+  const params = new URLSearchParams();
+  if (filters.status && filters.status !== 'all') params.set('status', filters.status);
+  if (filters.listingType && filters.listingType !== 'all') params.set('listingType', filters.listingType);
+  if (filters.limit) params.set('limit', String(filters.limit));
+  if (filters.rawOffset !== undefined) params.set('rawOffset', String(filters.rawOffset));
+  const query = params.toString();
+  const response = await apiClient.get<AdminListing[] | AdminListingsResponse>(
+    `/api/admin/listings${query ? `?${query}` : ''}`,
+  );
+  if (Array.isArray(response)) {
+    return {
+      data: response,
+      total: response.length,
+      limit: filters.limit || response.length,
+      rawOffset: filters.rawOffset || 0,
+    };
+  }
+  return response;
 }
 
 export async function updateListingStatus(id: string, status: string): Promise<AdminListing> {

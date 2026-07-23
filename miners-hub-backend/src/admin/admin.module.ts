@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../entities/user.entity';
 import { Miner } from '../entities/miner.entity';
 import { Listing } from '../entities/listing.entity';
+import { Auction } from '../entities/auction.entity';
 import { Event } from '../entities/event.entity';
 import { Order } from '../entities/order.entity';
 import { Document } from '../entities/document.entity';
@@ -21,6 +22,7 @@ import { AuditLogModule } from '../common/audit-log/audit-log.module';
       User,
       Miner,
       Listing,
+      Auction,
       Event,
       Order,
       Document,

@@ -85,5 +85,9 @@ export {
   TrustedPartner,
   TrustedPartnerStatus,
 } from './trusted-partner.entity';
+export {
+  MineralPriceOverride,
+  MineralPriceOverrideStatus,
+} from './mineral-price-override.entity';
 export { ForumPost } from './forum-post.entity';
 export { ForumReply } from './forum-reply.entity';
