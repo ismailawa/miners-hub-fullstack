@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { Order, OrderStatus } from '../entities/order.entity';
 import { Listing, ListingStatus } from '../entities/listing.entity';
 import { Miner } from '../entities/miner.entity';
+import { User, VerificationStatus } from '../entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuditLogService } from '../common/audit-log/audit-log.service';
 import { CreateOrderDto, UpdateOrderStatusDto } from './orders.dto';
@@ -35,12 +36,24 @@ export class OrdersService {
     private readonly listingRepository: Repository<Listing>,
     @InjectRepository(Miner)
     private readonly minerRepository: Repository<Miner>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private readonly notificationsService: NotificationsService,
     private readonly auditLogService: AuditLogService,
     private readonly escrowService: EscrowService,
   ) {}
 
   async create(buyerId: string, dto: CreateOrderDto): Promise<Order> {
+    const buyer = await this.userRepository.findOne({ where: { id: buyerId } });
+    if (
+      buyer?.verificationStatus !== VerificationStatus.VERIFIED ||
+      !buyer?.onboardingComplete
+    ) {
+      throw new ForbiddenException(
+        'Complete onboarding and verification before placing orders.',
+      );
+    }
+
     const listing = await this.listingRepository.findOne({
       where: { id: dto.listingId },
       relations: ['miner', 'miner.user'],

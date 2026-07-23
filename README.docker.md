@@ -107,23 +107,17 @@ docker-compose exec backend npm run migration:run
 docker-compose -f docker-compose.dev.yml exec backend npm run migration:run
 ```
 
-## Development Database Persistence and Seeding
+## Development Database Persistence
 
 The development compose file persists PostgreSQL data in the named volume
-`postgres_data_dev`. The first startup waits for PostgreSQL to become healthy,
-runs migrations, seeds MVP data, and then starts the backend and frontend:
+`postgres_data_dev`. Startup waits for PostgreSQL to become healthy, then starts
+the backend and frontend:
 
 ```bash
 docker compose -f docker-compose.dev.yml up --build
 ```
 
-To run the seed job again against the persisted database:
-
-```bash
-docker compose -f docker-compose.dev.yml run --rm seed
-```
-
-To reset all development database data and seed from scratch:
+To reset all development database data:
 
 ```bash
 docker compose -f docker-compose.dev.yml down -v

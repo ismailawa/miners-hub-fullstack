@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Transaction } from '../../lib/types';
 import { getOrders, mapBackendOrderToTransaction } from '../../lib/api/orders';
+import { formatCurrency } from '../../lib/currency';
 
 const getStatusChip = (status: string) => {
     switch (status) {
@@ -21,7 +22,7 @@ const TransactionItem: React.FC<{ transaction: Transaction }> = ({ transaction }
             <p className="text-xs text-text-muted">ID: {transaction.id}</p>
         </div>
         <div className="text-right md:text-left">
-            <p className="font-semibold text-text-primary">${transaction.amount.toFixed(2)}</p>
+            <p className="font-semibold text-text-primary">{formatCurrency(transaction.amount)}</p>
             <p className="text-xs text-text-muted">{transaction.quantity} {transaction.unit}(s)</p>
         </div>
         <div className="text-left">
@@ -80,7 +81,7 @@ const TransactionsContent: React.FC = () => {
                 {transactions.length > 0 && (
                     <div className="bg-secondary border border-border rounded-lg px-4 py-3 text-right">
                         <p className="text-xs text-text-muted">Total Completed Volume</p>
-                        <p className="text-lg font-bold text-green-400">${totalAmount.toFixed(2)}</p>
+                        <p className="text-lg font-bold text-green-400">{formatCurrency(totalAmount)}</p>
                     </div>
                 )}
             </div>

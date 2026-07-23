@@ -1,0 +1,7 @@
+interface:
+  display_name: "Miners Hub Workflow"
+  short_description: "Read Miners Hub docs and update sprint status."
+  default_prompt: "Use $miners-hub-workflow to implement this Miners Hub project task while reading the docs and updating the sprint checklist."
+
+policy:
+  allow_implicit_invocation: true

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { getAdminOrders, refundEscrow, releaseEscrow } from '../../../../lib/api/admin';
 import type { BackendOrder } from '../../../../lib/api/orders';
+import { formatCurrency } from '../../../../lib/currency';
 
 const statuses = ['all', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
 
@@ -75,7 +76,7 @@ export default function AdminOrdersPage() {
         </div>
         <div className="bg-secondary border border-border rounded-lg px-4 py-3">
           <p className="text-xs text-text-muted">Visible Order Volume</p>
-          <p className="text-lg font-bold text-accent">₦{totalVolume.toLocaleString()}</p>
+          <p className="text-lg font-bold text-accent">{formatCurrency(totalVolume)}</p>
         </div>
       </div>
 
@@ -128,7 +129,7 @@ export default function AdminOrdersPage() {
                   </td>
                   <td className="p-4 text-sm text-text-secondary">{order.buyer?.name || order.buyer?.email || 'Buyer'}</td>
                   <td className="p-4 text-sm text-text-secondary">{order.seller?.name || order.seller?.email || 'Seller'}</td>
-                  <td className="p-4 text-sm font-semibold text-text-primary">₦{Number(order.totalAmount).toLocaleString()}</td>
+                  <td className="p-4 text-sm font-semibold text-text-primary">{formatCurrency(order.totalAmount)}</td>
                   <td className="p-4">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary text-text-secondary capitalize">
                       {order.status}
@@ -143,9 +144,9 @@ export default function AdminOrdersPage() {
                     {escrow ? (
                       <div className="space-y-1 text-xs text-text-secondary">
                         <p className="font-semibold text-text-primary capitalize">{escrow.status.replace(/_/g, ' ')}</p>
-                        <p>Gross: ₦{Number(escrow.grossAmount).toLocaleString()}</p>
-                        <p>Commission: ₦{Number(escrow.commissionAmount).toLocaleString()}</p>
-                        <p>Seller net: ₦{Number(escrow.sellerNetAmount).toLocaleString()}</p>
+                        <p>Gross: {formatCurrency(escrow.grossAmount)}</p>
+                        <p>Commission: {formatCurrency(escrow.commissionAmount)}</p>
+                        <p>Seller net: {formatCurrency(escrow.sellerNetAmount)}</p>
                         <p className={payoutReady ? 'text-green-400' : 'text-yellow-400'}>
                           Payout: {escrow.sellerPayoutAccount?.status || 'missing'}
                         </p>

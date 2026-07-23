@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import NotificationCenter from './NotificationCenter';
 import { useGlobalSearch, SearchResult } from '../hooks/useGlobalSearch';
+import BrandLogo from './BrandLogo';
 
 const NavLink: React.FC<{ href: string; children: React.ReactNode; onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void }> = ({ href, children, onClick }) => (
     <a href={href} onClick={onClick} className="text-text-secondary hover:text-accent transition-colors duration-300">
@@ -425,8 +426,7 @@ const Header: React.FC = () => {
                     <div className="flex justify-between items-center h-20">
                         {/* Logo */}
                         <button onClick={() => setPage('home')} className="flex items-center space-x-2">
-                            <svg className="w-8 h-8 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                            <span className="text-2xl font-bold text-text-primary">Miners Hub</span>
+                            <BrandLogo size="sm" />
                         </button>
 
                         {/* Desktop Navigation */}

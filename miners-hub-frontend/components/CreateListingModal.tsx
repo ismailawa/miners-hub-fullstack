@@ -3,6 +3,7 @@ import { User } from '../lib/types';
 import { BackendListing, CreateListingPayload, createListing, updateListing } from '../lib/api/listings';
 import MultiFileInput, { FilePreview } from './MultiFileInput';
 import { uploadImage } from '../lib/api/media';
+import { formatCurrencyInput, parseCurrencyInput } from '../lib/currency';
 
 const COMMON_MINERALS = ['Gold', 'Lithium', 'Copper', 'Cobalt', 'Coltan', 'Zinc', 'Tin', 'Lead', 'Iron Ore'];
 
@@ -63,7 +64,12 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({ isOpen, onClose
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: name === 'quantity' || name === 'price' ? parseFloat(value) || 0 : value }));
+        const nextValue = name === 'price'
+            ? parseCurrencyInput(value)
+            : name === 'quantity'
+                ? parseFloat(value) || 0
+                : value;
+        setFormData(prev => ({ ...prev, [name]: nextValue }));
     };
 
     const handleMineralChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -220,9 +226,9 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({ isOpen, onClose
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-text-secondary mb-1">
-                                            {formData.type === 'auction' ? 'Starting Price ($ / tonne)' : 'Price per Tonne ($)'} <span className="text-red-500">*</span>
+                                            {formData.type === 'auction' ? 'Starting Price (NGN / tonne)' : 'Price per Tonne (NGN)'} <span className="text-red-500">*</span>
                                         </label>
-                                        <input type="number" name="price" value={formData.price} onChange={handleInputChange} required min="0" step="0.01" className="w-full bg-primary p-3 border border-border rounded-lg focus:ring-2 focus:ring-accent outline-none transition-all" />
+                                        <input type="text" inputMode="numeric" name="price" value={formatCurrencyInput(formData.price)} onChange={handleInputChange} required className="w-full bg-primary p-3 border border-border rounded-lg focus:ring-2 focus:ring-accent outline-none transition-all" />
                                     </div>
                                 </div>
                             </div>

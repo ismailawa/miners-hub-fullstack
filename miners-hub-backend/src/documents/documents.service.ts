@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { Document, DocumentType } from '../entities/document.entity';
 import { UserRole } from '../entities/user.entity';
 import { CloudinaryService } from '../common/cloudinary/cloudinary.service';
+import { AuditLogService } from '../common/audit-log/audit-log.service';
 
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
@@ -24,6 +25,7 @@ export class DocumentsService {
     @InjectRepository(Document)
     private readonly documentRepository: Repository<Document>,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async upload(
@@ -123,7 +125,21 @@ export class DocumentsService {
       },
     });
 
-    return this.documentRepository.save(document);
+    const saved = await this.documentRepository.save(document);
+    this.auditLogService.log({
+      userId,
+      action: 'document.upload',
+      resource: 'document',
+      resourceId: saved.id,
+      metadata: {
+        type: saved.type,
+        listingId: saved.listingId,
+        fileName: saved.fileName,
+        mimeType: saved.mimeType,
+        fileSize: saved.fileSize,
+      },
+    });
+    return saved;
   }
 
   async findOne(id: string, userId: string, role: UserRole): Promise<Document> {
@@ -155,5 +171,17 @@ export class DocumentsService {
       deletedBy: userId,
     };
     await this.documentRepository.save(doc);
+    this.auditLogService.log({
+      userId,
+      action: 'document.delete',
+      resource: 'document',
+      resourceId: doc.id,
+      metadata: {
+        ownerId: doc.userId,
+        type: doc.type,
+        listingId: doc.listingId,
+        deletedByRole: role,
+      },
+    });
   }
 }

@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
-import { Listing } from '../lib/types';
+import { Listing, VerificationStatus } from '../lib/types';
 import { proposeContract } from '../lib/api/contracts';
+import { formatCurrency } from '../lib/currency';
 
 const ContractProposalPage: React.FC = () => {
     const { currentUser, pagePayload, setPage } = useAuth();
@@ -18,10 +19,12 @@ const ContractProposalPage: React.FC = () => {
     useEffect(() => {
         if (!currentUser || currentUser.role !== 'investor' || !listing) {
             setPage('marketplace');
+        } else if (currentUser.status !== VerificationStatus.VERIFIED || !currentUser.onboardingComplete) {
+            setPage('onboarding');
         } else {
-            const totalCost = (listing.pricePerUnit * listing.quantity).toLocaleString();
+            const totalCost = formatCurrency(listing.pricePerUnit * listing.quantity);
             setTitle(`Purchase Agreement: ${listing.quantity} ${listing.unit} of ${listing.mineral}`);
-            const template = `This agreement is made for the sale of ${listing.quantity} ${listing.unit}(s) of ${listing.mineral} (${listing.grade}) at a price of ₦${listing.pricePerUnit.toLocaleString()} per ${listing.unit}, for a total of ₦${totalCost}.
+            const template = `This agreement is made for the sale of ${listing.quantity} ${listing.unit}(s) of ${listing.mineral} (${listing.grade}) at a price of ${formatCurrency(listing.pricePerUnit)} per ${listing.unit}, for a total of ${totalCost}.
 
 1. **Payment:** Full payment to be made via Miners Hub Escrow service within 3 business days of this contract becoming active.
 2. **Shipment:** Seller (${listing.minerName}) agrees to ship the goods to the buyer's specified port within 14 days of payment confirmation.
@@ -43,13 +46,10 @@ const ContractProposalPage: React.FC = () => {
         setIsSubmitting(true);
 
         try {
-            const sellerUserId = listing.minerUserId;
-            if (!sellerUserId) {
-                throw new Error('Seller account could not be resolved for this listing.');
+            if (currentUser.status !== VerificationStatus.VERIFIED || !currentUser.onboardingComplete) {
+                throw new Error('Complete onboarding and verification before proposing contracts.');
             }
-
             await proposeContract({
-                party2Id: sellerUserId,
                 listingId: listing.id,
                 title: title,
                 terms: terms,
@@ -91,8 +91,8 @@ const ContractProposalPage: React.FC = () => {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm bg-primary p-4 rounded-md mb-6">
                             <div><span className="font-semibold text-text-muted block">Seller</span>{listing.minerName}</div>
                             <div><span className="font-semibold text-text-muted block">Quantity</span>{listing.quantity} {listing.unit}s</div>
-                            <div><span className="font-semibold text-text-muted block">Price/Unit</span>₦{listing.pricePerUnit.toLocaleString()}</div>
-                            <div><span className="font-semibold text-text-muted block">Total</span>₦{(listing.pricePerUnit * listing.quantity).toLocaleString()}</div>
+                            <div><span className="font-semibold text-text-muted block">Price/Unit</span>{formatCurrency(listing.pricePerUnit)}</div>
+                            <div><span className="font-semibold text-text-muted block">Total</span>{formatCurrency(listing.pricePerUnit * listing.quantity)}</div>
                         </div>
 
                         <form onSubmit={handleSubmit}>

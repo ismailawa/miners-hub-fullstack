@@ -18,6 +18,12 @@ function buildThreadId(a: string, b: string): string {
   return [a, b].sort().join('--');
 }
 
+function parseThreadId(threadId: string): [string, string] | null {
+  const [firstUserId, secondUserId, ...rest] = threadId.split('--');
+  if (!firstUserId || !secondUserId || rest.length > 0) return null;
+  return [firstUserId, secondUserId];
+}
+
 @Injectable()
 export class ChatsService {
   constructor(
@@ -55,48 +61,55 @@ export class ChatsService {
    * plus unread count.
    */
   async getThreads(userId: string): Promise<any[]> {
-    // Use a raw query to get the latest message per thread + unread count
-    const threads = await this.chatRepository
-      .createQueryBuilder('chat')
-      .select('chat.threadId', 'threadId')
-      .addSelect('MAX(chat.createdAt)', 'lastMessageAt')
-      .addSelect(
-        `SUM(CASE WHEN chat.receiverId = :userId AND chat.read = false THEN 1 ELSE 0 END)`,
-        'unreadCount',
-      )
-      .where('chat.senderId = :userId OR chat.receiverId = :userId', { userId })
-      .groupBy('chat.threadId')
-      .orderBy('lastMessageAt', 'DESC')
-      .setParameter('userId', userId)
-      .getRawMany();
+    const messages = await this.chatRepository.find({
+      where: [{ senderId: userId }, { receiverId: userId }],
+      relations: ['sender', 'receiver'],
+      order: { createdAt: 'DESC' },
+    });
 
-    // Enrich each thread with the latest message content
-    const enriched = await Promise.all(
-      threads.map(async (t) => {
-        const latest = await this.chatRepository.findOne({
-          where: { threadId: t.threadId },
-          relations: ['sender', 'receiver'],
-          order: { createdAt: 'DESC' },
+    const threads = new Map<
+      string,
+      { latest: Chat; unreadCount: number; lastMessageAt: Date }
+    >();
+
+    for (const message of messages) {
+      const existing = threads.get(message.threadId);
+      const unreadIncrement =
+        message.receiverId === userId && !message.read ? 1 : 0;
+
+      if (!existing) {
+        threads.set(message.threadId, {
+          latest: message,
+          unreadCount: unreadIncrement,
+          lastMessageAt: message.createdAt,
         });
-        const counterparty =
-          latest?.senderId === userId ? latest?.receiver : latest?.sender;
-        return {
-          threadId: t.threadId,
-          lastMessageAt: t.lastMessageAt,
-          unreadCount: Number(t.unreadCount),
-          latestMessage: latest ? this.serializeMessage(latest) : null,
-          counterparty: counterparty
-            ? {
-                id: counterparty.id,
-                name: counterparty.name,
-                email: counterparty.email,
-              }
-            : null,
-        };
-      }),
-    );
+        continue;
+      }
 
-    return enriched;
+      existing.unreadCount += unreadIncrement;
+    }
+
+    return Array.from(threads.entries()).map(([threadId, thread]) => {
+      const counterparty =
+        thread.latest.senderId === userId
+          ? thread.latest.receiver
+          : thread.latest.sender;
+
+      return {
+        threadId,
+        lastMessageAt: thread.lastMessageAt,
+        unreadCount: thread.unreadCount,
+        latestMessage: this.serializeMessage(thread.latest),
+        counterparty: counterparty
+          ? {
+              id: counterparty.id,
+              name: counterparty.name,
+              email: counterparty.email,
+              profileImageUrl: counterparty.profileImageUrl,
+            }
+          : null,
+      };
+    });
   }
 
   async getMessages(
@@ -108,7 +121,20 @@ export class ChatsService {
     const threadCheck = await this.chatRepository.findOne({
       where: { threadId },
     });
-    if (!threadCheck) throw new NotFoundException('Thread not found.');
+    if (!threadCheck) {
+      const participants = parseThreadId(threadId);
+      if (!participants?.includes(userId)) {
+        throw new NotFoundException('Thread not found.');
+      }
+
+      const otherUserId = participants.find((id) => id !== userId);
+      const otherUser = otherUserId
+        ? await this.userRepository.findOne({ where: { id: otherUserId } })
+        : null;
+      if (!otherUser) throw new NotFoundException('Thread not found.');
+
+      return paginate([], 0, pagination);
+    }
     if (threadCheck.senderId !== userId && threadCheck.receiverId !== userId) {
       throw new ForbiddenException('Access denied.');
     }

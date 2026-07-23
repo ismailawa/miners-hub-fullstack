@@ -7,8 +7,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Listing, ListingStatus } from '../entities/listing.entity';
 import { Miner } from '../entities/miner.entity';
+import { VerificationStatus } from '../entities/user.entity';
 import { CreateListingDto, ListingFilterDto } from './listings.dto';
 import { paginate } from '../common/dto/pagination.dto';
+import { AuditLogService } from '../common/audit-log/audit-log.service';
 
 @Injectable()
 export class ListingsService {
@@ -17,16 +19,26 @@ export class ListingsService {
     private readonly listingRepository: Repository<Listing>,
     @InjectRepository(Miner)
     private readonly minerRepository: Repository<Miner>,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async create(userId: string, dto: CreateListingDto): Promise<Listing> {
     const miner = await this.minerRepository.findOne({
       where: { userId },
+      relations: ['user'],
     });
 
     if (!miner) {
       throw new ForbiddenException(
         'Only registered miners can create listings. Please complete your miner profile first.',
+      );
+    }
+    if (
+      miner.user?.verificationStatus !== VerificationStatus.VERIFIED ||
+      !miner.user?.onboardingComplete
+    ) {
+      throw new ForbiddenException(
+        'Complete onboarding and verification before creating listings.',
       );
     }
 
@@ -43,7 +55,19 @@ export class ListingsService {
       status: ListingStatus.SUBMITTED, // Needs admin approval
     });
 
-    return this.listingRepository.save(listing);
+    const saved = await this.listingRepository.save(listing);
+    this.auditLogService.log({
+      userId,
+      action: 'listing.create',
+      resource: 'listing',
+      resourceId: saved.id,
+      metadata: {
+        mineralType: saved.mineralType,
+        listingType: saved.listingType,
+        status: saved.status,
+      },
+    });
+    return saved;
   }
 
   async findMyListings(userId: string): Promise<Listing[]> {
@@ -61,6 +85,7 @@ export class ListingsService {
       .createQueryBuilder('listing')
       .leftJoinAndSelect('listing.miner', 'miner')
       .leftJoinAndSelect('miner.user', 'user')
+      .leftJoinAndSelect('listing.documents', 'documents')
       .where('listing.status = :status', { status: ListingStatus.PUBLISHED });
 
     if (filterDto.mineralType) {
@@ -90,6 +115,30 @@ export class ListingsService {
     if (filterDto.listingType) {
       qb.andWhere('listing.listingType = :listingType', {
         listingType: filterDto.listingType,
+      });
+    }
+
+    if (filterDto.gradePurity) {
+      qb.andWhere('listing.gradePurity ILIKE :gradePurity', {
+        gradePurity: `%${filterDto.gradePurity}%`,
+      });
+    }
+
+    if (filterDto.minQuantity !== undefined) {
+      qb.andWhere('listing.quantity >= :minQuantity', {
+        minQuantity: filterDto.minQuantity,
+      });
+    }
+
+    if (filterDto.maxQuantity !== undefined) {
+      qb.andWhere('listing.quantity <= :maxQuantity', {
+        maxQuantity: filterDto.maxQuantity,
+      });
+    }
+
+    if (filterDto.sellerVerificationStatus) {
+      qb.andWhere('user.verificationStatus = :sellerVerificationStatus', {
+        sellerVerificationStatus: filterDto.sellerVerificationStatus,
       });
     }
 
@@ -135,6 +184,16 @@ export class ListingsService {
     if (!listing) throw new NotFoundException('Listing not found.');
 
     await this.listingRepository.remove(listing);
+    this.auditLogService.log({
+      userId,
+      action: 'listing.delete',
+      resource: 'listing',
+      resourceId: listingId,
+      metadata: {
+        mineralType: listing.mineralType,
+        previousStatus: listing.status,
+      },
+    });
   }
 
   async update(
@@ -151,8 +210,21 @@ export class ListingsService {
     if (!listing) throw new NotFoundException('Listing not found.');
 
     // Reset to SUBMITTED so admin re-approves after edit
+    const previousStatus = listing.status;
     Object.assign(listing, { ...dto, status: ListingStatus.SUBMITTED });
 
-    return this.listingRepository.save(listing);
+    const saved = await this.listingRepository.save(listing);
+    this.auditLogService.log({
+      userId,
+      action: 'listing.update',
+      resource: 'listing',
+      resourceId: saved.id,
+      metadata: {
+        previousStatus,
+        status: saved.status,
+        updatedFields: Object.keys(dto),
+      },
+    });
+    return saved;
   }
 }

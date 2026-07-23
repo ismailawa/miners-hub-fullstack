@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { getUserFriendlyMessage } from '../lib/api/errors';
+import BrandLogo from './BrandLogo';
 
 const RegisterPage: React.FC = () => {
     const { register, setPage } = useAuth();
@@ -40,8 +41,7 @@ const RegisterPage: React.FC = () => {
                 <div className="absolute inset-0 bg-primary bg-opacity-70"></div>
                  <div className="relative z-10 text-center text-white">
                     <button onClick={() => setPage('home')} className="flex items-center space-x-2 mx-auto mb-8">
-                        <svg className="w-10 h-10 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                        <span className="text-3xl font-bold">Miners Hub</span>
+                        <BrandLogo size="lg" textClassName="text-white" />
                     </button>
                     <h1 className="text-4xl font-extrabold mb-4" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
                         Join a Trusted Network
@@ -57,8 +57,7 @@ const RegisterPage: React.FC = () => {
                  <div className="w-full max-w-md">
                     <div className="lg:hidden mb-8">
                          <button onClick={() => setPage('home')} className="flex items-center space-x-2">
-                            <svg className="w-8 h-8 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                            <span className="text-2xl font-bold text-text-primary">Miners Hub</span>
+                            <BrandLogo size="sm" />
                         </button>
                     </div>
                     <h2 className="text-3xl font-bold text-text-primary mb-2">Create an Account</h2>

@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { BackendListing, getMyListings, deleteListing } from '../../lib/api/listings';
 import CreateListingModal from '../CreateListingModal';
 import ConfirmationModal from '../ConfirmationModal';
+import { formatCurrency } from '../../lib/currency';
 
 const statusBadge = (status: string) => {
     const styles: Record<string, string> = {
@@ -50,7 +51,7 @@ const ListingManagementCard: React.FC<{
                     {listing.gradePurity && <p className="text-xs text-text-muted mt-0.5">Grade: {listing.gradePurity}</p>}
                 </div>
                 <div className="text-right flex-shrink-0">
-                    <p className="text-lg font-semibold text-accent">${listing.price?.toLocaleString()}/tonne</p>
+                    <p className="text-lg font-semibold text-accent">{formatCurrency(listing.price)}/tonne</p>
                     <p className="text-sm text-text-secondary">{listing.quantity} tonnes</p>
                 </div>
             </div>

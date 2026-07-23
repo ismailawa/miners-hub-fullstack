@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, MouseEvent, useEffect } from 'react';
 import { PRODUCTION_DATA, PRICE_CORRELATION_DATA, EXPORT_DATA, MARKET_SENTIMENT_DATA, HISTORICAL_PRICE_DATA } from '../lib/constants/data';
 import { ProductionDataPoint, HistoricalPricePoint, ExportData, PriceCorrelation, ForecastDataPoint } from '../lib/types';
 import { getMarketSummary, getPriceForecast } from '../lib/api/ai';
+import { formatCurrency } from '../lib/currency';
 
 const ChartCard: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className = '' }) => (
     <div className={`bg-secondary rounded-lg p-6 border border-border h-full flex flex-col ${className}`}>
@@ -295,7 +296,7 @@ const LineChart: React.FC<{
             const pointIndex = parseInt(point.dataset.pointIndex || '0');
             const seriesName = series[seriesIndex];
             const dataPoint = data[seriesName][pointIndex];
-            setTooltip({ content: `${seriesName}: $${dataPoint.y.toFixed(2)}`, x: e.clientX, y: e.clientY });
+            setTooltip({ content: `${seriesName}: ${formatCurrency(dataPoint.y)}`, x: e.clientX, y: e.clientY });
         } else {
             setTooltip(null);
         }
@@ -315,7 +316,7 @@ const LineChart: React.FC<{
                     return (
                         <g key={i} className="text-xs text-text-muted">
                             <line x1={padding} y1={yScale(val)} x2={width - padding} y2={yScale(val)} stroke="currentColor" strokeDasharray="2" strokeOpacity="0.3" />
-                            <text x={padding - 8} y={yScale(val)} dominantBaseline="middle" textAnchor="end">${Math.round(val)}</text>
+                            <text x={padding - 8} y={yScale(val)} dominantBaseline="middle" textAnchor="end">{formatCurrency(val)}</text>
                         </g>
                     )
                 })}

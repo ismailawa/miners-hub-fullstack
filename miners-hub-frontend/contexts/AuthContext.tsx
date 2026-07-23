@@ -112,12 +112,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       const response = await authApi.login(email, password);
       setCurrentUser(response.user as User);
 
-      // Navigate based on onboarding status
-      if (!response.user.onboardingComplete) {
-        setPage('onboarding');
-      } else {
-        setPage('dashboard');
-      }
+      setPage('dashboard');
     } catch (err) {
       const apiError = err as authApi.ApiError;
       const errorMessage =

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import BrandLogo from './BrandLogo';
 
 const FooterLink: React.FC<{ onClick: () => void; children: React.ReactNode }> = ({ onClick, children }) => (
   <button onClick={onClick} className="text-text-secondary hover:text-accent transition-colors duration-300 text-left">
@@ -22,8 +23,7 @@ const Footer: React.FC = () => {
           {/* Brand and About */}
           <div className="lg:col-span-2">
             <div className="flex items-center space-x-2 mb-4">
-               <svg className="w-8 h-8 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-              <span className="text-2xl font-bold text-text-primary">Miners Hub</span>
+              <BrandLogo size="sm" />
             </div>
             <p className="text-text-secondary max-w-sm">
               The digital frontier for mineral trading, connecting Africa's resources with the world.

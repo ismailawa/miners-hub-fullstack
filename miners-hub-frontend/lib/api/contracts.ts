@@ -32,8 +32,7 @@ export interface BackendContract {
 }
 
 export interface ProposeContractPayload {
-  party2Id: string;
-  listingId?: string;
+  listingId: string;
   title: string;
   terms: string;
   value?: number;

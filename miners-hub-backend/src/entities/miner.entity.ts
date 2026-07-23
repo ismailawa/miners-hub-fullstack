@@ -12,6 +12,8 @@ import {
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { User } from './user.entity';
 import { Listing } from './listing.entity';
+import { MineSite } from './mine-site.entity';
+import { ProductionReport } from './production-report.entity';
 
 @Entity('miners')
 @Index(['userId'])
@@ -68,6 +70,26 @@ export class Miner {
   @IsString()
   yearsInOperation?: string;
 
+  @Column({ name: 'cooperative_name', type: 'varchar', nullable: true })
+  @IsOptional()
+  @IsString()
+  cooperativeName?: string | null;
+
+  @Column({ name: 'cooperative_reg_number', type: 'varchar', nullable: true })
+  @IsOptional()
+  @IsString()
+  cooperativeRegNumber?: string | null;
+
+  @Column({ name: 'partner_type', type: 'varchar', nullable: true })
+  @IsOptional()
+  @IsString()
+  partnerType?: string | null;
+
+  @Column({ name: 'partner_organization', type: 'varchar', nullable: true })
+  @IsOptional()
+  @IsString()
+  partnerOrganization?: string | null;
+
   @Column({ name: 'mining_equipment', type: 'text', array: true, default: [] })
   miningEquipment!: string[];
 
@@ -83,4 +105,10 @@ export class Miner {
   // Relationships
   @OneToMany(() => Listing, (listing) => listing.miner)
   listings!: Listing[];
+
+  @OneToMany(() => MineSite, (mineSite) => mineSite.operator)
+  mineSites!: MineSite[];
+
+  @OneToMany(() => ProductionReport, (report) => report.miner)
+  productionReports!: ProductionReport[];
 }

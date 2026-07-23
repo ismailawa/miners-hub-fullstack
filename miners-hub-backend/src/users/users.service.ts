@@ -137,9 +137,11 @@ export class UsersService {
     if (updateData.onboardingComplete !== undefined) {
       user.onboardingComplete = updateData.onboardingComplete;
     }
-
-    if (updateData.status) {
-      user.verificationStatus = updateData.status;
+    if (updateData.onboardingStep !== undefined) {
+      user.onboardingStep = Number(updateData.onboardingStep) || 0;
+    }
+    if (updateData.onboardingDraft !== undefined) {
+      user.onboardingDraft = updateData.onboardingDraft;
     }
 
     await this.usersRepository.save(user);
@@ -172,6 +174,22 @@ export class UsersService {
         updateData.yearsInOperation !== undefined
           ? updateData.yearsInOperation
           : miner.yearsInOperation;
+      miner.cooperativeName =
+        updateData.cooperativeName !== undefined
+          ? updateData.cooperativeName
+          : miner.cooperativeName;
+      miner.cooperativeRegNumber =
+        updateData.cooperativeRegNumber !== undefined
+          ? updateData.cooperativeRegNumber
+          : miner.cooperativeRegNumber;
+      miner.partnerType =
+        updateData.partnerType !== undefined
+          ? updateData.partnerType
+          : miner.partnerType;
+      miner.partnerOrganization =
+        updateData.partnerOrganization !== undefined
+          ? updateData.partnerOrganization
+          : miner.partnerOrganization;
       miner.miningEquipment =
         updateData.miningEquipment || miner.miningEquipment || [];
       miner.certifications =

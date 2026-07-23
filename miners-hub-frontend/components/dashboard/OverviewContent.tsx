@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { Listing, Contract, ContractStatus, Order, Task } from '../../lib/types';
+import { Listing, Contract, ContractStatus, Order, Task, VerificationStatus } from '../../lib/types';
 import { getMyListings, mapBackendListingToFrontend } from '../../lib/api/listings';
 import { getOrders, mapBackendOrderToOrder } from '../../lib/api/orders';
 import { getContracts } from '../../lib/api/contracts';
@@ -89,17 +89,17 @@ export const OverviewContent: React.FC = () => {
             <p className="text-text-muted mb-8">Welcome back, <span className="text-accent font-semibold">{currentUser.name}</span>.</p>
             {isLoading && <p className="text-sm text-text-muted mb-4">Loading account activity...</p>}
 
-            {!currentUser.onboardingComplete && (
+            {(!currentUser.onboardingComplete || currentUser.status !== VerificationStatus.VERIFIED) && (
                 <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-300 p-4 rounded-lg mb-8 flex items-center justify-between flex-wrap gap-4" role="alert">
                     <div className="flex items-center">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                         <div>
                             <p className="font-bold">Action Required</p>
-                            <p className="text-sm opacity-80">Complete your onboarding to unlock all features.</p>
+                            <p className="text-sm opacity-80">Continue onboarding and verification to unlock investment and sales actions.</p>
                         </div>
                     </div>
                     <button onClick={() => setPage('onboarding')} className="bg-accent text-accent-content font-semibold py-2 px-4 rounded-md hover:bg-yellow-400 transition-colors text-sm flex-shrink-0">
-                        Start Onboarding
+                        Continue Onboarding
                     </button>
                 </div>
             )}

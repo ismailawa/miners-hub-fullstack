@@ -5,7 +5,7 @@
  */
 
 import apiClient from './client';
-import { Listing, Auction, ListingStatus, AuctionStatus, PaginatedResponse, Unit } from '../types';
+import { Listing, Auction, ListingStatus, AuctionStatus, PaginatedResponse, Unit, VerificationStatus } from '../types';
 
 export interface BackendListing {
   id: string;
@@ -30,8 +30,14 @@ export interface BackendListing {
       name: string;
       email: string;
       profileImageUrl?: string | null;
+      verificationStatus?: 'pending' | 'verified' | 'rejected';
     };
   };
+  documents?: Array<{
+    id: string;
+    reviewStatus: 'pending' | 'approved' | 'rejected';
+    type: string;
+  }>;
 }
 
 export interface CreateListingPayload {
@@ -66,6 +72,10 @@ export interface ListingFilterPayload {
   minPrice?: number;
   maxPrice?: number;
   listingType?: 'buy_now' | 'auction';
+  gradePurity?: string;
+  minQuantity?: number;
+  maxQuantity?: number;
+  sellerVerificationStatus?: 'pending' | 'verified' | 'rejected';
 }
 
 interface BackendPaginatedResponse<T> {
@@ -132,6 +142,14 @@ export async function deleteListing(id: string): Promise<void> {
  * Maps a BackendListing to the frontend's Listing type.
  */
 export function mapBackendListingToFrontend(b: BackendListing): Listing {
+  const documentSummary = {
+    total: b.documents?.length || 0,
+    approved: (b.documents || []).filter((document) => document.reviewStatus === 'approved').length,
+    pending: (b.documents || []).filter((document) => document.reviewStatus === 'pending').length,
+    rejected: (b.documents || []).filter((document) => document.reviewStatus === 'rejected').length,
+  };
+  const sellerVerificationStatus = (b.miner?.user?.verificationStatus || 'pending') as VerificationStatus;
+
   return {
     id: b.id,
     minerId: b.minerId,
@@ -151,6 +169,15 @@ export function mapBackendListingToFrontend(b: BackendListing): Listing {
     datePosted: b.createdAt,
     createdAt: b.createdAt,
     updatedAt: b.updatedAt,
+    sellerVerificationStatus,
+    documentSummary,
+    dueDiligence: {
+      sellerVerified: sellerVerificationStatus === VerificationStatus.VERIFIED,
+      approvedDocuments: documentSummary.approved,
+      hasImages: Boolean(b.images?.length),
+      hasGrade: Boolean(b.gradePurity),
+      listingApproved: b.status === 'published',
+    },
     minerName: b.miner?.companyName || 'Unknown Miner',
     minerImageUrl: b.miner?.user?.profileImageUrl || 'https://ui-avatars.com/api/?name=Miner',
   };

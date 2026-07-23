@@ -1,0 +1,23 @@
+{
+  "name": "Miners Hub",
+  "short_name": "Miners Hub",
+  "description": "Digital ecosystem for mining operations, trade, compliance, and field reporting.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#f5b301",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/miners-hub-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

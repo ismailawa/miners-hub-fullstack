@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { User } from '../entities/user.entity';
+import { Miner } from '../entities/miner.entity';
 import { Listing } from '../entities/listing.entity';
 import { Event } from '../entities/event.entity';
 import { Order } from '../entities/order.entity';
@@ -13,7 +14,7 @@ import { AuditLogModule } from '../common/audit-log/audit-log.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Listing, Event, Order, Document]),
+    TypeOrmModule.forFeature([User, Miner, Listing, Event, Order, Document]),
     EscrowModule,
     AuditLogModule,
   ],

@@ -66,6 +66,12 @@ export function onChatMessage(listener: (message: BackendMessage) => void) {
   return () => socket?.off('chat:message', listener);
 }
 
+export function onChatThreadUpdate(listener: (payload: { threadId: string; latestMessage: BackendMessage }) => void) {
+  const socket = connectChatSocket();
+  socket?.on('chat:thread:update', listener);
+  return () => socket?.off('chat:thread:update', listener);
+}
+
 export function onChatError(listener: (payload: { message: string }) => void) {
   const socket = connectChatSocket();
   socket?.on('chat:error', listener);

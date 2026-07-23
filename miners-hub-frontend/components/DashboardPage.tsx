@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { MARKETPLACE_LISTINGS_DATA, MINERS_DATA, EXPORT_DATA } from '../lib/constants/data';
 import { ExportData } from '../lib/types';
+import { BackendThread, getChatThreads } from '../lib/api/chats';
+import MinerChatModal from './MinerChatModal';
+import { formatCurrency } from '../lib/currency';
 
 // A generic Stat Card component for dashboards
 const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode; color: string; }> = ({ title, value, icon, color }) => (
@@ -31,6 +34,110 @@ const ActionCard: React.FC<{ title: string; description: string; onClick: () => 
     </button>
 );
 
+const MessagesPanel: React.FC = () => {
+    const [threads, setThreads] = useState<BackendThread[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [activeThread, setActiveThread] = useState<BackendThread | null>(null);
+
+    const loadThreads = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const nextThreads = await getChatThreads();
+            setThreads(nextThreads.filter((thread) => thread.participant.id));
+        } catch {
+            setError('Unable to load messages.');
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        void loadThreads();
+    }, [loadThreads]);
+
+    const formatThreadTime = (createdAt?: string) => {
+        if (!createdAt) return '';
+        return new Intl.DateTimeFormat('en', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        }).format(new Date(createdAt));
+    };
+
+    return (
+        <section className="mt-8">
+            <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-text-primary">Messages</h2>
+                <button
+                    type="button"
+                    onClick={() => void loadThreads()}
+                    className="text-sm font-semibold text-accent hover:text-yellow-400 transition-colors"
+                >
+                    Refresh
+                </button>
+            </div>
+
+            <div className="bg-secondary border border-border rounded-lg overflow-hidden">
+                {isLoading ? (
+                    <div className="p-6 text-text-secondary">Loading messages...</div>
+                ) : error ? (
+                    <div className="p-6 text-red-400">{error}</div>
+                ) : threads.length === 0 ? (
+                    <div className="p-6 text-text-secondary">No investor messages yet.</div>
+                ) : (
+                    <div className="divide-y divide-border">
+                        {threads.map((thread) => (
+                            <button
+                                key={thread.threadId}
+                                type="button"
+                                onClick={() => setActiveThread(thread)}
+                                className="w-full p-4 text-left hover:bg-primary/70 transition-colors"
+                            >
+                                <div className="flex items-start gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-accent font-bold shrink-0">
+                                        {thread.participant.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="font-semibold text-text-primary truncate">{thread.participant.name}</p>
+                                            <span className="text-xs text-text-muted shrink-0">{formatThreadTime(thread.latestMessage?.createdAt)}</span>
+                                        </div>
+                                        <p className="text-sm text-text-secondary truncate mt-1">
+                                            {thread.latestMessage?.text || 'No messages yet.'}
+                                        </p>
+                                    </div>
+                                    {thread.unreadCount > 0 && (
+                                        <span className="min-w-6 h-6 px-2 rounded-full bg-accent text-accent-content text-xs font-bold flex items-center justify-center">
+                                            {thread.unreadCount}
+                                        </span>
+                                    )}
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <MinerChatModal
+                isOpen={!!activeThread}
+                onClose={() => {
+                    setActiveThread(null);
+                    void loadThreads();
+                }}
+                miner={activeThread ? {
+                    id: activeThread.participant.id,
+                    userId: activeThread.participant.id,
+                    name: activeThread.participant.name,
+                    imageUrl: activeThread.participant.profileImageUrl || '',
+                } : null}
+            />
+        </section>
+    );
+};
+
 
 const MinerDashboard: React.FC = () => {
     const { currentUser, setPage } = useAuth();
@@ -45,7 +152,7 @@ const MinerDashboard: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <StatCard title="Active Listings" value={myListingsCount.toString()} color="yellow" icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>} />
                 <StatCard title="Pending Contracts" value="1" color="blue" icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>} />
-                <StatCard title="Total Revenue" value="$125,400" color="green" icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>} />
+                <StatCard title="Total Revenue" value={formatCurrency(125400)} color="green" icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>} />
             </div>
 
             <h2 className="text-2xl font-bold text-text-primary mb-4">Quick Actions</h2>
@@ -53,6 +160,8 @@ const MinerDashboard: React.FC = () => {
                 <ActionCard title="Create New Listing" description="List a new mineral asset on the marketplace." onClick={() => setPage('profile', { initialTab: 'listings' })} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
                 <ActionCard title="Manage Contracts" description="View and manage all your pending and active contracts." onClick={() => setPage('profile', { initialTab: 'contracts' })} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>} />
             </div>
+
+            <MessagesPanel />
         </div>
     );
 };

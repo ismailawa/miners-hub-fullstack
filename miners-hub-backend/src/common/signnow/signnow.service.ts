@@ -32,6 +32,31 @@ export class SignNowService {
     };
   }
 
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
+  }
+
+  private get ownerEmail(): string | undefined {
+    const email = this.configService.get<string>('SIGNNOW_OWNER_EMAIL');
+    return email ? this.normalizeEmail(email) : undefined;
+  }
+
+  assertCanInviteSigners(...signerEmails: string[]): void {
+    const ownerEmail = this.ownerEmail;
+    if (!ownerEmail) return;
+
+    const ownerIsSigner = signerEmails
+      .filter(Boolean)
+      .map((email) => this.normalizeEmail(email))
+      .includes(ownerEmail);
+
+    if (ownerIsSigner) {
+      throw new ServiceUnavailableException(
+        'SignNow is configured with a document owner account that matches a contract signer. Configure SIGNNOW_API_KEY/SIGNNOW_OWNER_EMAIL with a neutral service account that is not the investor or miner.',
+      );
+    }
+  }
+
   /**
    * Generates a basic PDF from contract text terms.
    */
@@ -158,6 +183,8 @@ export class SignNowService {
     party1Email: string,
     party2Email: string,
   ): Promise<void> {
+    this.assertCanInviteSigners(party1Email, party2Email);
+
     const payload = {
       invites: [
         {
@@ -189,10 +216,21 @@ export class SignNowService {
         ),
       );
     } catch (err: any) {
+      const signNowErrors = err.response?.data?.errors;
+      const isOwnerInviteError = Array.isArray(signNowErrors)
+        && signNowErrors.some((error) => error?.code === 19004006);
+
       this.logger.error(
         'Failed to create embedded invites',
         err.response?.data || err.message,
       );
+
+      if (isOwnerInviteError) {
+        throw new ServiceUnavailableException(
+          'SignNow rejected the embedded invite because the document owner is also a signer. Use a neutral SignNow service account for SIGNNOW_API_KEY, and set SIGNNOW_OWNER_EMAIL to that account email.',
+        );
+      }
+
       throw new HttpException(
         'SignNow invite creation failed',
         HttpStatus.INTERNAL_SERVER_ERROR,

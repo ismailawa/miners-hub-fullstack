@@ -143,6 +143,13 @@ export interface UserDocument {
   url: string; // base64 data URL or file URL
 }
 
+export interface OnboardingDraft {
+  formData?: Record<string, unknown>;
+  additionalDocs?: Array<{ key: string; label: string }>;
+  step?: number;
+  savedAt?: string;
+}
+
 /**
  * Core user type matching backend entity
  */
@@ -152,8 +159,15 @@ export interface User {
   email: string;
   role: UserRole | null;
   onboardingComplete: boolean;
+  onboardingStep?: number;
+  onboardingDraft?: OnboardingDraft | null;
   status: VerificationStatus;
   profileImageUrl?: string;
+  metamapIdentityId?: string | null;
+  metamapVerificationId?: string | null;
+  kycSubmittedAt?: string | null;
+  kycVerifiedAt?: string | null;
+  kycRejectedAt?: string | null;
   
   // Personal Info
   phoneNumber?: string;
@@ -171,6 +185,10 @@ export interface User {
   yearsInOperation?: string;
   
   // Miner-specific Info
+  cooperativeName?: string;
+  cooperativeRegNumber?: string;
+  partnerType?: string;
+  partnerOrganization?: string;
   miningEquipment?: string[];
   certifications?: string[];
   
@@ -250,6 +268,20 @@ export interface Listing {
   datePosted: string; // ISO 8601
   createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601
+  sellerVerificationStatus?: VerificationStatus;
+  documentSummary?: {
+    total: number;
+    approved: number;
+    pending: number;
+    rejected: number;
+  };
+  dueDiligence?: {
+    sellerVerified: boolean;
+    approvedDocuments: number;
+    hasImages: boolean;
+    hasGrade: boolean;
+    listingApproved: boolean;
+  };
   // Relationships (optional full objects)
   miner?: User;
   // Display fields (for UI convenience)

@@ -10,6 +10,7 @@ import {
   Request,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ContractsService } from './contracts.service';
 import {
@@ -19,6 +20,12 @@ import {
 } from './contracts.dto';
 import { ContractStatus } from '../entities/contract.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
+
+type AuthenticatedRequest = ExpressRequest & {
+  user: {
+    id: string;
+  };
+};
 
 @Controller('contracts')
 @UseGuards(JwtAuthGuard)
@@ -30,7 +37,10 @@ export class ContractsController {
    * Propose a new contract (party1 = current user, party2 = dto.party2Id).
    */
   @Post()
-  async create(@Request() req: any, @Body() dto: CreateContractDto) {
+  async create(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: CreateContractDto,
+  ) {
     return this.contractsService.create(req.user.id, dto);
   }
 
@@ -40,7 +50,7 @@ export class ContractsController {
    */
   @Get()
   async findAll(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Query('status') status?: ContractStatus,
     @Query() pagination?: PaginationDto,
   ) {
@@ -52,7 +62,10 @@ export class ContractsController {
    * Get contract detail — party access only.
    */
   @Get(':id')
-  async findOne(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
     return this.contractsService.findOne(id, req.user.id);
   }
 
@@ -64,7 +77,7 @@ export class ContractsController {
   async updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateContractStatusDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.contractsService.updateStatus(id, req.user.id, dto);
   }
@@ -77,7 +90,7 @@ export class ContractsController {
   async sign(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: SignContractDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.contractsService.sign(id, req.user.id, dto);
   }
@@ -89,7 +102,7 @@ export class ContractsController {
   @Get(':id/signnow-link')
   async getSignnowLink(
     @Param('id', ParseUUIDPipe) id: string,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Query('redirect_uri') redirectUri?: string,
   ) {
     const link = await this.contractsService.getSigningLink(
@@ -107,7 +120,7 @@ export class ContractsController {
   @Post(':id/sync-signnow')
   async syncSignnow(
     @Param('id', ParseUUIDPipe) id: string,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.contractsService.syncWithSignNow(id, req.user.id);
   }

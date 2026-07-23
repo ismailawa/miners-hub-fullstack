@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MINERAL_PRICES_DATA } from '../lib/constants/data';
 import { MineralPrice } from '../lib/types';
+import { formatCurrency } from '../lib/currency';
 
 const MineralIcon: React.FC<{ symbol: string }> = ({ symbol }) => {
   const icons: { [key: string]: React.ReactNode } = {
@@ -70,7 +71,7 @@ const PriceRow: React.FC<{ mineral: MineralPrice }> = ({ mineral }) => {
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap font-semibold text-text-primary text-right">
-        ${mineral.price.toFixed(2)}
+        {formatCurrency(mineral.price)}
       </td>
       <td className={`px-6 py-4 whitespace-nowrap font-semibold text-right ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
         <span className="inline-flex items-center">

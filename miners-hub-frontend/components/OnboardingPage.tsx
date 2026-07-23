@@ -1,8 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { User, VerificationStatus, UserRole } from '../lib/types';
 import MultiFileInput, { FilePreview } from './MultiFileInput';
 import { uploadDocument } from '../lib/api/documents';
+import BrandLogo from './BrandLogo';
+import {
+    completeMetaMap,
+    getKycStatus,
+    KycStatus,
+    MetaMapEventPayload,
+    startMetaMap,
+} from '../lib/api/kyc';
 
 type StepConfig = {
     title: string;
@@ -12,11 +20,54 @@ type StepConfig = {
 const STEPS: StepConfig[] = [
     { title: 'Role Selection', description: 'Tell us who you are' },
     { title: 'Personal information', description: 'Your basic details and identity' },
+    { title: 'Identity verification', description: 'Verify your ID with MetaMap' },
     { title: 'Business details', description: 'Company name and registration' },
     { title: 'Role specifics', description: 'Mining equipment or investment preferences' },
     { title: 'Upload documents', description: 'Attach required verification files' },
     { title: 'Review application', description: 'Review and submit your profile' },
 ];
+
+const getSelectableRole = (role?: UserRole | null): 'miner' | 'investor' | null => {
+    if (role === UserRole.MINER) return 'miner';
+    if (role === UserRole.INVESTOR) return 'investor';
+    return null;
+};
+
+const createInitialOnboardingFormData = (user?: User | null) => ({
+    role: getSelectableRole(user?.role),
+    name: user?.name || '',
+    phoneNumber: user?.phoneNumber || '',
+    address: user?.address || '',
+    dateOfBirth: user?.dateOfBirth || '',
+    nationality: user?.nationality || '',
+    otherNationality: '',
+    identificationType: 'National Identification Number (NIN)',
+    otherIdentificationType: '',
+    identificationNumber: user?.nin || '',
+    nin: user?.nin || '',
+    businessName: user?.businessName || '',
+    companyRegNumber: user?.companyRegNumber || '',
+    businessAddress: user?.businessAddress || '',
+    businessWebsite: user?.businessWebsite || '',
+    industry: user?.industry || '',
+    otherIndustry: '',
+    yearsInOperation: user?.yearsInOperation || '',
+    cooperativeName: user?.cooperativeName || '',
+    cooperativeRegNumber: user?.cooperativeRegNumber || '',
+    partnerType: user?.partnerType || '',
+    partnerOrganization: user?.partnerOrganization || '',
+    miningEquipment: (user?.miningEquipment || []).join(', '),
+    certifications: (user?.certifications || []).join(', '),
+    investmentPreferences: user?.investmentPreferences || [],
+    riskAppetite: user?.riskAppetite || null,
+});
+
+type OnboardingFormData = ReturnType<typeof createInitialOnboardingFormData>;
+
+const clampOnboardingStep = (step?: number) => {
+    if (!Number.isFinite(step)) return 0;
+    return Math.min(Math.max(Number(step), 0), STEPS.length - 1);
+};
 
 const NATIONALITY_OPTIONS = [
     'Nigerian',
@@ -173,65 +224,143 @@ const SelectField: React.FC<React.SelectHTMLAttributes<HTMLSelectElement> & { la
     </div>
 );
 
-const SearchableSelect: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { label: string; options: string[] }> = ({ label, options, id, ...props }) => {
-    const listId = `${id || props.name}-options`;
-
-    return (
-        <div>
-            <label className="block text-sm font-semibold text-text-secondary mb-1.5">{label}</label>
-            <input
-                {...props}
-                id={id}
-                list={listId}
-                className={`w-full bg-primary p-3.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all ${props.className || ''}`}
-            />
-            <datalist id={listId}>
-                {options.map(option => (
-                    <option key={option} value={option} />
-                ))}
-            </datalist>
-        </div>
-    );
-};
-
 const getFileTypeLabel = (file: File) => {
     if (file.type === 'application/pdf') return 'PDF';
     if (file.type.startsWith('image/')) return file.type.replace('image/', '').toUpperCase();
     return 'FILE';
 };
 
+const getKycLabel = (status?: VerificationStatus) => {
+    switch (status) {
+        case VerificationStatus.VERIFIED:
+            return 'Verified';
+        case VerificationStatus.REJECTED:
+            return 'Rejected';
+        case VerificationStatus.PENDING:
+            return 'Pending';
+        default:
+            return 'Not started';
+    }
+};
+
+const eventValueToString = (value: unknown) => {
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number') return String(value);
+    return '';
+};
+
+const extractMetaMapPayload = (event: Event): MetaMapEventPayload => {
+    const detail = (event as CustomEvent<Record<string, unknown>>).detail || {};
+    const identityId = (
+        eventValueToString(detail.identityId) ||
+        eventValueToString(detail.identity)
+    ).trim() || undefined;
+    const verificationId = (
+        eventValueToString(detail.verificationId) ||
+        eventValueToString(detail.verification) ||
+        eventValueToString(detail.resource)
+    ).trim() || undefined;
+
+    return {
+        identityId,
+        verificationId,
+        payload: detail,
+    };
+};
+
 export const OnboardingPage: React.FC = () => {
     const { currentUser, updateUser, setPage } = useAuth();
     const [currentStep, setCurrentStep] = useState(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [formData, setFormData] = useState({
-        role: null as 'miner' | 'investor' | null,
-        name: currentUser?.name || '',
-        phoneNumber: '',
-        address: '',
-        dateOfBirth: '',
-        nationality: '',
-        otherNationality: '',
-        identificationType: 'National Identification Number (NIN)',
-        otherIdentificationType: '',
-        identificationNumber: '',
-        nin: '',
-        businessName: '',
-        companyRegNumber: '',
-        businessAddress: '',
-        businessWebsite: '',
-        industry: '',
-        otherIndustry: '',
-        yearsInOperation: '',
-        miningEquipment: '',
-        certifications: '',
-        investmentPreferences: [] as string[],
-        riskAppetite: null as 'low' | 'medium' | 'high' | null,
-    });
+    const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+    const [kycStatus, setKycStatus] = useState<KycStatus | null>(null);
+    const [isKycLoading, setIsKycLoading] = useState(false);
+    const [kycError, setKycError] = useState<string | null>(null);
+    const [isMetaMapScriptReady, setIsMetaMapScriptReady] = useState(false);
+    const [isMetaMapScriptFailed, setIsMetaMapScriptFailed] = useState(false);
+    const metaMapContainerRef = useRef<HTMLDivElement | null>(null);
+    const [formData, setFormData] = useState<OnboardingFormData>(() => createInitialOnboardingFormData(currentUser));
     const [documents, setDocuments] = useState<{ [key: string]: FilePreview[] }>({});
+    const documentsRef = useRef(documents);
+    const hasHydratedDraftRef = useRef(false);
+    const lastSavedDraftRef = useRef('');
     const [fileErrors, setFileErrors] = useState<{ [key: string]: string | null }>({});
     const [additionalDocs, setAdditionalDocs] = useState<Array<{ key: string; label: string }>>([]);
     const [additionalDocName, setAdditionalDocName] = useState('');
+
+    const saveOnboardingDraft = useCallback(async (step: number, data: OnboardingFormData) => {
+        if (!currentUser || (currentUser.status === VerificationStatus.VERIFIED && currentUser.onboardingComplete)) return;
+
+        const draft = {
+            formData: data,
+            additionalDocs,
+            step,
+            savedAt: new Date().toISOString(),
+        };
+        const serializedDraft = JSON.stringify(draft);
+        if (serializedDraft === lastSavedDraftRef.current) return;
+
+        lastSavedDraftRef.current = serializedDraft;
+        if (typeof window !== 'undefined') {
+            window.localStorage.setItem(`miners-hub:onboarding-draft:${currentUser.id}`, serializedDraft);
+        }
+
+        setDraftStatus('saving');
+        try {
+            await Promise.resolve(updateUser({
+                ...currentUser,
+                role: data.role === 'miner' ? UserRole.MINER : data.role === 'investor' ? UserRole.INVESTOR : currentUser.role,
+                onboardingComplete: false,
+                onboardingStep: step,
+                onboardingDraft: draft,
+            }));
+            setDraftStatus('saved');
+        } catch (error) {
+            console.error('Failed to save onboarding draft', error);
+            setDraftStatus('error');
+        }
+    }, [additionalDocs, currentUser, updateUser]);
+
+    useEffect(() => {
+        if (!currentUser || hasHydratedDraftRef.current) return;
+
+        let localDraft: typeof currentUser.onboardingDraft | null = null;
+        if (typeof window !== 'undefined') {
+            try {
+                localDraft = JSON.parse(
+                    window.localStorage.getItem(`miners-hub:onboarding-draft:${currentUser.id}`) || 'null',
+                );
+            } catch {
+                localDraft = null;
+            }
+        }
+
+        const draft = currentUser.onboardingDraft || localDraft;
+        const draftFormData = draft?.formData && typeof draft.formData === 'object'
+            ? draft.formData
+            : {};
+
+        setFormData(prev => ({
+            ...prev,
+            ...createInitialOnboardingFormData(currentUser),
+            ...(draftFormData as Partial<OnboardingFormData>),
+        }));
+        if (Array.isArray(draft?.additionalDocs)) {
+            setAdditionalDocs(draft.additionalDocs);
+        }
+        setCurrentStep(clampOnboardingStep(currentUser.onboardingStep ?? draft?.step));
+        lastSavedDraftRef.current = draft ? JSON.stringify(draft) : '';
+        hasHydratedDraftRef.current = true;
+    }, [currentUser]);
+
+    useEffect(() => {
+        if (!currentUser || !hasHydratedDraftRef.current || (currentUser.status === VerificationStatus.VERIFIED && currentUser.onboardingComplete)) return;
+        const timer = window.setTimeout(() => {
+            void saveOnboardingDraft(currentStep, formData);
+        }, 800);
+
+        return () => window.clearTimeout(timer);
+    }, [currentStep, currentUser, formData, saveOnboardingDraft]);
 
     useEffect(() => {
       if(currentUser && !formData.name) {
@@ -240,24 +369,167 @@ export const OnboardingPage: React.FC = () => {
     }, [currentUser, formData.name]);
 
     useEffect(() => {
+        documentsRef.current = documents;
+    }, [documents]);
+
+    useEffect(() => {
         return () => {
-            Object.values(documents).flat().forEach((filePreview: FilePreview) => {
+            Object.values(documentsRef.current).flat().forEach((filePreview: FilePreview) => {
                 URL.revokeObjectURL(filePreview.previewUrl);
             });
         };
-    }, [documents]);
+    }, []);
+
+    const isKycVerified = kycStatus?.status === VerificationStatus.VERIFIED || currentUser?.status === VerificationStatus.VERIFIED;
+    const hasStartedKyc = Boolean(kycStatus?.metamapVerificationId || kycStatus?.metamapIdentityId || kycStatus?.kycSubmittedAt);
+    const canLeaveKycStep = currentStep !== 2 || isKycVerified || hasStartedKyc;
+
+    useEffect(() => {
+        const refreshStatus = async () => {
+            if (!currentUser) return;
+            try {
+                setIsKycLoading(true);
+                const status = await getKycStatus();
+                setKycStatus(status);
+            } catch (error) {
+                console.error('Failed to load KYC status', error);
+            } finally {
+                setIsKycLoading(false);
+            }
+        };
+
+        void refreshStatus();
+    }, [currentUser]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const existingScript = document.querySelector<HTMLScriptElement>('script[data-metamap-sdk="true"]');
+        if (existingScript) {
+            setIsMetaMapScriptReady(true);
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.src = 'https://web-button.metamap.com/button.js';
+        script.async = true;
+        script.dataset.metamapSdk = 'true';
+        script.onload = () => setIsMetaMapScriptReady(true);
+        script.onerror = () => setIsMetaMapScriptFailed(true);
+        document.body.appendChild(script);
+    }, []);
+
+    useEffect(() => {
+        if (!isMetaMapScriptReady || !metaMapContainerRef.current || !currentUser) return;
+
+        metaMapContainerRef.current.innerHTML = '';
+        const clientId = process.env.NEXT_PUBLIC_METAMAP_CLIENT_ID;
+        const flowId = process.env.NEXT_PUBLIC_METAMAP_FLOW_ID;
+
+        if (!clientId || !flowId) {
+            setKycError('MetaMap is not configured yet. Add NEXT_PUBLIC_METAMAP_CLIENT_ID and NEXT_PUBLIC_METAMAP_FLOW_ID.');
+            return;
+        }
+
+        const button = document.createElement('metamap-button');
+        button.setAttribute('clientid', clientId);
+        button.setAttribute('flowid', flowId);
+        button.setAttribute('metadata', JSON.stringify({
+            userId: currentUser.id,
+            email: currentUser.email,
+            role: formData.role || currentUser.role,
+            onboardingSession: `onboarding:${currentUser.id}`,
+        }));
+        button.setAttribute('color', '#d97706');
+        button.setAttribute('textcolor', '#ffffff');
+        metaMapContainerRef.current.appendChild(button);
+    }, [currentUser, formData.role, isMetaMapScriptReady]);
+
+    useEffect(() => {
+        const handleStarted = async (event: Event) => {
+            try {
+                setKycError(null);
+                setIsKycLoading(true);
+                const status = await startMetaMap(extractMetaMapPayload(event));
+                setKycStatus(status);
+            } catch (error) {
+                console.error('Failed to save MetaMap start event', error);
+                setKycError('We could not save your verification start. Please try again.');
+            } finally {
+                setIsKycLoading(false);
+            }
+        };
+
+        const handleFinished = async (event: Event) => {
+            try {
+                setKycError(null);
+                setIsKycLoading(true);
+                const status = await completeMetaMap(extractMetaMapPayload(event));
+                setKycStatus(status);
+                if (currentUser && status.status === VerificationStatus.VERIFIED) {
+                    updateUser({
+                        ...currentUser,
+                        status: VerificationStatus.VERIFIED,
+                        onboardingComplete: status.onboardingComplete,
+                        onboardingDraft: null,
+                        onboardingStep: STEPS.length - 1,
+                        metamapIdentityId: status.metamapIdentityId,
+                        metamapVerificationId: status.metamapVerificationId,
+                    });
+                    if (typeof window !== 'undefined') {
+                        window.localStorage.removeItem(`miners-hub:onboarding-draft:${currentUser.id}`);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to complete MetaMap verification', error);
+                setKycError('MetaMap finished, but we could not confirm the result yet. Refresh status and try again.');
+            } finally {
+                setIsKycLoading(false);
+            }
+        };
+
+        window.addEventListener('metamap:userStartedSdk', handleStarted);
+        window.addEventListener('metamap:userFinishedSdk', handleFinished);
+
+        return () => {
+            window.removeEventListener('metamap:userStartedSdk', handleStarted);
+            window.removeEventListener('metamap:userFinishedSdk', handleFinished);
+        };
+    }, [currentUser, updateUser]);
+
+    const handleRefreshKycStatus = async () => {
+        try {
+            setKycError(null);
+            setIsKycLoading(true);
+            const status = await getKycStatus();
+            setKycStatus(status);
+        } catch (error) {
+            console.error('Failed to refresh KYC status', error);
+            setKycError('Unable to refresh verification status right now.');
+        } finally {
+            setIsKycLoading(false);
+        }
+    };
 
     const handleNext = () => {
+        if (!canLeaveKycStep) {
+            setKycError('Please start the MetaMap identity verification before continuing.');
+            return;
+        }
         const form = document.querySelector<HTMLFormElement>('#onboarding-step-form');
         if (form && form.reportValidity()) {
             document.getElementById('main-scroll-area')?.scrollTo({ top: 0, behavior: 'smooth' });
-            setCurrentStep(prev => Math.min(prev + 1, STEPS.length - 1));
+            const nextStep = Math.min(currentStep + 1, STEPS.length - 1);
+            void saveOnboardingDraft(nextStep, formData);
+            setCurrentStep(nextStep);
         }
     };
     
     const handleBack = () => {
         document.getElementById('main-scroll-area')?.scrollTo({ top: 0, behavior: 'smooth' });
-        setCurrentStep(prev => Math.max(prev - 1, 0));
+        const previousStep = Math.max(currentStep - 1, 0);
+        void saveOnboardingDraft(previousStep, formData);
+        setCurrentStep(previousStep);
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -357,15 +629,36 @@ export const OnboardingPage: React.FC = () => {
                     ? `${resolvedIdentificationType}: ${formData.identificationNumber}`
                     : formData.identificationNumber,
                 industry: resolvedIndustry,
+                cooperativeName: formData.cooperativeName,
+                cooperativeRegNumber: formData.cooperativeRegNumber,
+                partnerType: formData.partnerType,
+                partnerOrganization: formData.partnerOrganization,
                 miningEquipment: (formData.miningEquipment || '').split(',').map(s => s.trim()).filter(Boolean),
                 certifications: (formData.certifications || '').split(',').map(s => s.trim()).filter(Boolean),
                 investmentPreferences: formData.investmentPreferences,
                 riskAppetite: formData.riskAppetite,
-                onboardingComplete: true,
-                status: VerificationStatus.PENDING,
+                onboardingComplete: isKycVerified,
+                status: isKycVerified ? VerificationStatus.VERIFIED : currentUser.status,
+                onboardingStep: isKycVerified ? STEPS.length - 1 : 2,
+                onboardingDraft: isKycVerified
+                    ? null
+                    : {
+                        formData,
+                        additionalDocs,
+                        step: 2,
+                        savedAt: new Date().toISOString(),
+                    },
             };
             await updateUser(updatedUser);
-            setPage('profile', { initialTab: 'overview' });
+            if (isKycVerified) {
+                if (typeof window !== 'undefined') {
+                    window.localStorage.removeItem(`miners-hub:onboarding-draft:${currentUser.id}`);
+                }
+                setPage('dashboard');
+            } else {
+                setKycError('Your profile has been saved. Complete MetaMap verification before entering the dashboard.');
+                setCurrentStep(2);
+            }
         } catch (error) {
             console.error("Onboarding submission failed", error);
             alert("Failed to save your onboarding data. The documents might be too large.");
@@ -375,7 +668,6 @@ export const OnboardingPage: React.FC = () => {
     };
 
     const minerDocs = { 
-      'id': 'Government-issued ID (NIN Card, Passport)', 
       'cac': 'CAC Certificate', 
       'miningLease': 'Mineral Title / Mining Lease',
       'eia': 'Environmental Impact Assessment (EIA) Approval',
@@ -384,7 +676,6 @@ export const OnboardingPage: React.FC = () => {
     };
     
     const investorDocs = { 
-      'id': 'Government-issued ID (NIN Card, Passport)',
       'cac': 'CAC Certificate', 
       'proofOfFunds': 'Proof of Funds',
       'accreditation': 'Investor Accreditation (if applicable)',
@@ -408,10 +699,7 @@ export const OnboardingPage: React.FC = () => {
                 <aside className="hidden md:flex md:w-1/3 lg:w-[400px] flex-col bg-secondary border-r border-border p-10 lg:p-14 relative">
                     <div className="z-10 flex-1">
                         <div className="flex items-center mb-10">
-                            {/* Logo Placeholder - Matches image logo placement */}
-                            <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center text-white font-bold text-xl mr-3">
-                                M
-                            </div>
+                            <BrandLogo size="md" showText={false} />
                         </div>
                         <p className="text-sm font-medium text-text-secondary mb-12">Complete following steps to setup your profile</p>
                         <ProgressBar currentStep={currentStep} steps={STEPS} isVertical={true} />
@@ -429,6 +717,13 @@ export const OnboardingPage: React.FC = () => {
                         
                         <div className="mb-8">
                             <span className="text-accent font-bold text-sm tracking-wide mb-3 block">Step {currentStep + 1} of {STEPS.length}</span>
+                            {draftStatus !== 'idle' && (
+                                <span className={`text-xs font-medium block ${
+                                    draftStatus === 'error' ? 'text-red-400' : 'text-text-muted'
+                                }`}>
+                                    {draftStatus === 'saving' ? 'Saving draft...' : draftStatus === 'saved' ? 'Draft saved' : 'Draft save failed'}
+                                </span>
+                            )}
                         </div>
 
                         <form id="onboarding-step-form" onSubmit={(e) => e.preventDefault()} className="flex-1">
@@ -463,15 +758,13 @@ export const OnboardingPage: React.FC = () => {
                                     <div><InputField label="Date of Birth" type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleInputChange} required /></div>
                                     <div className="sm:col-span-2"><InputField label="Home Address" name="address" value={formData.address} onChange={handleInputChange} required placeholder="e.g., 123 Main Street, Lagos" /></div>
                                     <div>
-                                        <SearchableSelect
+                                        <SelectField
                                             label="Nationality"
-                                            id="nationality"
                                             name="nationality"
                                             value={formData.nationality}
                                             onChange={handleInputChange}
                                             options={NATIONALITY_OPTIONS}
                                             required
-                                            placeholder="Search or select nationality"
                                         />
                                     </div>
                                     {formData.nationality === 'Other' && (
@@ -501,8 +794,74 @@ export const OnboardingPage: React.FC = () => {
                             </div>
                             )}
 
-                            {/* Step 2: Business Info */}
+                            {/* Step 2: Identity Verification */}
                             {currentStep === 2 && (
+                            <div className="step-container">
+                                <h1 className="text-4xl font-extrabold mb-4 tracking-tight">Identity verification</h1>
+                                <p className="text-lg text-text-secondary mb-10 leading-relaxed">Complete MetaMap identity verification before your Miners Hub account can be approved.</p>
+                                <div className="space-y-6">
+                                    <div className="bg-secondary p-6 rounded-xl border border-border">
+                                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                            <div>
+                                                <p className="text-sm font-semibold text-text-muted">Verification status</p>
+                                                <p className={`mt-1 text-2xl font-extrabold ${
+                                                    isKycVerified ? 'text-green-400' :
+                                                    kycStatus?.status === VerificationStatus.REJECTED ? 'text-red-400' :
+                                                    hasStartedKyc ? 'text-yellow-400' :
+                                                    'text-text-primary'
+                                                }`}>
+                                                    {getKycLabel(kycStatus?.status || currentUser?.status)}
+                                                </p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={handleRefreshKycStatus}
+                                                disabled={isKycLoading}
+                                                className="rounded-lg border border-border px-4 py-2 text-sm font-bold text-text-secondary transition-colors hover:border-accent hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                {isKycLoading ? 'Refreshing...' : 'Refresh status'}
+                                            </button>
+                                        </div>
+
+                                        <div className="mt-6 rounded-lg border border-border bg-primary p-5">
+                                            {isMetaMapScriptFailed ? (
+                                                <p className="text-sm font-medium text-red-400">MetaMap could not load. Check your connection and refresh the page.</p>
+                                            ) : (
+                                                <>
+                                                    <div ref={metaMapContainerRef} className="min-h-[52px]" />
+                                                    {!isMetaMapScriptReady && (
+                                                        <p className="text-sm font-medium text-text-muted">Loading MetaMap...</p>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+
+                                        {kycStatus?.metamapVerificationId && (
+                                            <p className="mt-4 text-xs font-medium text-text-muted break-all">
+                                                Verification ID: {kycStatus.metamapVerificationId}
+                                            </p>
+                                        )}
+
+                                        {kycError && (
+                                            <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm font-semibold text-red-300">
+                                                {kycError}
+                                            </p>
+                                        )}
+
+                                        {hasStartedKyc && !isKycVerified && kycStatus?.status !== VerificationStatus.REJECTED && (
+                                            <p className="mt-4 text-sm text-text-secondary">Your MetaMap verification is in progress. You can continue completing your application, but dashboard access stays locked until approval.</p>
+                                        )}
+
+                                        {kycStatus?.status === VerificationStatus.REJECTED && (
+                                            <p className="mt-4 text-sm text-red-300">MetaMap rejected this verification. Start a new verification from the MetaMap button above.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                            )}
+
+                            {/* Step 3: Business Info */}
+                            {currentStep === 3 && (
                             <div className="step-container">
                                 <h1 className="text-4xl font-extrabold mb-4 tracking-tight">Business details</h1>
                                 <p className="text-lg text-text-secondary mb-10 leading-relaxed">Add information about your company and its registration status.</p>
@@ -531,14 +890,20 @@ export const OnboardingPage: React.FC = () => {
                             </div>
                             )}
 
-                            {/* Step 3: Role Specifics */}
-                            {currentStep === 3 && (
+                            {/* Step 4: Role Specifics */}
+                            {currentStep === 4 && (
                             <div className="step-container">
                                 <h1 className="text-4xl font-extrabold mb-4 tracking-tight">Role specifics</h1>
                                 <p className="text-lg text-text-secondary mb-10 leading-relaxed">Tell us more about your {formData.role === 'miner' ? 'mining capabilities' : 'investment goals'}.</p>
                                 
                                 {formData.role === 'miner' ? (
                                     <div className="space-y-6">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                            <InputField label="Cooperative Name (Optional)" name="cooperativeName" value={formData.cooperativeName} onChange={handleInputChange} placeholder="e.g., Nasarawa Tin Miners Cooperative" />
+                                            <InputField label="Cooperative Registration Number (Optional)" name="cooperativeRegNumber" value={formData.cooperativeRegNumber} onChange={handleInputChange} placeholder="e.g., COOP/2026/001" />
+                                            <InputField label="Partner Type (Optional)" name="partnerType" value={formData.partnerType} onChange={handleInputChange} placeholder="e.g., Processor, Exporter, Community partner" />
+                                            <InputField label="Partner Organization (Optional)" name="partnerOrganization" value={formData.partnerOrganization} onChange={handleInputChange} placeholder="e.g., Solid Minerals Cooperative Union" />
+                                        </div>
                                         <InputField label="Key Mining Equipment (comma-separated)" name="miningEquipment" value={formData.miningEquipment} onChange={handleInputChange} placeholder="e.g., Excavator, Drill Rig, Crusher" />
                                         <InputField label="Certifications & Licenses (comma-separated)" name="certifications" value={formData.certifications} onChange={handleInputChange} placeholder="e.g., Mining Lease No., ESG Certified" />
                                     </div>
@@ -597,8 +962,8 @@ export const OnboardingPage: React.FC = () => {
                             </div>
                             )}
 
-                            {/* Step 4: Documents */}
-                            {currentStep === 4 && (
+                            {/* Step 5: Documents */}
+                            {currentStep === 5 && (
                             <div className="step-container">
                                 <h1 className="text-4xl font-extrabold mb-4 tracking-tight">Upload documents</h1>
                                 <p className="text-lg text-text-secondary mb-10 leading-relaxed">Drag each verification file into its dropzone, or click a dropzone to choose files from your device.</p>
@@ -657,8 +1022,8 @@ export const OnboardingPage: React.FC = () => {
                             </div>
                             )}
 
-                            {/* Step 5: Review */}
-                            {currentStep === 5 && (
+                            {/* Step 6: Review */}
+                            {currentStep === 6 && (
                             <div className="step-container">
                                 <h1 className="text-4xl font-extrabold mb-4 tracking-tight">Review application</h1>
                                 <p className="text-lg text-text-secondary mb-10 leading-relaxed">Ensure all information is correct before launching your workspace.</p>
@@ -674,6 +1039,11 @@ export const OnboardingPage: React.FC = () => {
                                         <ReviewItem label="Identification Number" value={formData.identificationNumber} />
                                     </ReviewSection>
 
+                                    <ReviewSection title="Identity Verification">
+                                        <ReviewItem label="MetaMap Status" value={getKycLabel(kycStatus?.status || currentUser?.status)} />
+                                        <ReviewItem label="Verification ID" value={kycStatus?.metamapVerificationId || currentUser?.metamapVerificationId || '-'} />
+                                    </ReviewSection>
+
                                     <ReviewSection title="Business Information">
                                         <ReviewItem label="Business Name" value={formData.businessName} />
                                         <ReviewItem label="Business Address" value={formData.businessAddress} />
@@ -686,6 +1056,10 @@ export const OnboardingPage: React.FC = () => {
                                     <ReviewSection title="Role-Specific Information">
                                         {formData.role === 'miner' ? (
                                             <>
+                                                <ReviewItem label="Cooperative Name" value={formData.cooperativeName} />
+                                                <ReviewItem label="Cooperative Registration" value={formData.cooperativeRegNumber} />
+                                                <ReviewItem label="Partner Type" value={formData.partnerType} />
+                                                <ReviewItem label="Partner Organization" value={formData.partnerOrganization} />
                                                 <ReviewItem label="Mining Equipment" value={formData.miningEquipment} />
                                                 <ReviewItem label="Certifications" value={formData.certifications} />
                                             </>
@@ -753,7 +1127,7 @@ export const OnboardingPage: React.FC = () => {
                                     <button
                                         type="button"
                                         onClick={handleNext}
-                                        disabled={(!formData.role && currentStep === 0)}
+                                        disabled={(!formData.role && currentStep === 0) || !canLeaveKycStep}
                                         className="px-8 py-3 text-sm font-bold text-white bg-accent rounded-full hover:bg-yellow-500 shadow-lg shadow-accent/20 transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
                                     >
                                         Continue

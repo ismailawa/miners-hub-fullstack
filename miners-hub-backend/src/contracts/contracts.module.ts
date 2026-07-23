@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Contract } from '../entities/contract.entity';
+import { Listing } from '../entities/listing.entity';
 import { ContractsController } from './contracts.controller';
 import { ContractsService } from './contracts.service';
 import { SignNowWebhookController } from './contracts.webhook.controller';
@@ -10,7 +11,7 @@ import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Contract]),
+    TypeOrmModule.forFeature([Contract, Listing]),
     NotificationsModule,
     SignNowModule,
     UsersModule,

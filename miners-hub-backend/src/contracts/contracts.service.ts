@@ -7,6 +7,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Contract, ContractStatus } from '../entities/contract.entity';
+import { Listing, ListingStatus } from '../entities/listing.entity';
+import { UserRole, VerificationStatus } from '../entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuditLogService } from '../common/audit-log/audit-log.service';
 import { SignNowService } from '../common/signnow/signnow.service';
@@ -18,11 +20,30 @@ import {
 } from './contracts.dto';
 import { PaginationDto, paginate } from '../common/dto/pagination.dto';
 
+type ContractMetadata = Record<string, unknown> & {
+  title?: string;
+  value?: number | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  signNowDocumentId?: string;
+};
+
+type SignNowSignature = {
+  email?: string;
+  created?: string | number;
+};
+
+type SignNowDocument = {
+  signatures?: SignNowSignature[];
+};
+
 @Injectable()
 export class ContractsService {
   constructor(
     @InjectRepository(Contract)
     private readonly contractRepository: Repository<Contract>,
+    @InjectRepository(Listing)
+    private readonly listingRepository: Repository<Listing>,
     private readonly notificationsService: NotificationsService,
     private readonly auditLogService: AuditLogService,
     private readonly signNowService: SignNowService,
@@ -30,14 +51,55 @@ export class ContractsService {
   ) {}
 
   async create(party1Id: string, dto: CreateContractDto): Promise<Contract> {
-    if (party1Id === dto.party2Id) {
+    const investor = await this.usersService.findById(party1Id);
+    if (!investor || investor.role !== UserRole.INVESTOR) {
+      throw new ForbiddenException(
+        'Only investors can propose listing contracts.',
+      );
+    }
+    if (
+      investor.verificationStatus !== VerificationStatus.VERIFIED ||
+      !investor.onboardingComplete
+    ) {
+      throw new ForbiddenException(
+        'Complete onboarding and verification before proposing contracts.',
+      );
+    }
+
+    const listing = await this.listingRepository.findOne({
+      where: { id: dto.listingId },
+      relations: ['miner', 'miner.user'],
+    });
+    if (!listing) {
+      throw new NotFoundException('Listing not found.');
+    }
+    if (listing.status !== ListingStatus.PUBLISHED) {
+      throw new BadRequestException(
+        'Contracts can only be proposed for published listings.',
+      );
+    }
+
+    const minerUserId = listing.miner?.userId;
+    if (!minerUserId) {
+      throw new BadRequestException(
+        'Could not resolve the miner account for this listing.',
+      );
+    }
+
+    if (dto.party2Id && dto.party2Id !== minerUserId) {
+      throw new BadRequestException(
+        'Counterparty must match the listing miner.',
+      );
+    }
+
+    if (party1Id === minerUserId) {
       throw new BadRequestException('Cannot propose a contract with yourself.');
     }
 
     const contract = this.contractRepository.create({
       party1Id,
-      party2Id: dto.party2Id,
-      listingId: dto.listingId ?? null,
+      party2Id: minerUserId,
+      listingId: listing.id,
       terms: dto.terms,
       metadata: {
         title: dto.title ?? 'Contract Proposal',
@@ -50,19 +112,19 @@ export class ContractsService {
 
     const saved = await this.contractRepository.save(contract);
 
-    await this.notificationsService.create(dto.party2Id, {
+    await this.notificationsService.create(minerUserId, {
       title: 'Contract Proposal',
       message:
         'You have received a new contract proposal. Please review and respond.',
       notificationType: 'info',
     });
 
-    this.auditLogService.log({
+    void this.auditLogService.log({
       userId: party1Id,
       action: 'contract.create',
       resource: 'contract',
       resourceId: saved.id,
-      metadata: { party2Id: dto.party2Id, listingId: dto.listingId },
+      metadata: { party2Id: minerUserId, listingId: listing.id },
     });
 
     return this.serializeContract(saved);
@@ -157,7 +219,7 @@ export class ContractsService {
       notificationType: 'info',
     });
 
-    this.auditLogService.log({
+    void this.auditLogService.log({
       userId,
       action: 'contract.status_update',
       resource: 'contract',
@@ -222,7 +284,7 @@ export class ContractsService {
       notificationType: 'info',
     });
 
-    this.auditLogService.log({
+    void this.auditLogService.log({
       userId,
       action: 'contract.signed',
       resource: 'contract',
@@ -252,7 +314,8 @@ export class ContractsService {
       );
     }
 
-    let documentId = contract.metadata?.signNowDocumentId;
+    const metadata = this.getMetadata(contract);
+    let documentId = metadata.signNowDocumentId;
 
     if (!documentId) {
       // Lazy generate the SignNow document
@@ -264,6 +327,8 @@ export class ContractsService {
           'Could not resolve both parties for the contract.',
         );
       }
+
+      this.signNowService.assertCanInviteSigners(party1.email, party2.email);
 
       // 1. Generate PDF
       const pdfBuffer = await this.signNowService.generateContractPdf(
@@ -287,7 +352,7 @@ export class ContractsService {
       );
 
       // 5. Update contract metadata
-      const currentMetadata = contract.metadata || {};
+      const currentMetadata = this.getMetadata(contract);
       contract.metadata = { ...currentMetadata, signNowDocumentId: documentId };
 
       if (contract.status === ContractStatus.PROPOSED) {
@@ -321,22 +386,28 @@ export class ContractsService {
       return this.serializeContract(contract);
     }
 
-    const documentId = contract.metadata?.signNowDocumentId;
+    const documentId = this.getMetadata(contract).signNowDocumentId;
     if (!documentId) {
       return this.serializeContract(contract);
     }
 
-    const document = await this.signNowService.getDocument(documentId);
+    const document = (await this.signNowService.getDocument(
+      documentId,
+    )) as SignNowDocument;
     let updated = false;
 
-    if (document.signatures && Array.isArray(document.signatures)) {
+    if (Array.isArray(document.signatures)) {
       for (const sig of document.signatures) {
+        if (!sig.email || sig.created === undefined) {
+          continue;
+        }
+        const signedAt = new Date(parseInt(String(sig.created), 10) * 1000);
         if (sig.email === contract.party1.email && !contract.party1SignedAt) {
-          contract.party1SignedAt = new Date(parseInt(sig.created) * 1000);
+          contract.party1SignedAt = signedAt;
           updated = true;
         }
         if (sig.email === contract.party2.email && !contract.party2SignedAt) {
-          contract.party2SignedAt = new Date(parseInt(sig.created) * 1000);
+          contract.party2SignedAt = signedAt;
           updated = true;
         }
       }
@@ -353,14 +424,20 @@ export class ContractsService {
   }
 
   private serializeContract(contract: Contract): Contract {
+    const metadata = this.getMetadata(contract);
+
     return {
       ...contract,
-      title: contract.metadata?.title ?? 'Contract Proposal',
-      value: contract.metadata?.value ?? null,
-      startDate: contract.metadata?.startDate ?? null,
-      endDate: contract.metadata?.endDate ?? null,
+      title: metadata.title ?? 'Contract Proposal',
+      value: metadata.value ?? null,
+      startDate: metadata.startDate ?? null,
+      endDate: metadata.endDate ?? null,
       party1SignatureData: contract.party1Signature,
       party2SignatureData: contract.party2Signature,
     } as Contract;
+  }
+
+  private getMetadata(contract: Contract): ContractMetadata {
+    return (contract.metadata ?? {}) as ContractMetadata;
   }
 }

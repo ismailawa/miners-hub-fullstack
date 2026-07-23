@@ -10,10 +10,17 @@ import {
   Request,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ChatsService } from './chats.service';
 import { SendMessageDto } from './chats.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
+
+type AuthenticatedRequest = ExpressRequest & {
+  user: {
+    id: string;
+  };
+};
 
 @Controller('chats')
 @UseGuards(JwtAuthGuard)
@@ -25,7 +32,10 @@ export class ChatsController {
    * Send a direct message to another user.
    */
   @Post()
-  async sendMessage(@Request() req: any, @Body() dto: SendMessageDto) {
+  async sendMessage(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: SendMessageDto,
+  ) {
     return this.chatsService.sendMessage(req.user.id, dto);
   }
 
@@ -34,7 +44,7 @@ export class ChatsController {
    * List all threads for the current user with unread counts and counterparty info.
    */
   @Get('threads')
-  async getThreads(@Request() req: any) {
+  async getThreads(@Request() req: AuthenticatedRequest) {
     return this.chatsService.getThreads(req.user.id);
   }
 
@@ -45,7 +55,7 @@ export class ChatsController {
   @Get('threads/:threadId')
   async getMessages(
     @Param('threadId') threadId: string,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Query() pagination: PaginationDto,
   ) {
     return this.chatsService.getMessages(threadId, req.user.id, pagination);
@@ -56,7 +66,10 @@ export class ChatsController {
    * Mark a single message as read (receiver only).
    */
   @Patch(':id/read')
-  async markRead(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+  async markRead(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
     return this.chatsService.markRead(id, req.user.id);
   }
 }

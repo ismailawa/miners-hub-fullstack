@@ -1,0 +1,12 @@
+<svg width="360" height="96" viewBox="0 0 360 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g>
+    <path d="M48 6 83.25 26.25v43.5L48 90 12.75 69.75v-43.5L48 6Z" fill="#D97706"/>
+    <path d="M48 13.2 76.95 29.85v36.3L48 82.8 19.05 66.15v-36.3L48 13.2Z" fill="#111827"/>
+    <path d="M27 57.75c7.8-3.6 13.35-3.6 21 0 7.8 3.6 13.35 3.6 21 0v7.65c-7.65 3.75-13.2 3.75-21 0-7.65-3.75-13.2-3.75-21 0v-7.65Z" fill="#F59E0B"/>
+    <path d="M27 44.25c6.15-3 11.1-3.3 16.8-1.05l4.2 1.65c7.8 3.3 13.35 3.3 21-.15v6.45c-7.65 3.6-13.2 3.6-21 0-7.65-3.6-13.2-3.6-21 0v-6.9Z" fill="#E5E7EB" opacity=".92"/>
+    <path d="M31.2 38.1 48 23.4l16.8 14.7-4.65 4.95L51 34.95v26.1h-6v-26.1l-9.15 8.1-4.65-4.95Z" fill="#F9FAFB"/>
+    <path d="M48 19.05 68.4 36.9" stroke="#D97706" stroke-width="4.5" stroke-linecap="round"/>
+  </g>
+  <text x="110" y="56" fill="#F9FAFB" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800" letter-spacing="0">Miners Hub</text>
+  <text x="112" y="77" fill="#D1D5DB" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="600" letter-spacing="2">VERIFIED MINERAL COMMERCE</text>
+</svg>

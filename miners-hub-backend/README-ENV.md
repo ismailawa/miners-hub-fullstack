@@ -33,6 +33,19 @@ JWT_REFRESH_EXPIRATION=7d
 # Will be configured in Story 7.2
 GEMINI_API_KEY=your-gemini-api-key-here
 
+# SignNow Integration
+# Use a neutral service account for SIGNNOW_API_KEY. The account that owns/uploads
+# SignNow documents cannot also be one of the investor/miner signers.
+SIGNNOW_API_KEY=your-signnow-service-account-token
+SIGNNOW_OWNER_EMAIL=signnow-service-account@example.com
+SIGNNOW_WEBHOOK_SECRET=your-signnow-webhook-secret
+
+# MetaMap KYC Integration
+# METAMAP_API_BASE_URL defaults to https://api.getmati.com when omitted.
+METAMAP_CLIENT_ID=your-metamap-client-id
+METAMAP_CLIENT_SECRET=your-metamap-client-secret
+METAMAP_API_BASE_URL=https://api.getmati.com
+
 # CORS Configuration
 FRONTEND_URL=http://localhost:3000
 CLOUDINARY_CLOUD_NAME=your-cloud-name

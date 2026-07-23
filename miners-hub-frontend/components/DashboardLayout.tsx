@@ -1,9 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
+import { getChatThreads } from '../lib/api/chats';
+import { onChatMessage, onChatThreadUpdate } from '../lib/api/chat-socket';
+import BrandLogo from './BrandLogo';
 
 // ── SVG Icon Components ───────────────────────────────────────────────────────
 const Icons = {
@@ -32,6 +35,12 @@ const Icons = {
             <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
         </svg>
     ),
+    Messages: () => (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12c0 4.142-4.03 7.5-9 7.5a10.8 10.8 0 01-3.86-.7L3 20.25l1.45-3.63C3.53 15.33 3 13.72 3 12c0-4.142 4.03-7.5 9-7.5s9 3.358 9 7.5z" />
+        </svg>
+    ),
     Listings: () => (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
@@ -40,6 +49,12 @@ const Icons = {
     Tasks: () => (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+    ),
+    MineSites: () => (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75l-6 2.25v11.25l6-2.25m0-11.25l6 2.25m-6-2.25v11.25m6-9l6-2.25v11.25l-6 2.25m0-11.25v11.25" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 12.75h.008v.008H12v-.008z" />
         </svg>
     ),
     Marketplace: () => (
@@ -81,28 +96,84 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const { currentUser, logout } = useAuth();
     const pathname = usePathname();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [unreadMessages, setUnreadMessages] = useState(0);
+
+    const loadUnreadMessages = useCallback(async () => {
+        if (!currentUser) {
+            setUnreadMessages(0);
+            return;
+        }
+
+        try {
+            const threads = await getChatThreads();
+            setUnreadMessages(threads.reduce((total, thread) => total + thread.unreadCount, 0));
+        } catch {
+            setUnreadMessages(0);
+        }
+    }, [currentUser]);
+
+    useEffect(() => {
+        void loadUnreadMessages();
+        const interval = window.setInterval(() => {
+            void loadUnreadMessages();
+        }, 30000);
+        const offMessage = onChatMessage(() => {
+            void loadUnreadMessages();
+        });
+        const offThreadUpdate = onChatThreadUpdate(() => {
+            void loadUnreadMessages();
+        });
+        const handleUnreadChanged = () => {
+            void loadUnreadMessages();
+        };
+        window.addEventListener('chat:unread-changed', handleUnreadChanged);
+
+        return () => {
+            window.clearInterval(interval);
+            offMessage();
+            offThreadUpdate();
+            window.removeEventListener('chat:unread-changed', handleUnreadChanged);
+        };
+    }, [loadUnreadMessages]);
 
     const mainNavItems: NavItem[] = [
         { name: 'Overview', href: '/dashboard', icon: Icons.Overview },
+        { name: 'Messages', href: '/messages', icon: Icons.Messages },
         { name: 'Profile Settings', href: '/profile', icon: Icons.Profile },
     ];
 
     const financeNavItems: NavItem[] = [
         { name: 'Contracts', href: '/contracts', icon: Icons.Contracts },
         { name: 'My Orders', href: '/orders', icon: Icons.Orders },
+        { name: 'Logistics', href: '/logistics-management', icon: Icons.MineSites },
+        { name: 'Laboratory Results', href: '/lab-results', icon: Icons.Contracts },
+        { name: 'Mineral Passports', href: '/mineral-passports', icon: Icons.Tasks },
+        { name: 'Revenue Analytics', href: '/revenue-analytics', icon: Icons.Transactions },
         { name: 'Transactions', href: '/transactions', icon: Icons.Transactions },
     ];
 
     const minerNavItems: NavItem[] = currentUser?.role === 'miner' ? [
+        { name: 'Mine Sites', href: '/mine-sites', icon: Icons.MineSites },
+        { name: 'Production Reports', href: '/production-reports', icon: Icons.Tasks },
+        { name: 'Compliance', href: '/compliance', icon: Icons.Contracts },
+        { name: 'Environmental Records', href: '/environmental-records', icon: Icons.MineSites },
         { name: 'My Listings', href: '/listings', icon: Icons.Listings },
         { name: 'Task Management', href: '/tasks', icon: Icons.Tasks },
     ] : [];
 
     const exploreNavItems: NavItem[] = [
         { name: 'Marketplace', href: '/marketplace', icon: Icons.Marketplace },
+        { name: 'Investor Opportunities', href: '/investor-opportunities', icon: Icons.Transactions },
     ];
 
     const adminNavItems: NavItem[] = currentUser?.role === 'admin' ? [
+        { name: 'Miner Registry', href: '/admin/miner-registry', icon: Icons.Profile },
+        { name: 'Mine Sites', href: '/mine-sites', icon: Icons.MineSites },
+        { name: 'Production Reports', href: '/production-reports', icon: Icons.Tasks },
+        { name: 'Compliance', href: '/compliance', icon: Icons.Contracts },
+        { name: 'Environmental Records', href: '/environmental-records', icon: Icons.MineSites },
+        { name: 'Revenue Analytics', href: '/revenue-analytics', icon: Icons.Transactions },
+        { name: 'Logistics', href: '/logistics-management', icon: Icons.MineSites },
         { name: 'User Management', href: '/admin/users', icon: Icons.Profile },
         { name: 'Listing Approvals', href: '/admin/listings', icon: Icons.Listings },
         { name: 'Orders', href: '/admin/orders', icon: Icons.Orders },
@@ -110,9 +181,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { name: 'Events', href: '/admin/events', icon: Icons.Tasks },
     ] : [];
 
+    const regulatorNavItems: NavItem[] = currentUser?.role === 'government' ? [
+        { name: 'Mine Sites', href: '/mine-sites', icon: Icons.MineSites },
+        { name: 'Production Reports', href: '/production-reports', icon: Icons.Tasks },
+        { name: 'Compliance', href: '/compliance', icon: Icons.Contracts },
+        { name: 'Environmental Records', href: '/environmental-records', icon: Icons.MineSites },
+        { name: 'Revenue Analytics', href: '/revenue-analytics', icon: Icons.Transactions },
+    ] : [];
+
     const navSections = [
         { label: 'Main', items: mainNavItems },
         ...(adminNavItems.length > 0 ? [{ label: 'Adminstration', items: adminNavItems }] : []),
+        ...(regulatorNavItems.length > 0 ? [{ label: 'Regulator', items: regulatorNavItems }] : []),
         { label: 'Finance', items: financeNavItems },
         ...(minerNavItems.length > 0 ? [{ label: 'Operations', items: minerNavItems }] : []),
         { label: 'Explore', items: exploreNavItems },
@@ -120,13 +200,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     const pageTitles: Record<string, string> = {
         '/dashboard': 'Overview',
+        '/messages': 'Messages',
         '/profile': 'Profile Settings',
         '/contracts': 'Contracts',
         '/orders': 'My Orders',
         '/transactions': 'Transaction History',
+        '/mine-sites': 'Mine Sites Map',
+        '/production-reports': 'Production Reports',
+        '/compliance': 'Licensing & Compliance',
+        '/environmental-records': 'Environmental Monitoring',
+        '/revenue-analytics': 'Revenue Analytics',
+        '/logistics-management': 'Logistics Management',
+        '/lab-results': 'Laboratory Results',
+        '/mineral-passports': 'Mineral Passports',
         '/listings': 'My Listings',
         '/tasks': 'Task Management',
         '/marketplace': 'Marketplace',
+        '/investor-opportunities': 'Investor Opportunities',
+        '/admin/miner-registry': 'Miner Registry',
         '/admin/users': 'User Management',
         '/admin/listings': 'Listing Approvals',
         '/admin/orders': 'Orders',
@@ -154,8 +245,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <span className={`mr-3 flex-shrink-0 transition-colors ${isActive ? 'text-accent' : 'text-text-muted group-hover:text-text-primary'}`}>
                     <item.icon />
                 </span>
-                {item.name}
-                {isActive && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />}
+                <span className="truncate">{item.name}</span>
+                {item.href === '/messages' && unreadMessages > 0 && (
+                    <span className="ml-auto min-w-5 h-5 px-1.5 rounded-full bg-accent text-accent-content text-[11px] font-bold flex items-center justify-center">
+                        {unreadMessages > 99 ? '99+' : unreadMessages}
+                    </span>
+                )}
+                {isActive && item.href !== '/messages' && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />}
             </Link>
         );
     };
@@ -180,10 +276,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {/* Logo */}
                 <div className="h-16 flex items-center px-5 border-b border-border flex-shrink-0">
                     <Link href="/" className="flex items-center space-x-2.5">
-                        <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center text-white flex-shrink-0">
-                            <Icons.Logo />
-                        </div>
-                        <span className="text-lg font-bold tracking-tight">Miners Hub</span>
+                        <BrandLogo size="sm" />
                     </Link>
                 </div>
 

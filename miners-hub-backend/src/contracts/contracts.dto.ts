@@ -10,13 +10,13 @@ import { Type } from 'class-transformer';
 import { ContractStatus } from '../entities/contract.entity';
 
 export class CreateContractDto {
-  @IsNotEmpty()
-  @IsUUID()
-  party2Id!: string;
-
   @IsOptional()
   @IsUUID()
-  listingId?: string;
+  party2Id?: string;
+
+  @IsNotEmpty()
+  @IsUUID()
+  listingId!: string;
 
   @IsOptional()
   @IsString()

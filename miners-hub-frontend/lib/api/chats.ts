@@ -24,8 +24,21 @@ export interface BackendThread {
     name: string;
     profileImageUrl?: string;
   };
-  latestMessage?: BackendMessage;
+  latestMessage?: BackendMessage | null;
   unreadCount: number;
+}
+
+interface BackendThreadResponse {
+  threadId: string;
+  participant?: BackendThread['participant'];
+  counterparty?: {
+    id: string;
+    name: string;
+    email?: string;
+    profileImageUrl?: string;
+  } | null;
+  latestMessage?: BackendMessage | null;
+  unreadCount: number | string;
 }
 
 interface BackendPaginatedResponse<T> {
@@ -36,7 +49,8 @@ interface BackendPaginatedResponse<T> {
  * Get all chat threads for the current user
  */
 export async function getChatThreads(): Promise<BackendThread[]> {
-  return apiClient.get<BackendThread[]>('/api/chats/threads');
+  const response = await apiClient.get<BackendThreadResponse[]>('/api/chats/threads');
+  return response.map(normalizeThread);
 }
 
 /**
@@ -65,5 +79,21 @@ function normalizeMessage(message: BackendMessage): BackendMessage {
   return {
     ...message,
     text: message.text || message.message || '',
+  };
+}
+
+function normalizeThread(thread: BackendThreadResponse): BackendThread {
+  const participant = thread.participant || thread.counterparty;
+  return {
+    threadId: thread.threadId,
+    participant: {
+      id: participant?.id || '',
+      name: participant?.name || 'Unknown user',
+      profileImageUrl: participant?.profileImageUrl,
+    },
+    latestMessage: thread.latestMessage
+      ? normalizeMessage(thread.latestMessage)
+      : null,
+    unreadCount: Number(thread.unreadCount || 0),
   };
 }

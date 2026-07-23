@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { getContract, getSignNowLink, updateContractStatus, syncContractSignatures, BackendContract } from '../lib/api/contracts';
+import { formatCurrency } from '../lib/currency';
 
 const ContractDetailPage: React.FC = () => {
     const { currentUser, pagePayload, setPage } = useAuth();
@@ -143,12 +144,12 @@ const ContractDetailPage: React.FC = () => {
                     
                     <div className="p-8">
                         <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm bg-primary p-4 rounded-md">
-                            <div><span className="font-semibold text-text-muted block">Party 1 (Proposer)</span>{contract.party1?.name}</div>
-                            <div><span className="font-semibold text-text-muted block">Party 2</span>{contract.party2?.name}</div>
+                            <div><span className="font-semibold text-text-muted block">Investor</span>{contract.party1?.name}</div>
+                            <div><span className="font-semibold text-text-muted block">Miner</span>{contract.party2?.name}</div>
                             {contract.listing && (
                                 <>
                                     <div><span className="font-semibold text-text-muted block">Mineral</span>{contract.listing.mineralType}</div>
-                                    <div><span className="font-semibold text-text-muted block">Value</span>₦{contract.value ? contract.value.toLocaleString() : 'N/A'}</div>
+                                    <div><span className="font-semibold text-text-muted block">Value</span>{formatCurrency(contract.value, 'N/A')}</div>
                                 </>
                             )}
                         </div>
@@ -160,12 +161,12 @@ const ContractDetailPage: React.FC = () => {
 
                         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-border pt-8">
                             <div>
-                                <h3 className="text-lg font-semibold text-text-primary">Proposer Signature</h3>
-                                <SignatureDisplay signature={contract.party1SignatureData || contract.party1Signature} signedAt={contract.party1SignedAt} partyName={contract.party1?.name ?? 'Party 1'} />
+                                <h3 className="text-lg font-semibold text-text-primary">Investor Signature</h3>
+                                <SignatureDisplay signature={contract.party1SignatureData || contract.party1Signature} signedAt={contract.party1SignedAt} partyName={contract.party1?.name ?? 'Investor'} />
                             </div>
                              <div>
-                                <h3 className="text-lg font-semibold text-text-primary">Counterparty Signature</h3>
-                                <SignatureDisplay signature={contract.party2SignatureData || contract.party2Signature} signedAt={contract.party2SignedAt} partyName={contract.party2?.name ?? 'Party 2'} />
+                                <h3 className="text-lg font-semibold text-text-primary">Miner Signature</h3>
+                                <SignatureDisplay signature={contract.party2SignatureData || contract.party2Signature} signedAt={contract.party2SignedAt} partyName={contract.party2?.name ?? 'Miner'} />
                             </div>
                         </div>
 

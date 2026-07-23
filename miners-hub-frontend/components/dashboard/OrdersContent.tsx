@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { getOrders, updateOrderStatus, initiateEscrowPayment, cancelOrder, mapBackendOrderToOrder, BackendOrder } from '../../lib/api/orders';
 import OrderTrackingModal from '../OrderTrackingModal';
 import { Order } from '../../lib/types';
+import { formatCurrency } from '../../lib/currency';
 
 // ── Status chip ────────────────────────────────────────────────────────────────
 const getStatusChip = (status: string) => {
@@ -50,7 +51,7 @@ const OrderCard: React.FC<{
         <p className="text-xs text-text-muted font-mono">#{order.id.slice(0, 8)}</p>
       </div>
       <div className="text-right md:text-left">
-        <p className="font-semibold text-text-primary">₦{Number(order.totalAmount).toLocaleString()}</p>
+        <p className="font-semibold text-text-primary">{formatCurrency(order.totalAmount)}</p>
         <p className="text-xs text-text-muted">{isSeller ? `To: ${counterParty}` : `From: ${counterParty}`}</p>
       </div>
       <div className="text-left">

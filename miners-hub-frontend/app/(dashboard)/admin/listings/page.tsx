@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { getListings, updateListingStatus, AdminListing } from '../../../../lib/api/admin';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { formatCurrency } from '../../../../lib/currency';
 
 export default function AdminListingsPage() {
     const { currentUser } = useAuth();
@@ -71,7 +72,7 @@ export default function AdminListingsPage() {
                                     {listing.miner?.companyName || listing.miner?.user?.name || 'Unknown'}
                                 </td>
                                 <td className="p-4 text-sm">
-                                    {listing.quantity} tons @ ${listing.price}/ton
+                                    {listing.quantity} tons @ {formatCurrency(listing.price)}/ton
                                 </td>
                                 <td className="p-4">
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

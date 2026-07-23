@@ -13,26 +13,54 @@ import MinerChatModal from './MinerChatModal';
 import CreateListingModal from './CreateListingModal';
 import Pagination from './Pagination';
 import ConfirmationModal from './ConfirmationModal';
+import { formatCurrency, formatCurrencyInput, parseCurrencyInput } from '../lib/currency';
+
+type ChatTarget = { id: string; userId?: string; name: string; imageUrl: string };
+
+const TrustBadge: React.FC<{ label: string; tone?: 'green' | 'yellow' | 'red' | 'neutral' }> = ({ label, tone = 'neutral' }) => {
+  const classes = {
+    green: 'border-green-500/30 bg-green-500/15 text-green-300',
+    yellow: 'border-yellow-500/30 bg-yellow-500/15 text-yellow-300',
+    red: 'border-red-500/30 bg-red-500/15 text-red-300',
+    neutral: 'border-border bg-primary text-text-secondary',
+  };
+
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${classes[tone]}`}>
+      {label}
+    </span>
+  );
+};
 
 // ─── Countdown Timer ─────────────────────────────────────────────────────────
 
-const useCountdown = (targetDate: string) => {
-  const countDownDate = new Date(targetDate).getTime();
-  const [countDown, setCountDown] = useState(countDownDate - Date.now());
+const useCountdown = (targetDate?: string) => {
+  const [countDown, setCountDown] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    if (!targetDate) {
+      setCountDown(0);
+      return;
+    }
+
+    const countDownDate = new Date(targetDate).getTime();
+    const updateCountDown = () => {
       const newCountDown = countDownDate - Date.now();
       setCountDown(newCountDown > 0 ? newCountDown : 0);
+    };
+
+    updateCountDown();
+    const interval = setInterval(() => {
+      updateCountDown();
     }, 1000);
     return () => clearInterval(interval);
-  }, [countDownDate]);
+  }, [targetDate]);
 
   const days = Math.floor(countDown / (1000 * 60 * 60 * 24));
   const hours = Math.floor((countDown % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
   const minutes = Math.floor((countDown % (1000 * 60 * 60)) / (1000 * 60));
   const seconds = Math.floor((countDown % (1000 * 60)) / 1000);
-  const ended = countDown <= 0;
+  const ended = !targetDate || countDown <= 0;
   return { days, hours, minutes, seconds, ended };
 };
 
@@ -87,8 +115,19 @@ const ListingCard: React.FC<{ listing: Listing; onSelect: (l: Listing) => void }
     <div className="p-6 flex flex-col flex-grow">
       <h3 className="text-xl font-bold text-text-primary">{listing.mineral}</h3>
       <p className="text-sm text-text-muted">{listing.location}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <TrustBadge
+          label={listing.sellerVerificationStatus === VerificationStatus.VERIFIED ? 'Verified seller' : 'Seller pending'}
+          tone={listing.sellerVerificationStatus === VerificationStatus.VERIFIED ? 'green' : 'yellow'}
+        />
+        <TrustBadge
+          label={`${listing.documentSummary?.approved || 0} approved docs`}
+          tone={(listing.documentSummary?.approved || 0) > 0 ? 'green' : 'neutral'}
+        />
+        <TrustBadge label="Lab pending" tone="neutral" />
+      </div>
       <div className="mt-4 flex justify-between items-center">
-        <p className="text-2xl font-semibold text-accent">₦{Number(listing.pricePerUnit).toLocaleString()}</p>
+        <p className="text-2xl font-semibold text-accent">{formatCurrency(listing.pricePerUnit)}</p>
         <p className="text-text-secondary">{listing.quantity} tonnes</p>
       </div>
       <div className="mt-4 flex items-center space-x-2 border-t border-border pt-4">
@@ -113,7 +152,10 @@ const ListingCard: React.FC<{ listing: Listing; onSelect: (l: Listing) => void }
 
 // ─── Auction Card ─────────────────────────────────────────────────────────────
 
-const AuctionCard: React.FC<{ listing: Auction; onSelect: (l: Auction) => void }> = ({ listing, onSelect }) => (
+const AuctionCard: React.FC<{ listing: Auction; onSelect: (l: Auction) => void }> = ({ listing, onSelect }) => {
+  const { ended } = useCountdown(listing.auctionEndDate);
+
+  return (
   <div className="bg-secondary rounded-lg overflow-hidden shadow-lg transform hover:-translate-y-2 transition-transform duration-300 group flex flex-col">
     <div className="relative overflow-hidden">
       <img
@@ -129,7 +171,7 @@ const AuctionCard: React.FC<{ listing: Auction; onSelect: (l: Auction) => void }
       <p className="text-sm text-text-muted">{listing.location}</p>
       <div className="mt-4">
         <p className="text-sm text-text-secondary">Current Bid</p>
-        <p className="text-2xl font-semibold text-accent">₦{Number(listing.currentBid).toLocaleString()}</p>
+        <p className="text-2xl font-semibold text-accent">{formatCurrency(listing.currentBid)}</p>
       </div>
       <div className="mt-4 border-t border-border pt-4">
         <p className="text-sm text-text-secondary mb-2">Time Remaining</p>
@@ -140,19 +182,45 @@ const AuctionCard: React.FC<{ listing: Auction; onSelect: (l: Auction) => void }
           onClick={() => onSelect(listing)}
           className="block w-full text-center bg-border text-text-primary py-2.5 rounded-lg hover:bg-accent hover:text-accent-content transition-colors duration-300 font-semibold"
         >
-          {new Date(listing.auctionEndDate).getTime() < Date.now() ? 'View Results' : 'Place Bid'}
+          {ended ? 'View Results' : 'Place Bid'}
         </button>
       </div>
     </div>
   </div>
-);
+  );
+};
 
 // ─── Listing Detail Modal ─────────────────────────────────────────────────────
+
+const ActionIconButton: React.FC<{
+  label: string;
+  onClick: () => void;
+  variant?: 'default' | 'accent';
+  children: React.ReactNode;
+}> = ({ label, onClick, variant = 'default', children }) => (
+  <div className="relative group flex-1">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className={`w-full h-12 rounded-md border border-border flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-accent ${
+        variant === 'accent'
+          ? 'bg-accent text-accent-content hover:bg-yellow-400'
+          : 'bg-border text-text-primary hover:bg-border/80'
+      }`}
+    >
+      {children}
+    </button>
+    <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-text-primary opacity-0 shadow-lg ring-1 ring-border transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+      {label}
+    </span>
+  </div>
+);
 
 const ListingDetailModal: React.FC<{
   listing: Listing | null;
   onClose: () => void;
-  onStartChat: (miner: { id: string; name: string; imageUrl: string }) => void;
+  onStartChat: (miner: ChatTarget) => void;
 }> = ({ listing, onClose, onStartChat }) => {
   const [mainImage, setMainImage] = useState(listing?.images[0]);
   const { currentUser, setPage } = useAuth();
@@ -166,14 +234,30 @@ const ListingDetailModal: React.FC<{
 
   if (!listing) return null;
 
+  const isVerifiedUser = currentUser?.status === VerificationStatus.VERIFIED && currentUser.onboardingComplete;
+
   const handlePurchaseClick = () => {
-    if (currentUser) { setPage('payment', { listing }); onClose(); }
-    else { setPage('login'); onClose(); }
+    if (!currentUser) { setPage('login'); onClose(); return; }
+    if (!isVerifiedUser) {
+      alert('Complete onboarding and verification before buying minerals.');
+      setPage('onboarding');
+      onClose();
+      return;
+    }
+    setPage('payment', { listing });
+    onClose();
   };
 
   const handleProposeContract = () => {
-    if (currentUser) { setPage('contract-proposal', { listing }); onClose(); }
-    else { setPage('login'); onClose(); }
+    if (!currentUser) { setPage('login'); onClose(); return; }
+    if (!isVerifiedUser) {
+      alert('Complete onboarding and verification before proposing contracts.');
+      setPage('onboarding');
+      onClose();
+      return;
+    }
+    setPage('contract-proposal', { listing });
+    onClose();
   };
 
   return (
@@ -207,7 +291,7 @@ const ListingDetailModal: React.FC<{
               </div>
               <div className="my-6">
                 <p className="text-4xl font-bold text-accent">
-                  ₦{Number(listing.pricePerUnit).toLocaleString()}
+                  {formatCurrency(listing.pricePerUnit)}
                   <span className="text-lg text-text-secondary font-normal"> per tonne</span>
                 </p>
                 <p className="text-text-secondary mt-1">{listing.quantity} tonnes available</p>
@@ -224,24 +308,50 @@ const ListingDetailModal: React.FC<{
                   />
                   <div>
                     <p className="font-bold text-text-primary">{listing.minerName || 'Unknown Miner'}</p>
-                    <p className="text-sm text-green-400">Verified Seller</p>
+                    <p className={listing.sellerVerificationStatus === VerificationStatus.VERIFIED ? 'text-sm text-green-400' : 'text-sm text-yellow-300'}>
+                      {listing.sellerVerificationStatus === VerificationStatus.VERIFIED ? 'Verified Seller' : 'Verification Pending'}
+                    </p>
                   </div>
                 </div>
               </div>
+              <div className="mt-4 bg-primary p-4 rounded-lg border border-border">
+                <h4 className="font-semibold text-text-primary mb-3">Due Diligence Pack</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <TrustBadge label={listing.dueDiligence?.sellerVerified ? 'Seller verified' : 'Seller not verified'} tone={listing.dueDiligence?.sellerVerified ? 'green' : 'yellow'} />
+                  <TrustBadge label={`${listing.documentSummary?.approved || 0} approved documents`} tone={(listing.documentSummary?.approved || 0) > 0 ? 'green' : 'neutral'} />
+                  <TrustBadge label={listing.dueDiligence?.hasGrade ? `Grade: ${listing.grade}` : 'Grade not supplied'} tone={listing.dueDiligence?.hasGrade ? 'green' : 'yellow'} />
+                  <TrustBadge label={listing.dueDiligence?.hasImages ? 'Site/product images' : 'No images'} tone={listing.dueDiligence?.hasImages ? 'green' : 'yellow'} />
+                  <TrustBadge label={listing.dueDiligence?.listingApproved ? 'Listing approved' : 'Listing pending'} tone={listing.dueDiligence?.listingApproved ? 'green' : 'yellow'} />
+                  <TrustBadge label="Lab certificate pending" tone="neutral" />
+                </div>
+                <div className="mt-4 text-xs text-text-muted">
+                  <p>Documents: {listing.documentSummary?.total || 0} total · {listing.documentSummary?.pending || 0} pending · {listing.documentSummary?.rejected || 0} rejected</p>
+                  <p className="mt-1">Mineral passport and lab certificates will appear here when linked to this listing.</p>
+                </div>
+              </div>
               {(!currentUser || currentUser.role === 'investor') ? (
-                <div className="mt-6 flex flex-col sm:flex-row gap-2">
-                  <button
-                    onClick={() => onStartChat({ id: listing.minerUserId || listing.minerId, name: listing.minerName || 'Miner', imageUrl: listing.minerImageUrl || '' })}
-                    className="flex-1 bg-border text-text-primary font-semibold py-3 rounded-md hover:bg-border/80 transition-colors"
+                <div className="mt-6 flex gap-2">
+                  <ActionIconButton
+                    label="Chat with seller"
+                    onClick={() => onStartChat({ id: listing.minerUserId || listing.minerId, userId: listing.minerUserId, name: listing.minerName || 'Miner', imageUrl: listing.minerImageUrl || '' })}
                   >
-                    Chat with Seller
-                  </button>
-                  <button onClick={handlePurchaseClick} className="flex-1 bg-border text-text-primary font-semibold py-3 rounded-md hover:bg-border/80 transition-colors">
-                    {currentUser ? 'Buy Now' : 'Login to Buy'}
-                  </button>
-                  <button onClick={handleProposeContract} className="flex-1 bg-accent text-accent-content font-semibold py-3 rounded-md hover:bg-yellow-400 transition-colors">
-                    Propose Contract
-                  </button>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12c0 4.142-4.03 7.5-9 7.5a10.8 10.8 0 01-3.86-.7L3 20.25l1.45-3.63C3.53 15.33 3 13.72 3 12c0-4.142 4.03-7.5 9-7.5s9 3.358 9 7.5z" />
+                    </svg>
+                  </ActionIconButton>
+                  <ActionIconButton label={currentUser ? 'Buy now' : 'Login to buy'} onClick={handlePurchaseClick}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 10.5h13.5l-.75 9a2.25 2.25 0 01-2.242 2.062H8.242A2.25 2.25 0 016 19.5l-.75-9z" />
+                    </svg>
+                  </ActionIconButton>
+                  <ActionIconButton label="Propose contract" onClick={handleProposeContract} variant="accent">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5A3.375 3.375 0 0010.125 2.25H6.75A2.25 2.25 0 004.5 4.5v15a2.25 2.25 0 002.25 2.25h10.5a2.25 2.25 0 002.25-2.25v-5.25z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 12.75v4.5m2.25-2.25h-4.5" />
+                    </svg>
+                  </ActionIconButton>
                 </div>
               ) : (
                 <div className="mt-6 p-4 bg-primary rounded-lg border border-border text-center">
@@ -284,15 +394,22 @@ const AuctionDetailModal: React.FC<{
     }
   }, [listing]);
 
+  const { ended } = useCountdown(listing?.auctionEndDate);
+
   if (!listing) return null;
-  const { ended } = useCountdown(listing.auctionEndDate);
 
   const handleBidSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (!currentUser) { setPage('login'); onClose(); return; }
+    if (currentUser.status !== VerificationStatus.VERIFIED || !currentUser.onboardingComplete) {
+      setError('Complete onboarding and verification before bidding.');
+      setPage('onboarding');
+      onClose();
+      return;
+    }
     if (currentUser.id === listing.minerUserId) { setError('You cannot bid on your own auction.'); return; }
-    if (bidAmount <= listing.currentBid) { setError(`Bid must be higher than the current ₦${listing.currentBid.toLocaleString()}.`); return; }
+    if (bidAmount <= listing.currentBid) { setError(`Bid must be higher than the current ${formatCurrency(listing.currentBid)}.`); return; }
     setIsBidConfirmationOpen(true);
   };
 
@@ -329,25 +446,25 @@ const AuctionDetailModal: React.FC<{
                 </div>
                 <div className="my-6">
                   <p className="text-text-secondary">Current Bid</p>
-                  <p className="text-4xl font-bold text-accent">₦{Number(listing.currentBid).toLocaleString()}</p>
+                  <p className="text-4xl font-bold text-accent">{formatCurrency(listing.currentBid)}</p>
                   {listing.highestBidderName && <p className="text-sm text-text-muted">by {listing.highestBidderName}</p>}
                 </div>
                 {ended ? (
                   <div className="bg-green-500/10 border border-green-500/50 p-4 rounded-lg text-center">
                     <h3 className="font-bold text-green-400">Auction Ended</h3>
                     <p className="text-text-secondary">Won by <span className="font-semibold text-text-primary">{listing.highestBidderName}</span></p>
-                    <p className="text-text-secondary">Final bid: <span className="font-semibold text-text-primary">₦{Number(listing.currentBid).toLocaleString()}</span></p>
+                    <p className="text-text-secondary">Final bid: <span className="font-semibold text-text-primary">{formatCurrency(listing.currentBid)}</span></p>
                   </div>
                 ) : (
                   <form onSubmit={handleBidSubmit}>
-                    <label className="block text-sm font-medium text-text-secondary">Your Bid (₦)</label>
+                    <label className="block text-sm font-medium text-text-secondary">Your Bid (NGN)</label>
                     <div className="flex items-center mt-1">
                       <span className="bg-border text-text-primary p-3 rounded-l-md">₦</span>
                       <input
-                        type="number"
-                        value={bidAmount}
-                        onChange={(e) => setBidAmount(Number(e.target.value))}
-                        min={listing.currentBid + 1}
+                        type="text"
+                        inputMode="numeric"
+                        value={formatCurrencyInput(bidAmount)}
+                        onChange={(e) => setBidAmount(parseCurrencyInput(e.target.value))}
                         required
                         className="w-full bg-primary p-2 border-y border-r border-border focus:outline-none focus:ring-2 focus:ring-accent"
                       />
@@ -364,7 +481,7 @@ const AuctionDetailModal: React.FC<{
                     {listing.bidHistory.length > 0 ? listing.bidHistory.map((bid) => (
                       <div key={bid.id} className="flex justify-between items-center text-sm p-2 bg-secondary rounded">
                         <span>{bid.bidderName}</span>
-                        <span className="font-semibold text-text-primary">₦{bid.amount.toLocaleString()}</span>
+                        <span className="font-semibold text-text-primary">{formatCurrency(bid.amount)}</span>
                       </div>
                     )) : <p className="text-sm text-text-muted text-center p-4">No bids yet. Be the first!</p>}
                   </div>
@@ -379,7 +496,7 @@ const AuctionDetailModal: React.FC<{
         onClose={() => setIsBidConfirmationOpen(false)}
         onConfirm={handleConfirmBid}
         title="Confirm Your Bid"
-        message={`Place a bid of ₦${bidAmount.toLocaleString()} for "${listing.mineral}"? This action cannot be undone.`}
+        message={`Place a bid of ${formatCurrency(bidAmount)} for "${listing.mineral}"? This action cannot be undone.`}
         confirmText="Place Bid"
         confirmButtonClass="bg-green-600 hover:bg-green-500 text-white"
       />
@@ -400,13 +517,20 @@ const MarketplacePage: React.FC = () => {
 
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [selectedAuction, setSelectedAuction] = useState<Auction | null>(null);
-  const [chatTarget, setChatTarget] = useState<{ id: string; name: string; imageUrl: string } | null>(null);
+  const [chatTarget, setChatTarget] = useState<ChatTarget | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'buy-now' | 'auction'>('buy-now');
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [mineralTypeFilter, setMineralTypeFilter] = useState('all');
-  const [locationFilter, setLocationFilter] = useState('all');
+  const [mineralTypeFilter, setMineralTypeFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
+  const [gradeFilter, setGradeFilter] = useState('');
+  const [minPriceFilter, setMinPriceFilter] = useState('');
+  const [maxPriceFilter, setMaxPriceFilter] = useState('');
+  const [minQuantityFilter, setMinQuantityFilter] = useState('');
+  const [maxQuantityFilter, setMaxQuantityFilter] = useState('');
+  const [listingTypeFilter, setListingTypeFilter] = useState<'all' | 'buy_now' | 'auction'>('all');
+  const [sellerVerificationFilter, setSellerVerificationFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const listingsPerPage = 12;
@@ -418,8 +542,14 @@ const MarketplacePage: React.FC = () => {
     try {
       const offset = (currentPage - 1) * listingsPerPage;
       const filters: Record<string, string | number> = { limit: listingsPerPage, offset };
-      if (mineralTypeFilter !== 'all') filters.mineralType = mineralTypeFilter;
-      if (locationFilter !== 'all') filters.location = locationFilter;
+      if (mineralTypeFilter.trim()) filters.mineralType = mineralTypeFilter.trim();
+      if (locationFilter.trim()) filters.location = locationFilter.trim();
+      if (gradeFilter.trim()) filters.gradePurity = gradeFilter.trim();
+      if (minPriceFilter) filters.minPrice = parseCurrencyInput(minPriceFilter);
+      if (maxPriceFilter) filters.maxPrice = parseCurrencyInput(maxPriceFilter);
+      if (minQuantityFilter) filters.minQuantity = Number(minQuantityFilter);
+      if (maxQuantityFilter) filters.maxQuantity = Number(maxQuantityFilter);
+      if (sellerVerificationFilter !== 'all') filters.sellerVerificationStatus = sellerVerificationFilter;
       if (activeTab === 'auction') {
         const response = await getActiveAuctions({ limit: listingsPerPage, offset });
         setAuctions(response.data.map(mapBackendAuctionToFrontend));
@@ -427,7 +557,7 @@ const MarketplacePage: React.FC = () => {
         return;
       }
 
-      filters.listingType = 'buy_now';
+      filters.listingType = listingTypeFilter === 'auction' ? 'auction' : 'buy_now';
       const response = await getPublishedListings(filters as any);
       const { data, meta } = response;
 
@@ -438,7 +568,7 @@ const MarketplacePage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [activeTab, currentPage, mineralTypeFilter, locationFilter]);
+  }, [activeTab, currentPage, mineralTypeFilter, locationFilter, gradeFilter, minPriceFilter, maxPriceFilter, minQuantityFilter, maxQuantityFilter, listingTypeFilter, sellerVerificationFilter]);
 
   useEffect(() => { fetchListings(); }, [fetchListings]);
 
@@ -452,8 +582,19 @@ const MarketplacePage: React.FC = () => {
     );
   }, [allListings, searchTerm]);
 
-  const uniqueMineralTypes = useMemo(() => ['all', ...Array.from(new Set(allListings.map((l) => l.mineral)))], [allListings]);
-  const uniqueLocations = useMemo(() => ['all', ...Array.from(new Set(allListings.map((l) => l.location)))], [allListings]);
+  const resetFilters = () => {
+    setSearchTerm('');
+    setMineralTypeFilter('');
+    setLocationFilter('');
+    setGradeFilter('');
+    setMinPriceFilter('');
+    setMaxPriceFilter('');
+    setMinQuantityFilter('');
+    setMaxQuantityFilter('');
+    setListingTypeFilter('all');
+    setSellerVerificationFilter('all');
+    setCurrentPage(1);
+  };
 
   // ── Bidding ─────────────────────────────────────────────────────────────────
   const handlePlaceBid = async (auctionId: string, amount: number) => {
@@ -481,7 +622,7 @@ const MarketplacePage: React.FC = () => {
   };
 
   // ── Chat ────────────────────────────────────────────────────────────────────
-  const handleStartChat = (minerInfo: { id: string; name: string; imageUrl: string }) => {
+  const handleStartChat = (minerInfo: ChatTarget) => {
     if (!currentUser) { setPage('login'); return; }
     setSelectedListing(null);
     setSelectedAuction(null);
@@ -514,15 +655,22 @@ const MarketplacePage: React.FC = () => {
           <button
             onClick={() => {
               if (!currentUser) { setPage('login'); }
-              else if (currentUser.role === 'miner' && currentUser.status === VerificationStatus.VERIFIED) { setIsCreateModalOpen(true); }
-              else { alert('Only verified miners can create listings.'); }
+              else if (
+                currentUser.role === 'miner' &&
+                currentUser.status === VerificationStatus.VERIFIED &&
+                currentUser.onboardingComplete
+              ) { setIsCreateModalOpen(true); }
+              else {
+                alert('Complete onboarding and verification before creating listings.');
+                setPage('onboarding');
+              }
             }}
             className="bg-accent text-accent-content font-semibold py-2 px-5 rounded-md hover:bg-yellow-400 transition-colors"
           >+ Create Listing</button>
         </div>
 
         {/* Filters */}
-        <div className="bg-secondary p-4 rounded-lg border border-border mb-12 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+        <div className="bg-secondary p-4 rounded-lg border border-border mb-12 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 items-center">
           <div className="relative">
             <input
               type="text"
@@ -535,20 +683,76 @@ const MarketplacePage: React.FC = () => {
               <svg className="w-5 h-5 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             </div>
           </div>
-          <select
+          <input
             value={mineralTypeFilter}
             onChange={(e) => { setMineralTypeFilter(e.target.value); setCurrentPage(1); }}
+            placeholder="Mineral type"
             className="w-full bg-primary text-text-primary border border-border rounded-md py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-accent"
-          >
-            {uniqueMineralTypes.map((t) => <option key={t} value={t}>{t === 'all' ? 'All Mineral Types' : t}</option>)}
-          </select>
-          <select
+          />
+          <input
             value={locationFilter}
             onChange={(e) => { setLocationFilter(e.target.value); setCurrentPage(1); }}
+            placeholder="Location"
+            className="w-full bg-primary text-text-primary border border-border rounded-md py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+          <input
+            value={gradeFilter}
+            onChange={(e) => { setGradeFilter(e.target.value); setCurrentPage(1); }}
+            placeholder="Grade / purity"
+            className="w-full bg-primary text-text-primary border border-border rounded-md py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+          <select
+            value={sellerVerificationFilter}
+            onChange={(e) => { setSellerVerificationFilter(e.target.value as typeof sellerVerificationFilter); setCurrentPage(1); }}
             className="w-full bg-primary text-text-primary border border-border rounded-md py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-accent"
           >
-            {uniqueLocations.map((l) => <option key={l} value={l}>{l === 'all' ? 'All Locations' : l}</option>)}
+            <option value="all">All seller verification</option>
+            <option value="verified">Verified sellers</option>
+            <option value="pending">Pending sellers</option>
+            <option value="rejected">Rejected sellers</option>
           </select>
+          <input
+            value={minPriceFilter}
+            onChange={(e) => { setMinPriceFilter(formatCurrencyInput(e.target.value)); setCurrentPage(1); }}
+            placeholder="Min price"
+            className="w-full bg-primary text-text-primary border border-border rounded-md py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+          <input
+            value={maxPriceFilter}
+            onChange={(e) => { setMaxPriceFilter(formatCurrencyInput(e.target.value)); setCurrentPage(1); }}
+            placeholder="Max price"
+            className="w-full bg-primary text-text-primary border border-border rounded-md py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+          <input
+            type="number"
+            min="0"
+            value={minQuantityFilter}
+            onChange={(e) => { setMinQuantityFilter(e.target.value); setCurrentPage(1); }}
+            placeholder="Min quantity"
+            className="w-full bg-primary text-text-primary border border-border rounded-md py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+          <input
+            type="number"
+            min="0"
+            value={maxQuantityFilter}
+            onChange={(e) => { setMaxQuantityFilter(e.target.value); setCurrentPage(1); }}
+            placeholder="Max quantity"
+            className="w-full bg-primary text-text-primary border border-border rounded-md py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+          <div className="flex gap-2">
+            <select
+              value={listingTypeFilter}
+              onChange={(e) => { setListingTypeFilter(e.target.value as typeof listingTypeFilter); setCurrentPage(1); }}
+              className="min-w-0 flex-1 bg-primary text-text-primary border border-border rounded-md py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              <option value="all">Buy now listings</option>
+              <option value="buy_now">Buy now</option>
+              <option value="auction">Auction listings</option>
+            </select>
+            <button onClick={resetFilters} className="rounded-md border border-border px-3 py-2 text-sm font-semibold text-text-secondary hover:border-accent hover:text-accent">
+              Reset
+            </button>
+          </div>
         </div>
 
         {/* Error */}

@@ -56,6 +56,30 @@ export class AdminController {
     return this.adminService.verifyUser(id, status, req.user.id);
   }
 
+  @Get('miner-registry')
+  async getMinerRegistry(
+    @Query('status') status?: VerificationStatus,
+    @Query('documentStatus') documentStatus?: DocumentReviewStatus,
+    @Query('location') location?: string,
+    @Query('mineralType') mineralType?: string,
+    @Query('limit') limit?: string,
+    @Query('rawOffset') rawOffset?: string,
+  ) {
+    return this.adminService.getMinerRegistry({
+      status,
+      documentStatus,
+      location,
+      mineralType,
+      limit: Number(limit) || 100,
+      rawOffset: Number(rawOffset) || 0,
+    });
+  }
+
+  @Get('miner-registry/:id')
+  async getMinerRegistryDetail(@Param('id') id: string) {
+    return this.adminService.getMinerRegistryDetail(id);
+  }
+
   @Get('listings')
   async getListings(
     @Query('status') status?: ListingStatus,

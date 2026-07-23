@@ -3,7 +3,31 @@ import { useAuth } from '../contexts/AuthContext';
 import { FORUM_CATEGORIES } from '../lib/constants/data';
 import { ForumPost, ForumReply } from '../lib/types';
 import { createForumPost, createForumReply, getForumPosts } from '../lib/api/forum';
+import { getUserFriendlyMessage } from '../lib/api/errors';
 import Pagination from './Pagination';
+
+const formatCategoryName = (category?: string) => {
+    if (!category) return 'General Discussion';
+    return category
+        .replace(/[_-]/g, ' ')
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+};
+
+const getCategoryInfo = (category?: string) => {
+    if (!category) return FORUM_CATEGORIES.general;
+
+    const normalizedCategory = category.toLowerCase().replace(/\s+/g, '_');
+    const categoryEntry = Object.entries(FORUM_CATEGORIES).find(([key, value]) => (
+        key === category ||
+        key === normalizedCategory ||
+        value.name.toLowerCase() === category.toLowerCase()
+    ));
+
+    return categoryEntry?.[1] ?? {
+        name: formatCategoryName(category),
+        description: 'Forum discussion',
+    };
+};
 
 const ForumPage: React.FC = () => {
     const { currentUser, setPage } = useAuth();
@@ -41,17 +65,38 @@ const ForumPage: React.FC = () => {
 
     const handleNewPostSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!currentUser) return;
+        if (!currentUser) {
+            setPage('login');
+            return;
+        }
+
+        const title = newPost.title.trim();
+        const content = newPost.content.trim();
+
+        if (title.length < 4) {
+            setApiError('Title must be at least 4 characters.');
+            return;
+        }
+
+        if (content.length < 10) {
+            setApiError('Content must be at least 10 characters.');
+            return;
+        }
+
         setIsSubmitting(true);
         setApiError(null);
         try {
-            const post = await createForumPost(newPost);
+            const post = await createForumPost({
+                title,
+                content,
+                category: newPost.category,
+            });
             setPosts((current) => [post, ...current]);
             setView('thread');
             setCurrentThread(post);
             setNewPost({ title: '', content: '', category: 'general' });
-        } catch {
-            setApiError('Failed to create post. Please try again.');
+        } catch (error) {
+            setApiError(getUserFriendlyMessage(error));
         } finally {
             setIsSubmitting(false);
         }
@@ -65,7 +110,7 @@ const ForumPage: React.FC = () => {
             const reply: ForumReply = await createForumReply(currentThread.id, { content: newReply });
             const updatedPosts = posts.map(p => {
                 if (p.id === currentThread.id) {
-                    return { ...p, replies: [...p.replies, reply] };
+                    return { ...p, replies: [...(p.replies ?? []), reply] };
                 }
                 return p;
             });
@@ -105,7 +150,7 @@ const ForumPage: React.FC = () => {
             const searchMatch =
                 post.title.toLowerCase().includes(lowercasedSearchTerm) ||
                 post.content.toLowerCase().includes(lowercasedSearchTerm) ||
-                post.tags.some(tag => tag.toLowerCase().includes(lowercasedSearchTerm));
+                (post.tags ?? []).some(tag => tag.toLowerCase().includes(lowercasedSearchTerm));
             
             return searchMatch;
         });
@@ -119,7 +164,7 @@ const ForumPage: React.FC = () => {
     const UserAvatar: React.FC<{ userId: string; className?: string }> = ({ userId, className = 'w-10 h-10' }) => {
         const authorName =
             posts.find(post => post.authorId === userId)?.authorName ||
-            posts.flatMap(post => post.replies).find(reply => reply.authorId === userId)?.authorName ||
+            posts.flatMap(post => post.replies ?? []).find(reply => reply.authorId === userId)?.authorName ||
             'User';
         return (
             <div className={`${className} rounded-full bg-primary flex items-center justify-center text-accent font-bold border-2 border-border`}>
@@ -129,7 +174,8 @@ const ForumPage: React.FC = () => {
     };
 
     const PostItem: React.FC<{ post: ForumPost }> = ({ post }) => {
-        const categoryInfo = FORUM_CATEGORIES[post.category as keyof typeof FORUM_CATEGORIES];
+        const categoryInfo = getCategoryInfo(post.category);
+        const replies = post.replies ?? [];
         return (
             <button
                 onClick={() => { setView('thread'); setCurrentThread(post); }}
@@ -148,14 +194,14 @@ const ForumPage: React.FC = () => {
                         <span className="hidden sm:inline">&bull;</span>
                         <span>in <span className="font-semibold text-accent">{categoryInfo.name}</span></span>
                         <span className="hidden sm:inline">&bull;</span>
-                        <span><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline -mt-0.5 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.948 8.948 0 01-3.712-.766L2.35 18.283a1 1 0 01-1.195-1.195l.983-3.935A8.968 8.968 0 012 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM4.929 14.929a7 7 0 0110.142-9.857 7 7 0 01-10.142 9.857z" clipRule="evenodd" /></svg>{post.replies.length} replies</span>
+                        <span><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline -mt-0.5 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.948 8.948 0 01-3.712-.766L2.35 18.283a1 1 0 01-1.195-1.195l.983-3.935A8.968 8.968 0 012 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM4.929 14.929a7 7 0 0110.142-9.857 7 7 0 01-10.142 9.857z" clipRule="evenodd" /></svg>{replies.length} replies</span>
                     </div>
                 </div>
             </button>
         );
     };
 
-    const MainView = () => (
+    const renderMainView = () => (
         <>
             <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-8">
                 <h2 className="text-3xl font-bold text-text-primary text-center md:text-left">Discussions</h2>
@@ -238,7 +284,7 @@ const ForumPage: React.FC = () => {
         </>
     );
 
-    const ThreadView = () => (
+    const renderThreadView = () => (
         <>
             <button onClick={() => { setView('main'); setCurrentThread(null); }} className="text-accent mb-6 flex items-center space-x-2 hover:underline">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
@@ -259,12 +305,12 @@ const ForumPage: React.FC = () => {
                         <div className="text-text-secondary mt-6 whitespace-pre-wrap md:pl-16">{currentThread.content}</div>
                     </div>
                     
-                    <h3 className="text-xl font-bold text-text-primary mb-6 pl-4">{currentThread.replies.length} Replies</h3>
+                    <h3 className="text-xl font-bold text-text-primary mb-6 pl-4">{(currentThread.replies ?? []).length} Replies</h3>
 
                     <div className="md:pl-8 relative space-y-6">
-                        {currentThread.replies.length > 0 && <div className="absolute left-4 md:left-14 top-5 bottom-5 w-0.5 bg-border"></div>}
+                        {(currentThread.replies ?? []).length > 0 && <div className="absolute left-4 md:left-14 top-5 bottom-5 w-0.5 bg-border"></div>}
 
-                        {currentThread.replies.map(reply => (
+                        {(currentThread.replies ?? []).map(reply => (
                             <div key={reply.id} className="relative flex items-start space-x-4">
                                 <div className="z-10 flex-shrink-0"><UserAvatar userId={reply.authorId} className="w-8 h-8 md:w-10 md:h-10" /></div>
                                 <div className="bg-primary p-4 rounded-lg border border-border flex-grow">
@@ -305,7 +351,7 @@ const ForumPage: React.FC = () => {
         </>
     );
 
-    const NewPostView = () => (
+    const renderNewPostView = () => (
         <>
             <button onClick={() => setView('main')} className="text-accent mb-6">&larr; Back to Categories</button>
             <form onSubmit={handleNewPostSubmit} className="bg-secondary p-6 rounded-lg border border-border">
@@ -334,9 +380,9 @@ const ForumPage: React.FC = () => {
                 </div>
 
                 <div className="max-w-4xl mx-auto">
-                    {view === 'main' && <MainView />}
-                    {view === 'thread' && <ThreadView />}
-                    {view === 'new_post' && <NewPostView />}
+                    {view === 'main' && renderMainView()}
+                    {view === 'thread' && renderThreadView()}
+                    {view === 'new_post' && renderNewPostView()}
                 </div>
             </div>
         </main>

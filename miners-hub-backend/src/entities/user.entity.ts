@@ -86,8 +86,32 @@ export class User {
   @Column({ name: 'profile_image_url', type: 'text', nullable: true })
   profileImageUrl?: string | null;
 
+  @Column({ name: 'metamap_identity_id', type: 'varchar', length: 255, nullable: true })
+  metamapIdentityId?: string | null;
+
+  @Column({ name: 'metamap_verification_id', type: 'varchar', length: 255, nullable: true })
+  metamapVerificationId?: string | null;
+
+  @Column({ name: 'metamap_last_payload', type: 'jsonb', nullable: true })
+  metamapLastPayload?: Record<string, any> | null;
+
+  @Column({ name: 'kyc_submitted_at', type: 'timestamp', nullable: true })
+  kycSubmittedAt?: Date | null;
+
+  @Column({ name: 'kyc_verified_at', type: 'timestamp', nullable: true })
+  kycVerifiedAt?: Date | null;
+
+  @Column({ name: 'kyc_rejected_at', type: 'timestamp', nullable: true })
+  kycRejectedAt?: Date | null;
+
   @Column({ name: 'onboarding_complete', default: false })
   onboardingComplete!: boolean;
+
+  @Column({ name: 'onboarding_step', type: 'int', default: 0 })
+  onboardingStep!: number;
+
+  @Column({ name: 'onboarding_draft', type: 'jsonb', nullable: true })
+  onboardingDraft?: Record<string, any> | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

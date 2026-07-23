@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { createOrder, initiateEscrowPayment } from '../lib/api/orders';
-import { Listing } from '../lib/types';
+import { Listing, VerificationStatus } from '../lib/types';
+import { formatCurrency } from '../lib/currency';
 
 const PaymentPage: React.FC = () => {
   const { pagePayload, currentUser, setPage } = useAuth();
@@ -18,8 +19,13 @@ const PaymentPage: React.FC = () => {
     // If there's no listing, redirect to marketplace
     if (!listing) {
       setPage('marketplace');
+    } else if (
+      currentUser &&
+      (currentUser.status !== VerificationStatus.VERIFIED || !currentUser.onboardingComplete)
+    ) {
+      setPage('onboarding');
     }
-  }, [listing, setPage]);
+  }, [currentUser, listing, setPage]);
 
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +39,9 @@ const PaymentPage: React.FC = () => {
     try {
       if (!currentUser || !listing) {
         throw new Error('User or listing not found');
+      }
+      if (currentUser.status !== VerificationStatus.VERIFIED || !currentUser.onboardingComplete) {
+        throw new Error('Complete onboarding and verification before placing orders.');
       }
 
       // 1. Create the order
@@ -113,7 +122,7 @@ const PaymentPage: React.FC = () => {
                     <div className="flex justify-between">
                       <span className="text-text-secondary">Price per {listing.unit}</span>
                       <span className="font-medium text-text-primary">
-                        ₦{listing.pricePerUnit.toLocaleString()}
+                        {formatCurrency(listing.pricePerUnit)}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -125,12 +134,12 @@ const PaymentPage: React.FC = () => {
                     <div className="flex justify-between">
                       <span className="text-text-secondary">Subtotal</span>
                       <span className="font-medium text-text-primary">
-                        ₦{totalCost.toLocaleString()}
+                        {formatCurrency(totalCost)}
                       </span>
                     </div>
                     <div className="flex justify-between text-lg font-bold border-t border-border pt-2 mt-2">
                       <span className="text-text-primary">Total</span>
-                      <span className="text-accent">₦{totalCost.toLocaleString()}</span>
+                      <span className="text-accent">{formatCurrency(totalCost)}</span>
                     </div>
                   </div>
                 </div>
@@ -190,7 +199,7 @@ const PaymentPage: React.FC = () => {
                     disabled={paymentState === 'processing'}
                     className="w-full bg-accent text-accent-content font-semibold py-3 rounded-md hover:bg-yellow-400 transition-colors disabled:bg-border disabled:cursor-not-allowed"
                   >
-                    {paymentState === 'processing' ? 'Processing...' : `Pay ₦${totalCost.toLocaleString()}`}
+                    {paymentState === 'processing' ? 'Processing...' : `Pay ${formatCurrency(totalCost)}`}
                   </button>
                 </form>
               </div>

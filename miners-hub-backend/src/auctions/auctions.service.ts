@@ -11,6 +11,7 @@ import { Bid } from '../entities/bid.entity';
 import { Listing, ListingStatus } from '../entities/listing.entity';
 import { Miner } from '../entities/miner.entity';
 import { Order, OrderStatus } from '../entities/order.entity';
+import { User, VerificationStatus } from '../entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuditLogService } from '../common/audit-log/audit-log.service';
 import { CreateAuctionDto, PlaceBidDto } from './auctions.dto';
@@ -30,6 +31,8 @@ export class AuctionsService {
     private readonly listingRepository: Repository<Listing>,
     @InjectRepository(Miner)
     private readonly minerRepository: Repository<Miner>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     private readonly notificationsService: NotificationsService,
@@ -38,9 +41,20 @@ export class AuctionsService {
 
   async create(userId: string, dto: CreateAuctionDto): Promise<Auction> {
     // Verify caller is a miner who owns the listing
-    const miner = await this.minerRepository.findOne({ where: { userId } });
+    const miner = await this.minerRepository.findOne({
+      where: { userId },
+      relations: ['user'],
+    });
     if (!miner)
       throw new ForbiddenException('Only miners can create auctions.');
+    if (
+      miner.user?.verificationStatus !== VerificationStatus.VERIFIED ||
+      !miner.user?.onboardingComplete
+    ) {
+      throw new ForbiddenException(
+        'Complete onboarding and verification before creating auctions.',
+      );
+    }
 
     const listing = await this.listingRepository.findOne({
       where: { id: dto.listingId, minerId: miner.id },
@@ -130,6 +144,18 @@ export class AuctionsService {
     bidderId: string,
     dto: PlaceBidDto,
   ): Promise<Bid> {
+    const bidder = await this.userRepository.findOne({
+      where: { id: bidderId },
+    });
+    if (
+      bidder?.verificationStatus !== VerificationStatus.VERIFIED ||
+      !bidder?.onboardingComplete
+    ) {
+      throw new ForbiddenException(
+        'Complete onboarding and verification before bidding.',
+      );
+    }
+
     const auction = await this.auctionRepository.findOne({
       where: { id: auctionId },
       relations: ['listing', 'listing.miner'],

@@ -25,6 +25,16 @@ import { ForumModule } from './forum/forum.module';
 import { EscrowModule } from './escrow/escrow.module';
 import { SignNowModule } from './common/signnow/signnow.module';
 import { MediaModule } from './media/media.module';
+import { KycModule } from './kyc/kyc.module';
+import { MineSitesModule } from './mine-sites/mine-sites.module';
+import { ComplianceModule } from './compliance/compliance.module';
+import { ProductionReportsModule } from './production-reports/production-reports.module';
+import { LogisticsModule } from './logistics/logistics.module';
+import { LabResultsModule } from './lab-results/lab-results.module';
+import { MineralPassportsModule } from './mineral-passports/mineral-passports.module';
+import { EnvironmentalRecordsModule } from './environmental-records/environmental-records.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { InvestorOpportunitiesModule } from './investor-opportunities/investor-opportunities.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -60,6 +70,16 @@ import { MediaModule } from './media/media.module';
     EscrowModule,
     SignNowModule,
     MediaModule,
+    KycModule,
+    MineSitesModule,
+    ComplianceModule,
+    ProductionReportsModule,
+    LogisticsModule,
+    LabResultsModule,
+    MineralPassportsModule,
+    EnvironmentalRecordsModule,
+    AnalyticsModule,
+    InvestorOpportunitiesModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

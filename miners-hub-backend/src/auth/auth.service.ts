@@ -5,19 +5,23 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
+import { createHash } from 'crypto';
+import { Repository } from 'typeorm';
 import { UsersService } from '../users/users.service';
 import { RegisterDto, LoginDto } from './auth.dto';
 import { UserRole } from '../entities/user.entity';
+import { RevokedRefreshToken } from '../entities/revoked-refresh-token.entity';
 
 @Injectable()
 export class AuthService {
-  private readonly revokedRefreshTokens = new Set<string>();
-
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    @InjectRepository(RevokedRefreshToken)
+    private revokedRefreshTokensRepository: Repository<RevokedRefreshToken>,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -88,7 +92,7 @@ export class AuthService {
   }
 
   async refreshToken(refreshToken: string) {
-    if (this.revokedRefreshTokens.has(refreshToken)) {
+    if (await this.isRefreshTokenRevoked(refreshToken)) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -111,10 +115,42 @@ export class AuthService {
     }
   }
 
-  logout(refreshToken?: string) {
+  async logout(refreshToken?: string) {
     if (refreshToken) {
-      this.revokedRefreshTokens.add(refreshToken);
+      await this.revokeRefreshToken(refreshToken);
     }
     return { message: 'Logged out successfully' };
+  }
+
+  private async isRefreshTokenRevoked(refreshToken: string): Promise<boolean> {
+    const tokenHash = this.hashToken(refreshToken);
+    const existing = await this.revokedRefreshTokensRepository.findOne({
+      where: { tokenHash },
+    });
+    return Boolean(existing);
+  }
+
+  private async revokeRefreshToken(refreshToken: string): Promise<void> {
+    const tokenHash = this.hashToken(refreshToken);
+    const existing = await this.revokedRefreshTokensRepository.findOne({
+      where: { tokenHash },
+    });
+    if (existing) return;
+
+    const decoded = this.jwtService.decode(refreshToken) as
+      | { sub?: string; exp?: number }
+      | null;
+    const expiresAt = decoded?.exp ? new Date(decoded.exp * 1000) : null;
+
+    const revokedToken = this.revokedRefreshTokensRepository.create({
+      tokenHash,
+      userId: decoded?.sub || null,
+      expiresAt,
+    });
+    await this.revokedRefreshTokensRepository.save(revokedToken);
+  }
+
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
   }
 }

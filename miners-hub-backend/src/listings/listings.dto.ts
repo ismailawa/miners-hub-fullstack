@@ -11,6 +11,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { VerificationStatus } from '../entities/user.entity';
 
 export class CreateListingDto {
   @IsNotEmpty()
@@ -78,4 +79,24 @@ export class ListingFilterDto extends PaginationDto {
   @IsOptional()
   @IsEnum(['buy_now', 'auction'])
   listingType?: 'buy_now' | 'auction';
+
+  @IsOptional()
+  @IsString()
+  gradePurity?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  minQuantity?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  maxQuantity?: number;
+
+  @IsOptional()
+  @IsEnum(VerificationStatus)
+  sellerVerificationStatus?: VerificationStatus;
 }

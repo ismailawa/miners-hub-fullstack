@@ -41,7 +41,10 @@ const ContractRow: React.FC<{
   isUpdating: string | null;
 }> = ({ contract, currentUserId, onView, onRespond, isUpdating }) => {
   const isParty1 = contract.party1Id === currentUserId;
-  const otherParty = isParty1 ? (contract.party2?.name ?? 'Counterparty') : (contract.party1?.name ?? 'Counterparty');
+  const otherParty = isParty1
+    ? (contract.party2?.name ?? 'Miner')
+    : (contract.party1?.name ?? 'Investor');
+  const otherPartyLabel = isParty1 ? 'Miner' : 'Investor';
 
   // Determine if this user needs to take action
   const needsMySignature =
@@ -59,7 +62,7 @@ const ContractRow: React.FC<{
       </div>
       <div>
         <p className="text-sm text-text-secondary">{otherParty}</p>
-        <p className="text-xs text-text-muted">Other Party</p>
+        <p className="text-xs text-text-muted">{otherPartyLabel}</p>
       </div>
       <div className="flex items-center gap-2">
         {getStatusChip(contract.status, needsMySignature)}

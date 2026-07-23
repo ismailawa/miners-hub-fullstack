@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { VerificationStatus } from '../lib/types';
 
 const slides = [
   {
@@ -28,7 +29,7 @@ const slides = [
 
 const Hero: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const { setPage } = useAuth();
+  const { currentUser, setPage } = useAuth();
 
   const goToNext = useCallback(() => {
     setCurrentIndex((prevIndex) => (prevIndex + 1) % slides.length);
@@ -48,6 +49,10 @@ const Hero: React.FC = () => {
   };
 
   const currentSlide = slides[currentIndex];
+  const shouldContinueOnboarding = Boolean(
+    currentUser &&
+    (!currentUser.onboardingComplete || currentUser.status !== VerificationStatus.VERIFIED),
+  );
 
   return (
     <section className="relative h-[80vh] min-h-[600px] flex items-center justify-center text-center px-4 overflow-hidden">
@@ -84,11 +89,16 @@ const Hero: React.FC = () => {
         </p>
         <div className="flex justify-center space-x-4 animate-fade-in-up" style={{ animationDelay: '0.6s' }}>
           <button
-            // FIX: The 'section' property might not exist on the cta1 object. Cast to a type with an optional 'section' to resolve the TypeScript error.
-            onClick={() => setPage(currentSlide.cta1.page, { section: (currentSlide.cta1 as { section?: string }).section })}
+            onClick={() => {
+              if (shouldContinueOnboarding) {
+                setPage('onboarding');
+                return;
+              }
+              setPage(currentSlide.cta1.page, { section: (currentSlide.cta1 as { section?: string }).section });
+            }}
             className="bg-accent text-accent-content hover:bg-yellow-400 font-bold py-3 px-8 rounded-full text-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-accent/40"
           >
-            {currentSlide.cta1.text}
+            {shouldContinueOnboarding ? 'Continue Onboarding' : currentSlide.cta1.text}
           </button>
           <button
             // FIX: The 'section' property might not exist on the cta2 object. Cast to a type with an optional 'section' to resolve potential TypeScript errors.

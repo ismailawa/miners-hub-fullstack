@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, FormEvent, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { sendMessage, getChatMessages, BackendMessage } from '../lib/api/chats';
+import { hasValidToken } from '../lib/api/token';
 import {
   isChatSocketConnected,
   joinThread,
@@ -14,6 +15,7 @@ import {
 
 interface Miner {
   id: string;
+  userId?: string;
   name: string;
   imageUrl: string;
 }
@@ -25,7 +27,7 @@ interface MinerChatModalProps {
 }
 
 const MinerChatModal: React.FC<MinerChatModalProps> = ({ isOpen, onClose, miner }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, setPage } = useAuth();
   const [messages, setMessages] = useState<BackendMessage[]>([]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -34,10 +36,11 @@ const MinerChatModal: React.FC<MinerChatModalProps> = ({ isOpen, onClose, miner 
   const optimisticMessageIdRef = useRef<string | null>(null);
 
   // Deterministic thread id matches backend lexicographic sort
+  const receiverUserId = miner?.userId || miner?.id || null;
   const threadId = React.useMemo(() => {
-    if (!currentUser || !miner) return null;
-    return [currentUser.id, miner.id].sort().join('--');
-  }, [currentUser, miner]);
+    if (!currentUser || !receiverUserId) return null;
+    return [currentUser.id, receiverUserId].sort().join('--');
+  }, [currentUser, receiverUserId]);
 
   // Load message history whenever the modal opens
   const loadHistory = useCallback(async () => {
@@ -102,7 +105,14 @@ const MinerChatModal: React.FC<MinerChatModalProps> = ({ isOpen, onClose, miner 
 
   const handleSend = async (e: FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isSending || !currentUser || !miner) return;
+    if (!input.trim() || isSending || !currentUser || !miner || !receiverUserId)
+      return;
+
+    if (!hasValidToken()) {
+      onClose();
+      setPage('login');
+      return;
+    }
 
     const text = input.trim();
     setInput('');
@@ -123,12 +133,12 @@ const MinerChatModal: React.FC<MinerChatModalProps> = ({ isOpen, onClose, miner 
 
     try {
       const saved = isChatSocketConnected()
-        ? await sendSocketMessage(miner.id, text)
-        : await sendMessage(miner.id, text);
+        ? await sendSocketMessage(receiverUserId, text)
+        : await sendMessage(receiverUserId, text);
       replaceOptimisticMessage(optimistic.id, saved);
     } catch {
       try {
-        const saved = await sendMessage(miner.id, text);
+        const saved = await sendMessage(receiverUserId, text);
         replaceOptimisticMessage(optimistic.id, saved);
       } catch {
         // Remove optimistic on failure

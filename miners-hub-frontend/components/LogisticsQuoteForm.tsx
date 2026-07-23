@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { createLogisticsQuoteRequest } from '../lib/api/logistics';
 
 const LogisticsQuoteForm: React.FC = () => {
     const { currentUser } = useAuth();
@@ -22,14 +23,15 @@ const LogisticsQuoteForm: React.FC = () => {
         e.preventDefault();
         setSubmissionState('submitting');
 
-        // Simulate API call to a backend proxy which would then call Maersk API
-        // IMPORTANT: API keys should never be exposed on the frontend.
-        // This is a simulation of a secure backend request.
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        // In production, this would be handled by the backend API
-        // console.log('Quote request submitted:', formData);
-        setSubmissionState('success');
+        try {
+            await createLogisticsQuoteRequest({
+                ...formData,
+                weight: Number(formData.weight),
+            });
+            setSubmissionState('success');
+        } catch {
+            setSubmissionState('error');
+        }
     };
 
     if (submissionState === 'success') {
@@ -93,6 +95,11 @@ const LogisticsQuoteForm: React.FC = () => {
                 </div>
             </div>
              <div className="pt-6">
+                {submissionState === 'error' && (
+                    <p className="mb-3 rounded-md border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-300">
+                        We could not submit this quote request. Please try again.
+                    </p>
+                )}
                 <button 
                     type="submit" 
                     disabled={submissionState === 'submitting'}
