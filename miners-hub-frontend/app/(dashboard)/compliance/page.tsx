@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../contexts/AuthContext";
 import FormModal from "../../../components/FormModal";
+import RecordPicker from "../../../components/RecordPicker";
 import {
   ComplianceCase,
   ComplianceCaseSeverity,
@@ -259,6 +260,99 @@ function formatDate(value?: string | null) {
   return value ? new Date(value).toLocaleDateString() : "-";
 }
 
+type ComplianceWorkspace =
+  | "licenses"
+  | "cases"
+  | "export"
+  | "esg"
+  | "aml";
+
+const workspaceTabs: Array<{
+  id: ComplianceWorkspace;
+  label: string;
+  eyebrow: string;
+  description: string;
+}> = [
+  {
+    id: "licenses",
+    label: "Licenses",
+    eyebrow: "Titles & permits",
+    description: "Review mineral titles, issuing authorities, service fees, expiry risk, and renewal state.",
+  },
+  {
+    id: "cases",
+    label: "Cases",
+    eyebrow: "Inspections",
+    description: "Track inspection findings, required actions, due dates, and case closure.",
+  },
+  {
+    id: "export",
+    label: "Export",
+    eyebrow: "Readiness",
+    description: "Verify passport, title, assay, invoice, customs, carrier, and blocking issue evidence.",
+  },
+  {
+    id: "esg",
+    label: "ESG",
+    eyebrow: "Obligations",
+    description: "Monitor CDA, EIA, rehabilitation, reclamation, compensation, and community commitments.",
+  },
+  {
+    id: "aml",
+    label: "AML/KYB",
+    eyebrow: "Risk controls",
+    description: "Review beneficial ownership, SCUML evidence, source checks, and suspicious activity status.",
+  },
+];
+
+function MetricTile({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string;
+  value: number | string;
+  tone?: "neutral" | "good" | "warning" | "danger" | "info";
+}) {
+  const tones = {
+    neutral: "text-text-primary",
+    good: "text-green-300",
+    warning: "text-yellow-300",
+    danger: "text-red-300",
+    info: "text-blue-300",
+  };
+  return (
+    <div className="rounded-md border border-border bg-secondary px-4 py-3">
+      <p className="text-xs font-semibold uppercase text-text-muted">{label}</p>
+      <p className={`mt-2 text-2xl font-bold ${tones[tone]}`}>{value}</p>
+    </div>
+  );
+}
+
+function SectionHeader({
+  title,
+  description,
+  count,
+}: {
+  title: string;
+  description: string;
+  count?: number;
+}) {
+  return (
+    <div className="flex flex-col gap-2 border-b border-border px-4 py-4 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h2 className="text-base font-bold text-text-primary">{title}</h2>
+        <p className="mt-1 text-sm text-text-secondary">{description}</p>
+      </div>
+      {typeof count === "number" ? (
+        <span className="w-fit rounded-md border border-border bg-primary px-2.5 py-1 text-xs font-semibold text-text-muted">
+          {count} records
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 export default function CompliancePage() {
   const { currentUser } = useAuth();
   const router = useRouter();
@@ -282,6 +376,8 @@ export default function CompliancePage() {
   const [amlRiskFilter, setAmlRiskFilter] = useState("all");
   const [amlReviewFilter, setAmlReviewFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
+  const [activeWorkspace, setActiveWorkspace] =
+    useState<ComplianceWorkspace>("licenses");
   const [licenseForm, setLicenseForm] = useState(emptyLicenseForm);
   const [caseForm, setCaseForm] = useState(emptyCaseForm);
   const [exportForm, setExportForm] = useState(emptyExportForm);
@@ -335,6 +431,66 @@ export default function CompliancePage() {
     }),
     [licenses, cases, exportChecklists, esgObligations, amlProfiles],
   );
+
+  const activeWorkspaceInfo = workspaceTabs.find(
+    (tab) => tab.id === activeWorkspace,
+  ) || workspaceTabs[0];
+
+  const workspaceStats = useMemo(() => {
+    switch (activeWorkspace) {
+      case "licenses":
+        return [
+          { label: "Total titles", value: summary.licenses, tone: "neutral" as const },
+          { label: "Pending review", value: summary.pendingReviews, tone: "warning" as const },
+          { label: "Expiring or expired", value: summary.expiringSoon, tone: "danger" as const },
+        ];
+      case "cases":
+        return [
+          { label: "Open cases", value: summary.openCases, tone: "info" as const },
+          {
+            label: "Critical severity",
+            value: cases.filter((item) => item.severity === "critical").length,
+            tone: "danger" as const,
+          },
+          {
+            label: "Action required",
+            value: cases.filter((item) => item.status === "action_required").length,
+            tone: "warning" as const,
+          },
+        ];
+      case "export":
+        return [
+          { label: "Checklists", value: exportChecklists.length, tone: "neutral" as const },
+          { label: "Ready", value: summary.exportReady, tone: "good" as const },
+          { label: "Blocked", value: summary.exportBlocked, tone: "danger" as const },
+        ];
+      case "esg":
+        return [
+          { label: "Obligations", value: esgObligations.length, tone: "neutral" as const },
+          { label: "Open", value: summary.esgOpen, tone: "warning" as const },
+          { label: "Overdue", value: summary.esgOverdue, tone: "danger" as const },
+        ];
+      case "aml":
+        return [
+          { label: "Profiles", value: amlProfiles.length, tone: "neutral" as const },
+          { label: "High risk", value: summary.amlHighRisk, tone: "danger" as const },
+          {
+            label: "Action required",
+            value: amlProfiles.filter((item) => item.reviewStatus === "action_required").length,
+            tone: "warning" as const,
+          },
+        ];
+      default:
+        return [];
+    }
+  }, [
+    activeWorkspace,
+    amlProfiles,
+    cases,
+    esgObligations.length,
+    exportChecklists.length,
+    summary,
+  ]);
 
   const loadCompliance = async () => {
     setLoading(true);
@@ -633,182 +789,219 @@ export default function CompliancePage() {
   if (currentUser && !canUsePage) return null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+    <div className="space-y-5">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">
             Licensing & Compliance
           </h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            Manage license submissions, expiry risk, inspection schedules,
-            findings, corrective actions, and approvals.
+          <p className="mt-1 max-w-3xl text-sm text-text-secondary">
+            Review mineral titles, export readiness, ESG obligations, compliance
+            cases, and AML/KYB risk from one role-aware workspace.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setIsLicenseFormOpen(true)}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400"
-          >
-            Submit License
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsExportFormOpen(true)}
-            className="rounded-md border border-border px-4 py-2 text-sm font-bold text-text-primary hover:border-accent hover:text-accent"
-          >
-            Export Readiness
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsEsgFormOpen(true)}
-            className="rounded-md border border-border px-4 py-2 text-sm font-bold text-text-primary hover:border-accent hover:text-accent"
-          >
-            ESG Obligation
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsAmlFormOpen(true)}
-            className="rounded-md border border-border px-4 py-2 text-sm font-bold text-text-primary hover:border-accent hover:text-accent"
-          >
-            AML/KYB Profile
-          </button>
-          {isReviewer && (
+        <div className="flex flex-wrap gap-2 xl:justify-end">
+          {activeWorkspace === "licenses" && (
+            <button
+              type="button"
+              onClick={() => setIsLicenseFormOpen(true)}
+              className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400"
+            >
+              Submit License
+            </button>
+          )}
+          {activeWorkspace === "cases" && isReviewer && (
             <button
               type="button"
               onClick={() => setIsCaseFormOpen(true)}
-              className="rounded-md border border-border px-4 py-2 text-sm font-bold text-text-primary hover:border-accent hover:text-accent"
+              className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400"
             >
               Open Case
+            </button>
+          )}
+          {activeWorkspace === "export" && (
+            <button
+              type="button"
+              onClick={() => setIsExportFormOpen(true)}
+              className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400"
+            >
+              Create Checklist
+            </button>
+          )}
+          {activeWorkspace === "esg" && (
+            <button
+              type="button"
+              onClick={() => setIsEsgFormOpen(true)}
+              className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400"
+            >
+              Add Obligation
+            </button>
+          )}
+          {activeWorkspace === "aml" && (
+            <button
+              type="button"
+              onClick={() => setIsAmlFormOpen(true)}
+              className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400"
+            >
+              Add AML/KYB Profile
             </button>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-9">
-        <div className="rounded-lg border border-border bg-secondary p-3">
-          <p className="text-xs text-text-muted">Licenses</p>
-          <p className="text-xl font-bold">{summary.licenses}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-secondary p-3">
-          <p className="text-xs text-text-muted">Pending review</p>
-          <p className="text-xl font-bold">{summary.pendingReviews}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-secondary p-3">
-          <p className="text-xs text-text-muted">Expiring/expired</p>
-          <p className="text-xl font-bold">{summary.expiringSoon}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-secondary p-3">
-          <p className="text-xs text-text-muted">Open cases</p>
-          <p className="text-xl font-bold">{summary.openCases}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-secondary p-3">
-          <p className="text-xs text-text-muted">Export ready</p>
-          <p className="text-xl font-bold">{summary.exportReady}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-secondary p-3">
-          <p className="text-xs text-text-muted">Export blocked</p>
-          <p className="text-xl font-bold">{summary.exportBlocked}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-secondary p-3">
-          <p className="text-xs text-text-muted">ESG open</p>
-          <p className="text-xl font-bold">{summary.esgOpen}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-secondary p-3">
-          <p className="text-xs text-text-muted">ESG overdue</p>
-          <p className="text-xl font-bold">{summary.esgOverdue}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-secondary p-3">
-          <p className="text-xs text-text-muted">AML high risk</p>
-          <p className="text-xl font-bold">{summary.amlHighRisk}</p>
+      <div className="overflow-x-auto rounded-lg border border-border bg-secondary p-2">
+        <div className="flex min-w-max gap-2">
+          {workspaceTabs.map((tab) => {
+            const active = activeWorkspace === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setActiveWorkspace(tab.id)}
+                className={`min-w-36 rounded-md px-4 py-3 text-left transition ${
+                  active
+                    ? "bg-accent text-accent-content"
+                    : "bg-primary text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                <span className="block text-xs font-semibold uppercase opacity-80">
+                  {tab.eyebrow}
+                </span>
+                <span className="mt-1 block text-sm font-bold">{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-secondary p-4 md:grid-cols-8">
-        <select
-          value={licenseFilter}
-          onChange={(event) => setLicenseFilter(event.target.value)}
-          className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent"
-        >
-          {licenseStatuses.map((status) => (
-            <option key={status} value={status}>
-              License: {status.replace(/_/g, " ")}
-            </option>
-          ))}
-        </select>
-        <select
-          value={caseFilter}
-          onChange={(event) => setCaseFilter(event.target.value)}
-          className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent"
-        >
-          <option value="all">Case: all</option>
-          {caseStatuses.map((status) => (
-            <option key={status} value={status}>
-              Case: {status.replace(/_/g, " ")}
-            </option>
-          ))}
-        </select>
-        <select
-          value={severityFilter}
-          onChange={(event) => setSeverityFilter(event.target.value)}
-          className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent"
-        >
-          {severities.map((severity) => (
-            <option key={severity} value={severity}>
-              Severity: {severity}
-            </option>
-          ))}
-        </select>
-        <select
-          value={exportFilter}
-          onChange={(event) => setExportFilter(event.target.value)}
-          className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent"
-        >
-          {exportReadinessStatuses.map((status) => (
-            <option key={status} value={status}>
-              Export: {status.replace(/_/g, " ")}
-            </option>
-          ))}
-        </select>
-        <select
-          value={esgFilter}
-          onChange={(event) => setEsgFilter(event.target.value)}
-          className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent"
-        >
-          {esgObligationStatuses.map((status) => (
-            <option key={status} value={status}>
-              ESG: {status.replace(/_/g, " ")}
-            </option>
-          ))}
-        </select>
-        <select
-          value={amlRiskFilter}
-          onChange={(event) => setAmlRiskFilter(event.target.value)}
-          className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent"
-        >
-          {amlRiskTiers.map((tier) => (
-            <option key={tier} value={tier}>
-              AML risk: {tier.replace(/_/g, " ")}
-            </option>
-          ))}
-        </select>
-        <select
-          value={amlReviewFilter}
-          onChange={(event) => setAmlReviewFilter(event.target.value)}
-          className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent"
-        >
-          {amlReviewStatuses.map((status) => (
-            <option key={status} value={status}>
-              AML review: {status.replace(/_/g, " ")}
-            </option>
-          ))}
-        </select>
-        <button
-          onClick={loadCompliance}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400"
-        >
-          Apply
-        </button>
+      <div className="rounded-lg border border-border bg-secondary p-4">
+        <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-center">
+          <div>
+            <p className="text-xs font-semibold uppercase text-accent">
+              {activeWorkspaceInfo.eyebrow}
+            </p>
+            <h2 className="mt-1 text-xl font-bold text-text-primary">
+              {activeWorkspaceInfo.label}
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm text-text-secondary">
+              {activeWorkspaceInfo.description}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {workspaceStats.map((stat) => (
+              <MetricTile
+                key={stat.label}
+                label={stat.label}
+                value={stat.value}
+                tone={stat.tone}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-secondary p-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-4">
+          {activeWorkspace === "licenses" && (
+            <select
+              value={licenseFilter}
+              onChange={(event) => setLicenseFilter(event.target.value)}
+              className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent"
+            >
+              {licenseStatuses.map((status) => (
+                <option key={status} value={status}>
+                  Status: {status.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          )}
+          {activeWorkspace === "cases" && (
+            <>
+              <select
+                value={caseFilter}
+                onChange={(event) => setCaseFilter(event.target.value)}
+                className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent"
+              >
+                <option value="all">Status: all</option>
+                {caseStatuses.map((status) => (
+                  <option key={status} value={status}>
+                    Status: {status.replace(/_/g, " ")}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={severityFilter}
+                onChange={(event) => setSeverityFilter(event.target.value)}
+                className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent"
+              >
+                {severities.map((severity) => (
+                  <option key={severity} value={severity}>
+                    Severity: {severity}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+          {activeWorkspace === "export" && (
+            <select
+              value={exportFilter}
+              onChange={(event) => setExportFilter(event.target.value)}
+              className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent"
+            >
+              {exportReadinessStatuses.map((status) => (
+                <option key={status} value={status}>
+                  Readiness: {status.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          )}
+          {activeWorkspace === "esg" && (
+            <select
+              value={esgFilter}
+              onChange={(event) => setEsgFilter(event.target.value)}
+              className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent"
+            >
+              {esgObligationStatuses.map((status) => (
+                <option key={status} value={status}>
+                  Status: {status.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          )}
+          {activeWorkspace === "aml" && (
+            <>
+              <select
+                value={amlRiskFilter}
+                onChange={(event) => setAmlRiskFilter(event.target.value)}
+                className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent"
+              >
+                {amlRiskTiers.map((tier) => (
+                  <option key={tier} value={tier}>
+                    Risk: {tier.replace(/_/g, " ")}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={amlReviewFilter}
+                onChange={(event) => setAmlReviewFilter(event.target.value)}
+                className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent"
+              >
+                {amlReviewStatuses.map((status) => (
+                  <option key={status} value={status}>
+                    Review: {status.replace(/_/g, " ")}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+          <button
+            onClick={loadCompliance}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-content hover:bg-yellow-400"
+          >
+            Apply Filters
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -825,25 +1018,25 @@ export default function CompliancePage() {
       >
         <form onSubmit={submitLicense} className="space-y-3">
           {isReviewer && (
-            <input
+            <RecordPicker
+              resource="users"
               value={licenseForm.holderUserId}
-              onChange={(event) =>
-                setLicenseForm({
-                  ...licenseForm,
-                  holderUserId: event.target.value,
-                })
-              }
-              placeholder="Holder user ID"
-              className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent"
+              label="License holder"
+              placeholder="Search by name, email, phone, or role"
+              onChange={(id) => setLicenseForm((prev) => ({ ...prev, holderUserId: id }))}
             />
           )}
-          <input
+          <RecordPicker
+            resource="mine-sites"
             value={licenseForm.siteId}
-            onChange={(event) =>
-              setLicenseForm({ ...licenseForm, siteId: event.target.value })
-            }
-            placeholder="Mine site ID"
-            className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent"
+            label="Mine site"
+            placeholder="Search by site, operator, community, or state"
+            onChange={(id) => setLicenseForm((prev) => ({ ...prev, siteId: id }))}
+            onSelect={(option) => setLicenseForm((prev) => ({
+              ...prev,
+              siteId: option.id,
+              holderUserId: String(option.metadata?.operatorUserId || prev.holderUserId),
+            }))}
           />
           <input
             required
@@ -1008,44 +1201,41 @@ export default function CompliancePage() {
       >
         <form onSubmit={submitExportReadiness} className="space-y-3">
           {isReviewer && (
-            <input
+            <RecordPicker
+              resource="users"
               value={exportForm.exporterUserId}
-              onChange={(event) =>
-                setExportForm({
-                  ...exportForm,
-                  exporterUserId: event.target.value,
-                })
-              }
-              placeholder="Exporter user ID"
-              className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent"
+              label="Exporter"
+              placeholder="Search by name, email, phone, or role"
+              onChange={(id) => setExportForm((prev) => ({ ...prev, exporterUserId: id }))}
             />
           )}
-          <input
+          <RecordPicker
+            resource="orders"
             value={exportForm.orderId}
-            onChange={(event) =>
-              setExportForm({ ...exportForm, orderId: event.target.value })
-            }
-            placeholder="Order ID"
-            className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent"
+            label="Order"
+            placeholder="Search by buyer, seller, mineral, or order"
+            onChange={(id) => setExportForm((prev) => ({ ...prev, orderId: id }))}
           />
-          <input
+          <RecordPicker
+            resource="mineral-passports"
             value={exportForm.mineralPassportId}
-            onChange={(event) =>
-              setExportForm({
-                ...exportForm,
-                mineralPassportId: event.target.value,
-              })
-            }
-            placeholder="Mineral passport ID"
-            className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent"
+            label="Mineral passport"
+            placeholder="Search by passport number, miner, listing, or shipment"
+            context={{ orderId: exportForm.orderId || undefined }}
+            onChange={(id) => setExportForm((prev) => ({ ...prev, mineralPassportId: id }))}
+            onSelect={(option) => setExportForm((prev) => ({
+              ...prev,
+              mineralPassportId: option.id,
+              orderId: String(option.metadata?.orderId || prev.orderId),
+              licenseId: String(option.metadata?.licenseId || prev.licenseId),
+            }))}
           />
-          <input
+          <RecordPicker
+            resource="licenses"
             value={exportForm.licenseId}
-            onChange={(event) =>
-              setExportForm({ ...exportForm, licenseId: event.target.value })
-            }
-            placeholder="License ID"
-            className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent"
+            label="License"
+            placeholder="Search by license number, holder, or site"
+            onChange={(id) => setExportForm((prev) => ({ ...prev, licenseId: id }))}
           />
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <input
@@ -1147,33 +1337,33 @@ export default function CompliancePage() {
       >
         <form onSubmit={submitEsgObligation} className="space-y-3">
           {isReviewer && (
-            <input
+            <RecordPicker
+              resource="users"
               value={esgForm.responsibleUserId}
-              onChange={(event) =>
-                setEsgForm({
-                  ...esgForm,
-                  responsibleUserId: event.target.value,
-                })
-              }
-              placeholder="Responsible user ID"
-              className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent"
+              label="Responsible user"
+              placeholder="Search by name, email, phone, or role"
+              onChange={(id) => setEsgForm((prev) => ({ ...prev, responsibleUserId: id }))}
             />
           )}
-          <input
+          <RecordPicker
+            resource="mine-sites"
             value={esgForm.siteId}
-            onChange={(event) =>
-              setEsgForm({ ...esgForm, siteId: event.target.value })
-            }
-            placeholder="Mine site ID"
-            className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent"
+            label="Mine site"
+            placeholder="Search by site, operator, community, or state"
+            onChange={(id) => setEsgForm((prev) => ({ ...prev, siteId: id }))}
+            onSelect={(option) => setEsgForm((prev) => ({
+              ...prev,
+              siteId: option.id,
+              licenseId: String(option.metadata?.licenseId || prev.licenseId),
+            }))}
           />
-          <input
+          <RecordPicker
+            resource="licenses"
             value={esgForm.licenseId}
-            onChange={(event) =>
-              setEsgForm({ ...esgForm, licenseId: event.target.value })
-            }
-            placeholder="License ID"
-            className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent"
+            label="License"
+            placeholder="Search by license number, holder, or site"
+            context={{ siteId: esgForm.siteId || undefined }}
+            onChange={(id) => setEsgForm((prev) => ({ ...prev, licenseId: id }))}
           />
           <select
             value={esgForm.obligationType}
@@ -1281,13 +1471,12 @@ export default function CompliancePage() {
       >
         <form onSubmit={submitAmlProfile} className="space-y-3">
           {isReviewer && (
-            <input
+            <RecordPicker
+              resource="users"
               value={amlForm.userId}
-              onChange={(event) =>
-                setAmlForm({ ...amlForm, userId: event.target.value })
-              }
-              placeholder="Subject user ID"
-              className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent"
+              label="Subject user"
+              placeholder="Search by name, email, phone, or role"
+              onChange={(id) => setAmlForm((prev) => ({ ...prev, userId: id }))}
             />
           )}
           <select
@@ -1421,22 +1610,20 @@ export default function CompliancePage() {
           onClose={() => setIsCaseFormOpen(false)}
         >
           <form onSubmit={submitCase} className="space-y-3">
-            <input
+            <RecordPicker
+              resource="mine-sites"
               required
               value={caseForm.siteId}
-              onChange={(event) =>
-                setCaseForm({ ...caseForm, siteId: event.target.value })
-              }
-              placeholder="Mine site ID"
-              className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent"
+              label="Mine site"
+              placeholder="Search by site, operator, community, or state"
+              onChange={(id) => setCaseForm((prev) => ({ ...prev, siteId: id }))}
             />
-            <input
+            <RecordPicker
+              resource="users"
               value={caseForm.subjectUserId}
-              onChange={(event) =>
-                setCaseForm({ ...caseForm, subjectUserId: event.target.value })
-              }
-              placeholder="Subject user ID"
-              className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent"
+              label="Subject user"
+              placeholder="Search by name, email, phone, or role"
+              onChange={(id) => setCaseForm((prev) => ({ ...prev, subjectUserId: id }))}
             />
             <input
               required
@@ -1547,9 +1734,15 @@ export default function CompliancePage() {
         </FormModal>
       )}
 
-      <div className="grid gap-6">
-        <section className="space-y-6">
+      <div className="space-y-6">
+        {activeWorkspace === "licenses" && (
+          <section>
           <div className="overflow-x-auto rounded-lg border border-border bg-secondary">
+            <SectionHeader
+              title="License Review Queue"
+              description="Mineral titles, issuing authorities, expiry risk, and renewal status."
+              count={licenses.length}
+            />
             <table className="w-full min-w-[920px] border-collapse text-left">
               <thead>
                 <tr className="bg-primary/60 text-sm text-text-secondary">
@@ -1591,7 +1784,9 @@ export default function CompliancePage() {
                     <tr
                       key={license.id}
                       onClick={() => setSelectedLicense(license)}
-                      className="cursor-pointer border-b border-border align-top hover:bg-primary/40"
+                      className={`cursor-pointer border-b border-border align-top hover:bg-primary/40 ${
+                        selectedLicense?.id === license.id ? "bg-primary/70 ring-1 ring-inset ring-accent/40" : ""
+                      }`}
                     >
                       <td className="p-4">
                         <p className="font-semibold text-text-primary">
@@ -1629,7 +1824,11 @@ export default function CompliancePage() {
               </tbody>
             </table>
           </div>
+          </section>
+        )}
 
+        {activeWorkspace === "cases" && (
+          <section>
           <div className="rounded-lg border border-border bg-secondary p-4">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-bold text-text-primary">
@@ -1653,7 +1852,9 @@ export default function CompliancePage() {
                         <button
                           key={item.id}
                           onClick={() => setSelectedCase(item)}
-                          className="w-full rounded-md border border-border bg-secondary p-3 text-left text-sm hover:border-accent"
+                          className={`w-full rounded-md border bg-secondary p-3 text-left text-sm hover:border-accent ${
+                            selectedCase?.id === item.id ? "border-accent" : "border-border"
+                          }`}
                         >
                           <p className="font-semibold text-text-primary">
                             {item.caseType}
@@ -1674,21 +1875,17 @@ export default function CompliancePage() {
               ))}
             </div>
           </div>
+          </section>
+        )}
 
+        {activeWorkspace === "export" && (
+          <section>
           <div className="overflow-x-auto rounded-lg border border-border bg-secondary">
-            <div className="flex items-center justify-between border-b border-border p-4">
-              <div>
-                <h2 className="font-bold text-text-primary">
-                  Export Readiness
-                </h2>
-                <p className="text-xs text-text-muted">
-                  Shipment evidence, customs status, and readiness review.
-                </p>
-              </div>
-              <p className="text-xs text-text-muted">
-                {exportChecklists.length} checklists
-              </p>
-            </div>
+            <SectionHeader
+              title="Export Readiness"
+              description="Shipment evidence, customs status, passport links, and release blockers."
+              count={exportChecklists.length}
+            />
             <table className="w-full min-w-[900px] border-collapse text-left">
               <thead>
                 <tr className="bg-primary/60 text-sm text-text-secondary">
@@ -1730,7 +1927,9 @@ export default function CompliancePage() {
                     <tr
                       key={checklist.id}
                       onClick={() => setSelectedExportChecklist(checklist)}
-                      className="cursor-pointer border-b border-border align-top hover:bg-primary/40"
+                      className={`cursor-pointer border-b border-border align-top hover:bg-primary/40 ${
+                        selectedExportChecklist?.id === checklist.id ? "bg-primary/70 ring-1 ring-inset ring-accent/40" : ""
+                      }`}
                     >
                       <td className="p-4 text-sm text-text-secondary">
                         {checklist.exporter?.name ||
@@ -1765,22 +1964,17 @@ export default function CompliancePage() {
               </tbody>
             </table>
           </div>
+          </section>
+        )}
 
+        {activeWorkspace === "esg" && (
+          <section>
           <div className="overflow-x-auto rounded-lg border border-border bg-secondary">
-            <div className="flex items-center justify-between border-b border-border p-4">
-              <div>
-                <h2 className="font-bold text-text-primary">
-                  ESG & Community Obligations
-                </h2>
-                <p className="text-xs text-text-muted">
-                  CDA, EIA, rehabilitation, reclamation, compensation, and
-                  community benefit commitments.
-                </p>
-              </div>
-              <p className="text-xs text-text-muted">
-                {esgObligations.length} obligations
-              </p>
-            </div>
+            <SectionHeader
+              title="ESG & Community Obligations"
+              description="CDA, EIA, rehabilitation, reclamation, compensation, and community benefit commitments."
+              count={esgObligations.length}
+            />
             <table className="w-full min-w-[920px] border-collapse text-left">
               <thead>
                 <tr className="bg-primary/60 text-sm text-text-secondary">
@@ -1822,7 +2016,9 @@ export default function CompliancePage() {
                     <tr
                       key={obligation.id}
                       onClick={() => setSelectedEsgObligation(obligation)}
-                      className="cursor-pointer border-b border-border align-top hover:bg-primary/40"
+                      className={`cursor-pointer border-b border-border align-top hover:bg-primary/40 ${
+                        selectedEsgObligation?.id === obligation.id ? "bg-primary/70 ring-1 ring-inset ring-accent/40" : ""
+                      }`}
                     >
                       <td className="p-4">
                         <p className="font-semibold text-text-primary">
@@ -1866,22 +2062,17 @@ export default function CompliancePage() {
               </tbody>
             </table>
           </div>
+          </section>
+        )}
 
+        {activeWorkspace === "aml" && (
+          <section>
           <div className="overflow-x-auto rounded-lg border border-border bg-secondary">
-            <div className="flex items-center justify-between border-b border-border p-4">
-              <div>
-                <h2 className="font-bold text-text-primary">
-                  AML/KYB Risk Profiles
-                </h2>
-                <p className="text-xs text-text-muted">
-                  Beneficial ownership, SCUML evidence, source checks, and
-                  suspicious activity review.
-                </p>
-              </div>
-              <p className="text-xs text-text-muted">
-                {amlProfiles.length} profiles
-              </p>
-            </div>
+            <SectionHeader
+              title="AML/KYB Risk Profiles"
+              description="Beneficial ownership, SCUML evidence, source checks, and suspicious activity review."
+              count={amlProfiles.length}
+            />
             <table className="w-full min-w-[920px] border-collapse text-left">
               <thead>
                 <tr className="bg-primary/60 text-sm text-text-secondary">
@@ -1991,7 +2182,8 @@ export default function CompliancePage() {
               </tbody>
             </table>
           </div>
-        </section>
+          </section>
+        )}
       </div>
 
       {(selectedLicense ||

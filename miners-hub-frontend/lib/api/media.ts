@@ -3,6 +3,7 @@ import apiClient from './client';
 export interface MediaUploadResult {
   secureUrl: string;
   publicId: string;
+  storageIdentity?: string;
   resourceType: string;
   bytes: number;
   format?: string;
@@ -20,8 +21,12 @@ export async function uploadImage(
   formData.append('file', file);
   formData.append('context', context);
 
-  return apiClient.post<MediaUploadResult>('/api/media/upload', formData, {
+  const uploaded = await apiClient.post<MediaUploadResult>('/api/media/upload', formData, {
     timeout: 30000,
     retries: 0,
   });
+  return {
+    ...uploaded,
+    storageIdentity: uploaded.storageIdentity || uploaded.publicId,
+  };
 }

@@ -570,7 +570,34 @@ Loading states:
 - Keep trust language precise: Verified Miner, Approved License, Lab Verified, Escrow Funded, Passport Issued.
 - Separate public marketing language from operational dashboard language.
 
-## 11. MVP UI Scope
+## 11. Smart Reference Inputs
+
+Operational forms must not ask users to manually type UUIDs when the record can be searched. Use searchable record pickers for user, miner, site, license, listing, order, production report, laboratory result, mineral passport, shipment, provider, and document references.
+
+Picker behavior:
+
+- Display human labels first, such as company name, mine site name, license number, passport number, sample reference, tracking ID, mineral type, buyer/seller email, or location.
+- Store the selected UUID internally.
+- Show status as a badge where useful.
+- Include a short description with location, company, email, grade, route, date, or quantity.
+- Support contextual filtering. For example, after selecting a site, show only licenses and production reports linked to that site where possible.
+- Prefill related fields only when the source record is authoritative. Examples: selecting a mine site may fill operator, minerals, state/LGA, coordinates, and license; selecting a listing may fill mineral type and grade; selecting a passport may fill order, listing, license, site, and shipment links.
+- Keep manual ID entry only for records that do not yet have lookup support, and mark those as technical/back-office fields.
+
+## 12. File Upload UX
+
+Every user-supplied file should use a drop-zone upload control backed by Cloudinary. Operational evidence must create a document record and expose the document identity in the workflow.
+
+Requirements:
+
+- Upload immediately through the backend, not directly from the browser to third-party storage.
+- Show upload progress, success, removal, and retry states.
+- Use the returned document ID for workflow association and the returned URL only for viewing/downloading.
+- Tag uploads with purpose and owning resource where available.
+- For files uploaded before a record exists, attach the best available parent ID, such as site, shipment, listing, production report, mineral passport, or order, and include a purpose/correlation label.
+- Avoid raw URL entry for certificates, proof, and compliance evidence once a drop-zone upload exists.
+
+## 13. MVP UI Scope
 
 The first complete Miners Hub UI release should prioritize:
 
@@ -584,7 +611,7 @@ The first complete Miners Hub UI release should prioritize:
 - Production report submission and review.
 - Notification and message reliability.
 
-## 12. Future UI Scope
+## 14. Future UI Scope
 
 Future releases should add:
 

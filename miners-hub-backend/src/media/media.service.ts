@@ -32,11 +32,16 @@ export class MediaService {
       ? context
       : 'general';
 
-    return this.cloudinaryService.uploadBuffer({
+    const uploaded = await this.cloudinaryService.uploadBuffer({
       buffer: file.buffer,
       fileName: file.originalname,
       contentType: file.mimetype,
       folder: `miners-hub/images/${safeContext}/${userId}`,
     });
+
+    return {
+      ...uploaded,
+      storageIdentity: uploaded.publicId,
+    };
   }
 }

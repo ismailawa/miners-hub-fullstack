@@ -30,15 +30,15 @@ export class AddExportReadinessAndLicensePermitFields1782064100000
     await queryRunner.query(`
       UPDATE "licenses"
       SET "license_type_new" = CASE
-        WHEN lower("license_type") IN ('rp', 'reconnaissance permit', 'reconnaissance_permit') THEN 'reconnaissance_permit'::"licenses_license_type_enum"
-        WHEN lower("license_type") IN ('el', 'exploration license', 'exploration licence', 'exploration_licence') THEN 'exploration_licence'::"licenses_license_type_enum"
-        WHEN lower("license_type") IN ('ssml', 'small scale mining lease', 'small-scale mining lease', 'small_scale_mining_lease') THEN 'small_scale_mining_lease'::"licenses_license_type_enum"
-        WHEN lower("license_type") IN ('ml', 'mining lease', 'mining_lease') THEN 'mining_lease'::"licenses_license_type_enum"
-        WHEN lower("license_type") IN ('ql', 'quarry lease', 'quarry_lease') THEN 'quarry_lease'::"licenses_license_type_enum"
-        WHEN lower("license_type") IN ('wup', 'water use permit', 'water_use_permit') THEN 'water_use_permit'::"licenses_license_type_enum"
-        WHEN lower("license_type") IN ('possess and purchase licence', 'possess and purchase license', 'possess_and_purchase_licence') THEN 'possess_and_purchase_licence'::"licenses_license_type_enum"
-        WHEN lower("license_type") IN ('mineral buying center licence', 'mineral buying centre licence', 'mineral buying center license', 'mineral_buying_center_licence') THEN 'mineral_buying_center_licence'::"licenses_license_type_enum"
-        WHEN lower("license_type") IN ('mineral export permit', 'export permit', 'mineral_export_permit') THEN 'mineral_export_permit'::"licenses_license_type_enum"
+        WHEN lower("license_type"::text) IN ('rp', 'reconnaissance permit', 'reconnaissance_permit') THEN 'reconnaissance_permit'::"licenses_license_type_enum"
+        WHEN lower("license_type"::text) IN ('el', 'exploration license', 'exploration licence', 'exploration_licence') THEN 'exploration_licence'::"licenses_license_type_enum"
+        WHEN lower("license_type"::text) IN ('ssml', 'small scale mining lease', 'small-scale mining lease', 'small_scale_mining_lease') THEN 'small_scale_mining_lease'::"licenses_license_type_enum"
+        WHEN lower("license_type"::text) IN ('ml', 'mining lease', 'mining_lease') THEN 'mining_lease'::"licenses_license_type_enum"
+        WHEN lower("license_type"::text) IN ('ql', 'quarry lease', 'quarry_lease') THEN 'quarry_lease'::"licenses_license_type_enum"
+        WHEN lower("license_type"::text) IN ('wup', 'water use permit', 'water_use_permit') THEN 'water_use_permit'::"licenses_license_type_enum"
+        WHEN lower("license_type"::text) IN ('possess and purchase licence', 'possess and purchase license', 'possess_and_purchase_licence') THEN 'possess_and_purchase_licence'::"licenses_license_type_enum"
+        WHEN lower("license_type"::text) IN ('mineral buying center licence', 'mineral buying centre licence', 'mineral buying center license', 'mineral_buying_center_licence') THEN 'mineral_buying_center_licence'::"licenses_license_type_enum"
+        WHEN lower("license_type"::text) IN ('mineral export permit', 'export permit', 'mineral_export_permit') THEN 'mineral_export_permit'::"licenses_license_type_enum"
         ELSE 'mining_lease'::"licenses_license_type_enum"
       END
       WHERE "license_type" IS NOT NULL

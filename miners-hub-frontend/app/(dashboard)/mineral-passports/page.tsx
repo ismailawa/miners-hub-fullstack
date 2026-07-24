@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import FormModal from '../../../components/FormModal';
 import DashboardSearchFilters, { ActiveFilter } from '../../../components/DashboardSearchFilters';
+import RecordPicker from '../../../components/RecordPicker';
 import {
   createMineralPassport,
   getMineralPassports,
@@ -213,26 +214,114 @@ export default function MineralPassportsPage() {
           onClose={() => setIsPassportFormOpen(false)}
         >
           <form className="space-y-3" onSubmit={handleCreate}>
-            {[
-              ['minerId', 'Miner ID'],
-              ['siteId', 'Mine site ID'],
-              ['licenseId', 'License ID'],
-              ['productionReportId', 'Production report ID'],
-              ['labResultId', 'Lab result ID'],
-              ['listingId', 'Listing ID'],
-              ['orderId', 'Order ID'],
-              ['shipmentId', 'Shipment ID'],
-              ['contractId', 'Contract ID'],
-              ['escrowTransactionId', 'Escrow transaction ID'],
-            ].map(([key, label]) => (
-              <input
-                key={key}
-                className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary"
-                placeholder={label}
-                value={form[key as keyof typeof form]}
-                onChange={(event) => setForm((prev) => ({ ...prev, [key]: event.target.value }))}
-              />
-            ))}
+            <RecordPicker
+              resource="miners"
+              value={form.minerId}
+              label="Miner"
+              placeholder="Search by company, license, location, or email"
+              onChange={(id) => setForm((prev) => ({ ...prev, minerId: id }))}
+            />
+            <RecordPicker
+              resource="mine-sites"
+              value={form.siteId}
+              label="Mine site"
+              placeholder="Search by site, operator, community, or state"
+              context={{ minerId: form.minerId || undefined }}
+              onChange={(id) => setForm((prev) => ({ ...prev, siteId: id }))}
+              onSelect={(option) => setForm((prev) => ({
+                ...prev,
+                siteId: option.id,
+                minerId: String(option.metadata?.operatorId || prev.minerId),
+                licenseId: String(option.metadata?.licenseId || prev.licenseId),
+              }))}
+            />
+            <RecordPicker
+              resource="licenses"
+              value={form.licenseId}
+              label="License"
+              placeholder="Search by license number, holder, or site"
+              context={{ siteId: form.siteId || undefined }}
+              onChange={(id) => setForm((prev) => ({ ...prev, licenseId: id }))}
+            />
+            <RecordPicker
+              resource="production-reports"
+              value={form.productionReportId}
+              label="Production report"
+              placeholder="Search by mineral, site, miner, or grade"
+              context={{ siteId: form.siteId || undefined, minerId: form.minerId || undefined }}
+              onChange={(id) => setForm((prev) => ({ ...prev, productionReportId: id }))}
+              onSelect={(option) => setForm((prev) => ({
+                ...prev,
+                productionReportId: option.id,
+                siteId: String(option.metadata?.siteId || prev.siteId),
+                minerId: String(option.metadata?.minerId || prev.minerId),
+              }))}
+            />
+            <RecordPicker
+              resource="lab-results"
+              value={form.labResultId}
+              label="Lab result"
+              placeholder="Search by sample, lab, mineral, or grade"
+              context={{ listingId: form.listingId || undefined }}
+              onChange={(id) => setForm((prev) => ({ ...prev, labResultId: id }))}
+              onSelect={(option) => setForm((prev) => ({
+                ...prev,
+                labResultId: option.id,
+                listingId: String(option.metadata?.listingId || prev.listingId),
+                productionReportId: String(option.metadata?.productionReportId || prev.productionReportId),
+              }))}
+            />
+            <RecordPicker
+              resource="listings"
+              value={form.listingId}
+              label="Listing"
+              placeholder="Search by mineral, seller, grade, or location"
+              context={{ minerId: form.minerId || undefined }}
+              onChange={(id) => setForm((prev) => ({ ...prev, listingId: id }))}
+              onSelect={(option) => setForm((prev) => ({
+                ...prev,
+                listingId: option.id,
+                minerId: String(option.metadata?.minerId || prev.minerId),
+              }))}
+            />
+            <RecordPicker
+              resource="orders"
+              value={form.orderId}
+              label="Order"
+              placeholder="Search by buyer, seller, mineral, or order"
+              context={{ listingId: form.listingId || undefined }}
+              onChange={(id) => setForm((prev) => ({ ...prev, orderId: id }))}
+              onSelect={(option) => setForm((prev) => ({
+                ...prev,
+                orderId: option.id,
+                listingId: String(option.metadata?.listingId || prev.listingId),
+              }))}
+            />
+            <RecordPicker
+              resource="shipments"
+              value={form.shipmentId}
+              label="Shipment"
+              placeholder="Search by tracking ID, provider, route, or mineral"
+              context={{ orderId: form.orderId || undefined }}
+              onChange={(id) => setForm((prev) => ({ ...prev, shipmentId: id }))}
+              onSelect={(option) => setForm((prev) => ({
+                ...prev,
+                shipmentId: option.id,
+                orderId: String(option.metadata?.orderId || prev.orderId),
+              }))}
+            />
+            <input
+              className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary"
+              placeholder="Contract ID"
+              value={form.contractId}
+              onChange={(event) => setForm((prev) => ({ ...prev, contractId: event.target.value }))}
+            />
+            <input
+              className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary"
+              placeholder="Escrow transaction ID"
+              value={form.escrowTransactionId}
+              onChange={(event) => setForm((prev) => ({ ...prev, escrowTransactionId: event.target.value }))}
+            />
             <textarea
               className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary"
               placeholder="Issuer notes"

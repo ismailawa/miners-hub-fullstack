@@ -9,6 +9,7 @@ import {
   RevenueAnalytics,
   RevenueAnalyticsFilters,
 } from '../../../lib/api/revenue-analytics';
+import RecordPicker from '../../../components/RecordPicker';
 
 const periods = [
   { value: '30d', label: '30 days' },
@@ -154,10 +155,13 @@ export default function RevenueAnalyticsPage() {
           <span className="mb-1 block">LGA / Location</span>
           <input value={filters.lga || ''} onChange={(event) => updateFilter('lga', event.target.value)} placeholder="Jos North" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-text-primary" />
         </label>
-        <label className="text-sm text-text-secondary">
-          <span className="mb-1 block">Site ID</span>
-          <input value={filters.siteId || ''} onChange={(event) => updateFilter('siteId', event.target.value)} placeholder="UUID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-text-primary" />
-        </label>
+        <RecordPicker
+          resource="mine-sites"
+          value={filters.siteId || ''}
+          label="Mine site"
+          placeholder="Search by site, operator, community, or state"
+          onChange={(id) => updateFilter('siteId', id)}
+        />
         <label className="text-sm text-text-secondary">
           <span className="mb-1 block">Status</span>
           <select value={filters.status || 'all'} onChange={(event) => updateFilter('status', event.target.value)} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-text-primary">

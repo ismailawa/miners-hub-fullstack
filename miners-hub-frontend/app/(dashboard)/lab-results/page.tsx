@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import FormModal from '../../../components/FormModal';
 import MultiFileInput, { FilePreview } from '../../../components/MultiFileInput';
+import RecordPicker from '../../../components/RecordPicker';
 import {
   createLaboratoryPartner,
   createLabResult,
@@ -198,6 +199,15 @@ export default function LabResultsPage() {
       const document = await uploadDocument(file, {
         type: DocumentType.CERTIFICATE,
         uploadCategory: 'laboratory_certificate',
+        ownerResource: requestForm.productionReportId
+          ? 'production_report'
+          : requestForm.listingId
+            ? 'listing'
+            : requestForm.mineralPassportId
+              ? 'mineral_passport'
+              : undefined,
+        ownerResourceId: requestForm.productionReportId || requestForm.listingId || requestForm.mineralPassportId || undefined,
+        purpose: 'lab_certificate',
       });
       setRequestForm((prev) => ({ ...prev, certificateUrl: document.url }));
     } catch {
@@ -319,9 +329,46 @@ export default function LabResultsPage() {
           />
           {isUploadingCertificate && <p className="text-xs text-text-muted">Uploading certificate...</p>}
           <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Certificate URL" type="url" value={requestForm.certificateUrl} onChange={(e) => setRequestForm((prev) => ({ ...prev, certificateUrl: e.target.value }))} />
-          <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Listing ID" value={requestForm.listingId} onChange={(e) => setRequestForm((prev) => ({ ...prev, listingId: e.target.value }))} />
-          <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Production report ID" value={requestForm.productionReportId} onChange={(e) => setRequestForm((prev) => ({ ...prev, productionReportId: e.target.value }))} />
-          <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Mineral passport ID" value={requestForm.mineralPassportId} onChange={(e) => setRequestForm((prev) => ({ ...prev, mineralPassportId: e.target.value }))} />
+          <RecordPicker
+            resource="listings"
+            value={requestForm.listingId}
+            label="Listing"
+            placeholder="Search by mineral, seller, grade, or location"
+            onChange={(id) => setRequestForm((prev) => ({ ...prev, listingId: id }))}
+            onSelect={(option) => setRequestForm((prev) => ({
+              ...prev,
+              listingId: option.id,
+              mineralType: String(option.metadata?.mineralType || prev.mineralType),
+              grade: String(option.metadata?.grade || prev.grade),
+            }))}
+          />
+          <RecordPicker
+            resource="production-reports"
+            value={requestForm.productionReportId}
+            label="Production report"
+            placeholder="Search by mineral, site, miner, or grade"
+            onChange={(id) => setRequestForm((prev) => ({ ...prev, productionReportId: id }))}
+            onSelect={(option) => setRequestForm((prev) => ({
+              ...prev,
+              productionReportId: option.id,
+              mineralType: String(option.metadata?.mineralType || prev.mineralType),
+              grade: String(option.metadata?.grade || prev.grade),
+            }))}
+          />
+          <RecordPicker
+            resource="mineral-passports"
+            value={requestForm.mineralPassportId}
+            label="Mineral passport"
+            placeholder="Search by passport number, miner, listing, or shipment"
+            context={{ listingId: requestForm.listingId || undefined }}
+            onChange={(id) => setRequestForm((prev) => ({ ...prev, mineralPassportId: id }))}
+            onSelect={(option) => setRequestForm((prev) => ({
+              ...prev,
+              mineralPassportId: option.id,
+              listingId: String(option.metadata?.listingId || prev.listingId),
+              productionReportId: String(option.metadata?.productionReportId || prev.productionReportId),
+            }))}
+          />
           <textarea className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Result notes" rows={3} value={requestForm.resultNotes} onChange={(e) => setRequestForm((prev) => ({ ...prev, resultNotes: e.target.value }))} />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={() => setIsResultFormOpen(false)} className="rounded-md border border-border px-4 py-2 text-sm font-semibold text-text-secondary hover:border-accent hover:text-accent">Cancel</button>

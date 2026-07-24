@@ -131,6 +131,20 @@ docker compose -f docker-compose.dev.yml up --build
 
 ## Troubleshooting
 
+### Backend Dev Container Restarts With `EBUSY: rmdir '/app/dist'`
+
+The development compose file should run the Nest watcher directly with
+`npm run start:dev`. Do not run `npm run build` as part of the long-running
+backend dev command, because Nest build deletes `dist` and Docker bind/anonymous
+mounts can keep `/app/dist` locked during restart loops.
+
+After pulling this fix, recreate the backend container:
+
+```bash
+docker compose -f docker-compose.dev.yml down
+docker compose -f docker-compose.dev.yml up --build backend
+```
+
 ### Port Already in Use
 
 If ports 3000, 3001, or 5432 are already in use, modify the port mappings in `docker-compose.yml`:

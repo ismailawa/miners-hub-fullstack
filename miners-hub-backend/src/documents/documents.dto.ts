@@ -20,6 +20,22 @@ export class UploadDocumentDto {
   @IsOptional()
   @IsString()
   uploadCategory?: string;
+
+  @IsOptional()
+  @IsString()
+  ownerResource?: string;
+
+  @IsOptional()
+  @IsUUID()
+  ownerResourceId?: string;
+
+  @IsOptional()
+  @IsString()
+  purpose?: string;
+
+  @IsOptional()
+  @IsString()
+  correlationId?: string;
 }
 
 export class ReviewDocumentDto {

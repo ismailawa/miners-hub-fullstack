@@ -37,6 +37,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { InvestorOpportunitiesModule } from './investor-opportunities/investor-opportunities.module';
 import { TrustedPartnersModule } from './trusted-partners/trusted-partners.module';
 import { MineralPricesModule } from './mineral-prices/mineral-prices.module';
+import { LookupsModule } from './lookups/lookups.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -84,6 +85,7 @@ import { MineralPricesModule } from './mineral-prices/mineral-prices.module';
     InvestorOpportunitiesModule,
     TrustedPartnersModule,
     MineralPricesModule,
+    LookupsModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

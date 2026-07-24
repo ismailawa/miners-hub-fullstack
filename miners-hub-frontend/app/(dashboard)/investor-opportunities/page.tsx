@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../../contexts/AuthContext";
 import FormModal from "../../../components/FormModal";
+import RecordPicker from "../../../components/RecordPicker";
 import DashboardSearchFilters, {
   ActiveFilter,
 } from "../../../components/DashboardSearchFilters";
@@ -505,16 +506,19 @@ export default function InvestorOpportunitiesPage() {
               placeholder="Opportunity title"
               className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary"
             />
-            <input
+            <RecordPicker
+              resource="mine-sites"
               value={form.siteId}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  siteId: event.target.value,
-                }))
-              }
-              placeholder="Mine site ID"
-              className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary"
+              label="Mine site"
+              placeholder="Search by site, operator, community, or state"
+              onChange={(id) => setForm((current) => ({ ...current, siteId: id }))}
+              onSelect={(option) => setForm((current) => ({
+                ...current,
+                siteId: option.id,
+                mineralFocus: Array.isArray(option.metadata?.mineralTypes) && option.metadata.mineralTypes.length > 0
+                  ? option.metadata.mineralTypes.join(", ")
+                  : current.mineralFocus,
+              }))}
             />
             <input
               required

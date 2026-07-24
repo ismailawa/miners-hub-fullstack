@@ -15,6 +15,7 @@ import {
 import { flushFieldQueue, getFieldQueue, queueFieldSubmission } from '../../../lib/offline/field-queue';
 import FormModal from '../../../components/FormModal';
 import DashboardSearchFilters, { ActiveFilter } from '../../../components/DashboardSearchFilters';
+import RecordPicker from '../../../components/RecordPicker';
 
 const statusOptions: Array<'all' | ProductionReportStatus> = ['all', 'draft', 'submitted', 'under_review', 'approved', 'rejected', 'overdue'];
 
@@ -318,8 +319,33 @@ export default function ProductionReportsPage() {
         onClose={() => setIsReportFormOpen(false)}
       >
         <form onSubmit={submitReport} className="space-y-3">
-          <input required value={form.siteId} onChange={(event) => setForm({ ...form, siteId: event.target.value })} placeholder="Mine site ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-          {isReviewer && <input value={form.minerId} onChange={(event) => setForm({ ...form, minerId: event.target.value })} placeholder="Miner profile ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />}
+          <RecordPicker
+            resource="mine-sites"
+            value={form.siteId}
+            label="Mine site"
+            placeholder="Search by site, operator, community, or state"
+            required
+            onChange={(id) => setForm((prev) => ({ ...prev, siteId: id }))}
+            onSelect={(option) => setForm((prev) => ({
+              ...prev,
+              siteId: option.id,
+              minerId: String(option.metadata?.operatorId || prev.minerId),
+              mineralType: Array.isArray(option.metadata?.mineralTypes) && option.metadata.mineralTypes.length === 1
+                ? String(option.metadata.mineralTypes[0])
+                : prev.mineralType,
+            }))}
+            helperText="Selecting a site fills the operator and mineral type when the record has that context."
+          />
+          {isReviewer && (
+            <RecordPicker
+              resource="miners"
+              value={form.minerId}
+              label="Miner"
+              placeholder="Search by company, license, location, or email"
+              onChange={(id) => setForm((prev) => ({ ...prev, minerId: id }))}
+              onSelect={(option) => setForm((prev) => ({ ...prev, minerId: option.id }))}
+            />
+          )}
           <input required value={form.mineralType} onChange={(event) => setForm({ ...form, mineralType: event.target.value })} placeholder="Mineral type" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
           <div className="grid grid-cols-2 gap-3">
             <input required type="date" value={form.periodStart} onChange={(event) => setForm({ ...form, periodStart: event.target.value })} className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent" />

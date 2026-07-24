@@ -19,6 +19,14 @@ const ALLOWED_MIME_TYPES = [
 ];
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
+export interface DocumentAssociationInput {
+  uploadCategory?: string;
+  ownerResource?: string;
+  ownerResourceId?: string;
+  purpose?: string;
+  correlationId?: string;
+}
+
 @Injectable()
 export class DocumentsService {
   constructor(
@@ -33,7 +41,7 @@ export class DocumentsService {
     file: Express.Multer.File,
     type: DocumentType,
     listingId?: string,
-    uploadCategory?: string,
+    association?: DocumentAssociationInput,
   ): Promise<Document> {
     return this.uploadBuffer(userId, {
       buffer: file.buffer,
@@ -42,7 +50,7 @@ export class DocumentsService {
       originalname: file.originalname,
       type,
       listingId,
-      metadata: uploadCategory ? { uploadCategory } : undefined,
+      metadata: this.buildAssociationMetadata(association),
     });
   }
 
@@ -72,6 +80,21 @@ export class DocumentsService {
       listingId: input.listingId,
       metadata: input.metadata,
     });
+  }
+
+  private buildAssociationMetadata(
+    association?: DocumentAssociationInput,
+  ): Record<string, unknown> | undefined {
+    if (!association) return undefined;
+    return Object.fromEntries(
+      Object.entries({
+        uploadCategory: association.uploadCategory,
+        ownerResource: association.ownerResource,
+        ownerResourceId: association.ownerResourceId,
+        purpose: association.purpose,
+        correlationId: association.correlationId,
+      }).filter(([, value]) => Boolean(value)),
+    );
   }
 
   private async uploadBuffer(
@@ -117,6 +140,7 @@ export class DocumentsService {
       metadata: {
         ...(file.metadata || {}),
         storageProvider: 'cloudinary',
+        storageIdentity: uploadResult.publicId,
         cloudinaryPublicId: uploadResult.publicId,
         cloudinaryResourceType: uploadResult.resourceType,
         cloudinaryFormat: uploadResult.format,

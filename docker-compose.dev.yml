@@ -25,14 +25,13 @@ services:
     volumes:
       - ./miners-hub-backend:/app
       - /app/node_modules
-      - /app/dist
     networks:
       - miners-hub-network
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
-    command: sh -c "npm install && npm run build && npm run start:dev"
+    command: sh -c "npm install && npm run start:dev"
 
   frontend:
     build:

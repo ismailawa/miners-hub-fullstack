@@ -6,6 +6,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import FormModal from '../../../components/FormModal';
 import DashboardSearchFilters, { ActiveFilter } from '../../../components/DashboardSearchFilters';
 import MultiFileInput, { FilePreview } from '../../../components/MultiFileInput';
+import RecordPicker from '../../../components/RecordPicker';
 import { uploadDocument } from '../../../lib/api/documents';
 import { DocumentType } from '../../../lib/types';
 import {
@@ -314,6 +315,9 @@ export default function LogisticsManagementPage() {
       const document = await uploadDocument(file, {
         type: DocumentType.OTHER,
         uploadCategory: 'logistics_proof',
+        ownerResource: selectedShipment ? 'shipment' : undefined,
+        ownerResourceId: selectedShipment?.id,
+        purpose: `${milestone.status}_proof`,
       });
       setMilestone((current) => ({ ...current, proofUrl: document.url }));
     } catch (err: any) {
@@ -416,7 +420,18 @@ export default function LogisticsManagementPage() {
               <option value="customs_clearing">Customs / clearing</option>
               <option value="last_mile">Last mile</option>
             </select>
-            <input value={providerForm.userId} onChange={(event) => setProviderForm({ ...providerForm, userId: event.target.value })} placeholder="Linked user ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none" />
+            <RecordPicker
+              resource="users"
+              value={providerForm.userId}
+              label="Linked user"
+              placeholder="Search by name, email, phone, or role"
+              onChange={(id) => setProviderForm((prev) => ({ ...prev, userId: id }))}
+              onSelect={(option) => setProviderForm((prev) => ({
+                ...prev,
+                userId: option.id,
+                contactEmail: String(option.metadata?.email || prev.contactEmail),
+              }))}
+            />
             <input value={providerForm.serviceAreas} onChange={(event) => setProviderForm({ ...providerForm, serviceAreas: event.target.value })} placeholder="Service areas" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none" />
             <input value={providerForm.capabilities} onChange={(event) => setProviderForm({ ...providerForm, capabilities: event.target.value })} placeholder="Capabilities" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none" />
             <textarea value={providerForm.fleetProfiles} onChange={(event) => setProviderForm({ ...providerForm, fleetProfiles: event.target.value })} placeholder="Fleet profiles, one per line: plate | vehicle type | capacity tons | driver | phone" rows={3} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none" />
@@ -437,12 +452,37 @@ export default function LogisticsManagementPage() {
         onClose={() => setIsShipmentFormOpen(false)}
       >
         <form onSubmit={submitShipment} className="space-y-3">
-          <input required value={shipmentForm.orderId} onChange={(event) => setShipmentForm({ ...shipmentForm, orderId: event.target.value })} placeholder="Order ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none" />
+          <RecordPicker
+            resource="orders"
+            value={shipmentForm.orderId}
+            label="Order"
+            placeholder="Search by buyer, seller, mineral, or order"
+            required
+            onChange={(id) => setShipmentForm((prev) => ({ ...prev, orderId: id }))}
+            onSelect={(option) => setShipmentForm((prev) => ({
+              ...prev,
+              orderId: option.id,
+              pickupLocation: prev.pickupLocation || String(option.metadata?.mineralType || ''),
+              deliveryLocation: prev.deliveryLocation || String(option.metadata?.deliveryAddress || ''),
+            }))}
+          />
           <select value={shipmentForm.providerId} onChange={(event) => setShipmentForm({ ...shipmentForm, providerId: event.target.value })} className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none">
             <option value="">No provider assigned</option>
             {providers.map((provider) => <option key={provider.id} value={provider.id}>{provider.companyName}</option>)}
           </select>
-          <input value={shipmentForm.mineralPassportId} onChange={(event) => setShipmentForm({ ...shipmentForm, mineralPassportId: event.target.value })} placeholder="Mineral passport ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none" />
+          <RecordPicker
+            resource="mineral-passports"
+            value={shipmentForm.mineralPassportId}
+            label="Mineral passport"
+            placeholder="Search by passport number, miner, listing, or shipment"
+            context={{ orderId: shipmentForm.orderId || undefined }}
+            onChange={(id) => setShipmentForm((prev) => ({ ...prev, mineralPassportId: id }))}
+            onSelect={(option) => setShipmentForm((prev) => ({
+              ...prev,
+              mineralPassportId: option.id,
+              orderId: String(option.metadata?.orderId || prev.orderId),
+            }))}
+          />
           <input value={shipmentForm.quoteAmount} onChange={(event) => setShipmentForm({ ...shipmentForm, quoteAmount: event.target.value })} placeholder="Quote amount" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none" />
           <input value={shipmentForm.currency} onChange={(event) => setShipmentForm({ ...shipmentForm, currency: event.target.value })} placeholder="Currency" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none" />
           <input required value={shipmentForm.pickupLocation} onChange={(event) => setShipmentForm({ ...shipmentForm, pickupLocation: event.target.value })} placeholder="Pickup location" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none" />

@@ -235,3 +235,22 @@ Status legend:
 
 - [x] Add opportunity scoring across license status, site status, production history, lab evidence, ESG obligations, logistics feasibility, security notes, and export readiness.
 - [x] Add investor-facing due diligence summary and admin/government review state before publication.
+
+### Story 5.6: Smart Reference Pickers and Contextual Prefill
+
+- [x] Add authenticated lookup API for users, miners, mine sites, licenses, listings, orders, production reports, lab results, mineral passports, logistics providers, shipments, and documents.
+- [x] Enforce role-aware lookup visibility so non-reviewer users only see records they own, public records, or records linked to their workflow.
+- [x] Add reusable dashboard record picker component that searches by human-readable fields while storing UUID values internally.
+- [x] Replace high-friction raw ID fields in production reports, mine sites, laboratory results, mineral passports, logistics management, compliance, environmental records, investor opportunities, and revenue analytics filters.
+- [x] Add contextual prefill for site-to-operator/minerals, listing-to-mineral/grade, report-to-site/miner, passport-to-linked records, order-to-shipment context, and logistics user contact fields.
+- [x] Document lookup API contracts, UI/UX behavior, and architecture impact.
+
+### Story 5.7: Cloudinary File Identity and Association
+
+- [x] Extend document uploads with owner resource, owner resource ID, purpose, upload category, and correlation metadata.
+- [x] Store Cloudinary public ID as the storage identity for document uploads.
+- [x] Normalize frontend document upload responses so forms can use both `Document.id` and `fileUrl`.
+- [x] Convert environmental evidence uploads from loose media URLs to Cloudinary-backed document records with mine-site association metadata.
+- [x] Add association metadata to laboratory certificate uploads and logistics proof uploads.
+- [x] Expose media upload storage identity for image-only entity assets.
+- [x] Document the project-wide rule that operational files must upload through Cloudinary and be associated by identifier.

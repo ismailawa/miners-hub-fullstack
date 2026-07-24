@@ -3,10 +3,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
-import { uploadImage } from '../../../lib/api/media';
+import { uploadDocument } from '../../../lib/api/documents';
 import { flushFieldQueue, getFieldQueue, queueFieldSubmission } from '../../../lib/offline/field-queue';
 import FormModal from '../../../components/FormModal';
 import MultiFileInput, { FilePreview } from '../../../components/MultiFileInput';
+import RecordPicker from '../../../components/RecordPicker';
+import { DocumentType } from '../../../lib/types';
 import {
   createEnvironmentalRecord,
   EnvironmentalRecord,
@@ -146,12 +148,18 @@ export default function EnvironmentalRecordsPage() {
     setIsUploading(true);
     setError(null);
     try {
-      const uploaded = await Promise.all(files.map((file) => uploadImage(file, 'general')));
+      const uploaded = await Promise.all(files.map((file) => uploadDocument(file, {
+        type: DocumentType.OTHER,
+        uploadCategory: 'environmental_evidence',
+        ownerResource: 'mine_site',
+        ownerResourceId: form.siteId || undefined,
+        purpose: `environmental_${form.recordType}_evidence`,
+      })));
       const previews = files.map((file) => ({ file, previewUrl: URL.createObjectURL(file) }));
       setEvidenceFiles((prev) => [...prev, ...previews]);
       setForm((prev) => ({
         ...prev,
-        evidenceUrls: [...prev.evidenceUrls, ...uploaded.map((file) => file.secureUrl)],
+        evidenceUrls: [...prev.evidenceUrls, ...uploaded.map((file) => file.url)],
       }));
     } catch {
       setError('Could not upload environmental evidence.');
@@ -316,7 +324,20 @@ export default function EnvironmentalRecordsPage() {
           onClose={() => setIsRecordFormOpen(false)}
         >
           <form className="space-y-3" onSubmit={handleSubmit}>
-            <input className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" placeholder="Mine site ID" value={form.siteId} onChange={(event) => setForm((prev) => ({ ...prev, siteId: event.target.value }))} required />
+            <RecordPicker
+              resource="mine-sites"
+              value={form.siteId}
+              label="Mine site"
+              placeholder="Search by site, operator, community, or state"
+              required
+              onChange={(id) => setForm((prev) => ({ ...prev, siteId: id }))}
+              onSelect={(option) => setForm((prev) => ({
+                ...prev,
+                siteId: option.id,
+                latitude: prev.latitude || String(option.metadata?.latitude || ''),
+                longitude: prev.longitude || String(option.metadata?.longitude || ''),
+              }))}
+            />
             <div className="grid grid-cols-2 gap-3">
               <select className="rounded-md border border-border bg-primary px-3 py-2 text-sm text-text-primary" value={form.recordType} onChange={(event) => setForm((prev) => ({ ...prev, recordType: event.target.value as EnvironmentalRecordType }))}>
                 <option value="inspection">Inspection</option>

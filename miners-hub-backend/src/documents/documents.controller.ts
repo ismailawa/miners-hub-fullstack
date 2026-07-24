@@ -45,7 +45,13 @@ export class DocumentsController {
       file,
       dto.type,
       dto.listingId,
-      dto.uploadCategory,
+      {
+        uploadCategory: dto.uploadCategory,
+        ownerResource: dto.ownerResource,
+        ownerResourceId: dto.ownerResourceId,
+        purpose: dto.purpose,
+        correlationId: dto.correlationId,
+      },
     );
   }
 

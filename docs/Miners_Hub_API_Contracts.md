@@ -2278,3 +2278,79 @@ Request:
 ```
 
 Response: reviewed AML/KYB profile with reviewer metadata.
+
+## Smart Reference Lookups
+
+### GET /api/lookups
+
+Access: authenticated.
+
+Purpose: provides permission-aware searchable options for forms that link one record to another. The UI should use this endpoint instead of asking users to manually type UUIDs.
+
+Query:
+
+- `resource`: one of `users`, `miners`, `mine-sites`, `licenses`, `listings`, `orders`, `production-reports`, `lab-results`, `mineral-passports`, `logistics-providers`, `shipments`, `documents`
+- `q`: optional search text
+- `limit`: optional result limit, capped at 50
+- `siteId`: optional context filter
+- `minerId`: optional context filter
+- `listingId`: optional context filter
+- `orderId`: optional context filter
+
+Response:
+
+```ts
+Array<{
+  id: string;
+  label: string;
+  description?: string;
+  badge?: string;
+  metadata?: Record<string, unknown>;
+}>
+```
+
+Authorization behavior:
+
+- Admin and government users can search operational records broadly.
+- Non-reviewer users can only search records they own, records linked to their orders/shipments, or published records where appropriate.
+- Returned `metadata` is intentionally compact and should include only fields needed for form prefill, cascade filtering, and user confirmation.
+
+Implemented frontend use:
+
+- Production reports: mine site and miner search with site-to-miner/mineral prefill.
+- Mine sites: operator and license search.
+- Laboratory results: listing, production report, and passport search with mineral/grade prefill.
+- Mineral passports: miner, site, license, production report, lab result, listing, order, and shipment search with cascade prefill.
+- Logistics management: linked user, order, and passport search.
+- Compliance: holder/exporter/responsible/subject user, site, order, passport, and license search.
+- Environmental records, investor opportunities, and revenue analytics: mine-site search with coordinate/mineral context where applicable.
+
+## File Upload and Association Standard
+
+All operational files must be uploaded to Cloudinary through the backend. Files that need auditability, review, evidence tracking, or later association to a business workflow must use `POST /api/documents/upload`, which creates a database `Document` identifier and stores Cloudinary metadata.
+
+### POST /api/documents/upload
+
+Access: authenticated.
+
+Content type: `multipart/form-data`.
+
+Fields:
+
+- `file`: required file payload.
+- `type`: backend document type. Supported values are `kyc`, `mining_licence`, `listing_attachment`, `contract`, `other`.
+- `listingId`: optional listing association.
+- `uploadCategory`: optional domain category such as `laboratory_certificate`, `logistics_proof`, or `environmental_evidence`.
+- `ownerResource`: optional owning resource name, such as `mine_site`, `shipment`, `listing`, `production_report`, or `mineral_passport`.
+- `ownerResourceId`: optional UUID of the owning resource.
+- `purpose`: optional purpose label, such as `lab_certificate`, `delivered_proof`, or `environmental_inspection_evidence`.
+- `correlationId`: optional client-generated ID for files uploaded before the final business record exists.
+
+Response: persisted `Document` record including `id`, `fileUrl`, `fileName`, `fileSize`, `mimeType`, `reviewStatus`, and metadata with `storageProvider`, `storageIdentity`, `cloudinaryPublicId`, `cloudinaryResourceType`, `cloudinaryFormat`, dimensions where available, and association metadata.
+
+UI rule:
+
+- Store the returned `Document.id` wherever the workflow requires a file identifier.
+- Store or display `fileUrl` only as the view/download URL.
+- Avoid free-text URL fields for evidence unless the source is an external URL that cannot be uploaded.
+- Image-only entity fields, such as profile images, listing images, partner logos, and event images, may use `/api/media/upload`; the returned `storageIdentity`/Cloudinary public ID must be retained or recoverable from the owning entity metadata.

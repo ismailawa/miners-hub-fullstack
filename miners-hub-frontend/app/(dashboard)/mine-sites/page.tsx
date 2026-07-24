@@ -18,6 +18,7 @@ import { flushFieldQueue, getFieldQueue, queueFieldSubmission } from '../../../l
 import FormModal from '../../../components/FormModal';
 import DashboardSearchFilters, { ActiveFilter } from '../../../components/DashboardSearchFilters';
 import MapboxMineSitesMap from '../../../components/MapboxMineSitesMap';
+import RecordPicker from '../../../components/RecordPicker';
 
 const statusOptions: Array<'all' | MineSiteStatus> = ['all', 'planned', 'active', 'suspended', 'closed'];
 const riskOptions: Array<'all' | MineSiteRiskLevel> = ['all', 'low', 'medium', 'high', 'critical'];
@@ -385,8 +386,28 @@ export default function MineSitesPage() {
       >
         <form onSubmit={submitForm} className="space-y-3">
           <input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Site name" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
-          {canAssignOperator && <input required={!editingSite} value={form.operatorId} onChange={(event) => setForm({ ...form, operatorId: event.target.value })} placeholder="Operator miner ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />}
-          <input value={form.licenseId} onChange={(event) => setForm({ ...form, licenseId: event.target.value })} placeholder="License ID" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
+          {canAssignOperator && (
+            <RecordPicker
+              resource="miners"
+              value={form.operatorId}
+              label="Operator"
+              placeholder="Search by company, license, location, or email"
+              required={!editingSite}
+              onChange={(id) => setForm((prev) => ({ ...prev, operatorId: id }))}
+              onSelect={(option) => setForm((prev) => ({
+                ...prev,
+                operatorId: option.id,
+                state: String(option.metadata?.location || prev.state).split('/')[0]?.trim() || prev.state,
+              }))}
+            />
+          )}
+          <RecordPicker
+            resource="licenses"
+            value={form.licenseId}
+            label="License"
+            placeholder="Search by license number, holder, or site"
+            onChange={(id) => setForm((prev) => ({ ...prev, licenseId: id }))}
+          />
           <input required value={form.mineralTypes} onChange={(event) => setForm({ ...form, mineralTypes: event.target.value })} placeholder="Minerals, comma-separated" className="w-full rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />
           <div className="grid grid-cols-2 gap-3">
             <input required value={form.state} onChange={(event) => setForm({ ...form, state: event.target.value })} placeholder="State" className="rounded-md border border-border bg-primary px-3 py-2 text-sm outline-none placeholder:text-text-muted focus:ring-2 focus:ring-accent" />

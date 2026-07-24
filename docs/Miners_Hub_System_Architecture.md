@@ -594,6 +594,14 @@ Shipments are linked to orders and include a nullable `mineral_passport_id` for 
 - `GET /mineral-passports/:id`
 - `GET /public/mineral-passports/:token`
 
+### Smart Reference Lookup Layer
+
+- `GET /lookups`
+
+The lookup layer provides a compact, permission-aware search surface for linking records inside dashboard forms. It returns normalized `{ id, label, description, badge, metadata }` options for users, miners, mine sites, licenses, listings, orders, production reports, lab results, mineral passports, logistics providers, shipments, and documents.
+
+This layer keeps UUIDs out of the primary user experience while preserving UUID-based foreign keys in the database and API payloads. It also supports contextual filters such as `siteId`, `minerId`, `listingId`, and `orderId` so forms can cascade intelligently and prefill related fields.
+
 ### Environmental Monitoring and Investor Portal
 
 - `POST /environmental-records`
@@ -614,7 +622,7 @@ Investor opportunity responses include linked-site ESG summaries and computed du
 - Identity verification: MetaMap integration and internal admin verification.
 - Payment security: Flutterwave webhook validation, payment reference idempotency, payout review, and transaction reconciliation.
 - E-signature security: SignNow webhook verification and contract status sync.
-- File security: upload type/size restrictions, signed URLs where possible, malware scanning for production, and document access authorization.
+- File security: all operational files flow through backend Cloudinary uploads with type/size restrictions, persisted document IDs, Cloudinary public IDs, owner-resource association metadata, signed URLs where possible, malware scanning for production, and document access authorization.
 - Auditability: audit logs for sensitive actions, including actor, action, metadata, IP address, and user agent.
 - Rate limiting: global throttling and tighter limits for auth, uploads, webhooks, and AI endpoints.
 - Secrets: environment variable management with no secrets committed to source control.
